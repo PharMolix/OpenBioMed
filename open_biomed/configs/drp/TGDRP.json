@@ -1,0 +1,35 @@
+{
+    "model": "TGDRP",
+    "data": {
+        "drug": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "TGSA"
+                }
+            }
+        },
+        "cell": {
+            "gene_selector": "TGSA",
+            "gene_feature": ["EXP", "MUT", "CNV"],
+            "featurizer": {
+                "name": "TGSA",
+                "edge_threshold": 0.95 
+            }
+        },
+        "split": {
+            "type": "random",
+            "train": 0.8,
+            "val": 0.1,
+            "test": 0.1
+        }
+    },
+    "network": {
+        "input_dim_cell": 3,
+        "layer_drug": 3,
+        "dim_drug": 128,
+        "layer_cell": 3,
+        "dim_cell": 8,
+        "dropout": 0.2
+    }
+}

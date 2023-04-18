@@ -1,0 +1,39 @@
+{
+    "model": "deepdta",
+    "data": {
+        "drug": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "OneHot",
+                    "max_len": 357
+                }
+            }
+        },
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "OneHot",
+                    "max_len": 1024
+                }
+            }
+        }
+    },
+    "network": {
+        "drug": {
+            "name": "cnn",
+            "config_path": "configs/encoders/drug/cnn.json"
+        },
+        "protein": {
+            "name": "cnn",
+            "config_path": "configs/encoders/protein/cnn.json"
+        },
+        "pred_head": {
+            "hidden_size": [512, 256],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        }
+    }
+}

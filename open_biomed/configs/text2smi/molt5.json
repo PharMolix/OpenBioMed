@@ -1,0 +1,29 @@
+{
+    "model": "MolT5",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "../ckpts/text_ckpts/MolT5-base-caption2smiles",
+                    "max_length": 512
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "t5",
+                    "max_length": 512,
+                    "model_name_or_path": "../ckpts/text_ckpts/MolT5-base-caption2smiles"
+                }
+            }
+        }
+    },
+    "network": {
+        "smiles": {
+            "model_name_or_path": "../ckpts/text_ckpts/MolT5-base-caption2smiles",
+            "transformer_type": "t5",
+            "stop_grad": true
+        }
+    }
+}

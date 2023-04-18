@@ -1,0 +1,34 @@
+{
+  "model": "graphcl",
+  "data": {
+      "drug": {
+          "modality": ["structure"],
+          "featurizer": {
+              "structure": {
+                  "name": "BaseGNN" 
+              }
+          }
+      }
+  },
+  "network": {
+      "structure": {
+          "name": "momu",
+          "gin_hidden_dim": 300,
+          "gin_num_layers": 5,
+          "drop_ratio": 0.5,
+          "graph_pooling": "sum",
+          "graph_self": false,
+          "bert_dropout": 0.0,
+          "bert_hidden_dim": 768,
+          "projection_dim": 256,
+          "init_checkpoint": "../ckpts/fusion_ckpts/momu/MoMu-K.ckpt",
+          "param_key": "state_dict"
+      },
+      "pred_head": {
+          "hidden_size": [],
+          "activation": "relu",
+          "batch_norm": false,
+          "dropout": 0.1
+      }
+  }
+}

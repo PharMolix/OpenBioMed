@@ -1,0 +1,38 @@
+{
+    "model": "mgraphdta",
+    "data": {
+        "drug": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "MGNN"
+                }
+            }
+        },
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "index",
+                    "max_len": 1200
+                }
+            }
+        }
+    },
+    "network": {
+        "drug": {
+            "name": "mgnn",
+            "config_path": "configs/encoders/drug/mgnn.json"
+        },
+        "protein": {
+            "name": "mcnn",
+            "config_path": "configs/encoders/protein/mcnn.json"
+        },
+        "pred_head": {
+            "hidden_size": [1024, 1024, 256],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        }
+    }
+}

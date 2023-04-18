@@ -1,0 +1,45 @@
+{
+    "model": "graphmvp-MolT5",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES", "graph"],
+                    "SMILES": {
+                        "name": "transformer",
+                        "transformer_type": "t5",
+                        "model_name_or_path": "../ckpts/text_ckpts/MolT5-base",
+                        "max_length": 512
+                    },
+                    "graph": {
+                        "name": "BaseGNN"
+                    }
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "t5",
+                    "max_length": 512,
+                    "model_name_or_path": "../ckpts/text_ckpts/MolT5-base"
+                }
+            }
+        }
+    },
+    "network": {
+        "graph": {
+            "name": "GraphMVP",
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0,
+            "max_n_nodes": 256,
+            "output_dim": 300,
+            "init_checkpoint": "../ckpts/gnn_ckpts/graphmvp/pretraining_model.pth",
+            "stop_grad": false
+        },
+        "text": {
+            "model_name_or_path": "../ckpts/text_ckpts/MolT5-base",
+            "stop_grad": false
+        }
+    }
+}

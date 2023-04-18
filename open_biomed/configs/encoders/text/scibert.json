@@ -1,0 +1,6 @@
+{
+    "model_name_or_path": "../ckpts/text_ckpts/scibert_scivocab_uncased",
+    "dropout": 0.0,
+    "load_model": true,
+    "pooler": "default"
+}

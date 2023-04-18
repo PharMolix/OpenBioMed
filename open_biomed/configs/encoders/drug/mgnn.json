@@ -1,0 +1,7 @@
+{
+    "num_input_features": 87,
+    "out_dim": 96,
+    "growth_rate": 32,
+    "block_config": [8, 8, 8],
+    "bn_sizes": [2, 2, 2]
+}

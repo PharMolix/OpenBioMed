@@ -1,0 +1,26 @@
+{
+    "model": "KV-PLM",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "bert",
+                    "max_length": 64,
+                    "model_name_or_path": "../ckpts/bert_ckpts/scibert_scivocab_uncased"
+                },
+                "text": {
+                    "name": "BertTokenizer",
+                    "max_length": 128,
+                    "model_name_or_path": "../ckpts/bert_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "name": "KV-PLM",
+        "bert_config_path": "./configs/mtr/kvplm_bert_config.json",
+        "checkpoint_path": "../ckpts/bert_ckpts/kvplm/ckpt_KV.pt",
+        "dropout": 0.1
+    }
+}

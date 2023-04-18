@@ -1,0 +1,30 @@
+{
+    "model": "molclr",
+    "data": {
+        "drug": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                "name": "BaseGNN" 
+                }
+            }
+        }
+    },
+    "network": {
+        "structure": {
+            "name": "molclr",
+            "emb_dim": 300,
+            "num_layer": 5,
+            "drop_ratio": 0.5,
+            "feat_dim": 512,
+            "init_checkpoint": "../ckpts/gnn_ckpts/molclr/model.pth",
+            "param_key": ""
+        },
+        "pred_head": {
+            "hidden_size": [],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        }
+    }
+}
