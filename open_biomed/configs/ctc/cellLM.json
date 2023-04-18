@@ -1,0 +1,37 @@
+{
+    "model": "celllm",
+    "data": {
+        "cell": {
+            "modality": [
+                "structure"
+            ],
+            "featurizer": {
+                "structure": {
+                    "name": "Fullseq"
+                }
+            }
+        }
+    },
+    "network": {
+        "structure": {
+            "name": "celllm",
+            "num_tokens": 8,
+            "dim": 512,
+            "depth": 10,
+            "max_seq_len": 6000,
+            "heads": 16,
+            "local_attn_heads": 0,
+            "g2v_position_emb": true,
+            "gene2vec_path": "../assets/gene2vec_19379_512.npy",
+            "ckpt_path": "../ckpts/cell_ckpts/celllm/ckpt.pth",
+            "param_key": "model_state_dict"
+        },
+        "pred_head": {
+            "hidden_size": [
+                512,
+                128
+            ],
+            "dropout": 0
+        }
+    }
+}
