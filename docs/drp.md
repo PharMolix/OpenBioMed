@@ -9,7 +9,7 @@ Drug-response prediction aims at predicting if a drugs is responsive on cells, t
 
 #### Data Preparation
 
-Install GDSC and TCGA [here](https://pan.baidu.com/s/19L1sMZBkY_43nrZ9NCZTYg?pwd=jg4y#list/path=%2F) (`password is jg4y`, `GDSC/ and TCGA/`) and put them under `datasets/drp/`. Install supplementary data [here](https://pan.baidu.com/s/19L1sMZBkY_43nrZ9NCZTYg?pwd=jg4y#list/path=%2F) (`password is jg4y`, `drp/`) and put them under `assets/drp/`. Install STRING database (homo sapiens) [here](https://string-db.org/cgi/download) (`9606.protein.info.v11.0.txt`, `9606.protein.links.v11.0.txt` and `9606.protein.sequences.v11.0.fasta`) and put it under `assets/kg/STRING/`.
+Install GDSC and TCGA [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`, `GDSC/ and TCGA/`) and put them under `datasets/drp/`. Install supplementary data [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`, `drp/`) and put them under `assets/drp/`. Install STRING database (homo sapiens) [here](https://string-db.org/cgi/download) (`9606.protein.info.v11.0.txt`, `9606.protein.links.v11.0.txt` and `9606.protein.sequences.v11.0.fasta`) and put it under `assets/kg/STRING/`.
 
 #### Training and Evaluation
 
