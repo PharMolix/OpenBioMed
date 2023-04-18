@@ -3,11 +3,11 @@ Molecule-text retrieval is a multi-modal task that aims to select the most relev
 
 #### Feature
 
-- Supported models: SciBERT, KV-PLM, MoMu, BioMedGPT and combination of models. 
+- Supported models: SciBERT, KV-PLM, MoMu, BioMedGPT-1.6B and combination of models. 
 - Supported dataset: PCdes.
 - Supproted evaluation: MRR (Mean Reversed Rank), Recall@1, Recall@5, Recall@10.
 
-*Warning*: we provide supervised learning and zero-shot evaluation, and the latter could only be applied to multi-modal models like MoMu and BioMedGPT. 
+*Warning*: we provide supervised learning and zero-shot evaluation, and the latter could only be applied to multi-modal models like MoMu and BioMedGPT-1.6B. 
 
 #### Data Preparation
 
@@ -20,7 +20,7 @@ The multi-modal models are optional if you don't want to reproduce their results
 
 - Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
 - Install KV-PLM checkpoints following instructions [here](https://github.com/thunlp/KV-PLM). You should also install `bpe_encoding.txt` and `bpe_vocab.txt` in the repository and put them under `assets/KV-PLM` if you want to experiment with KV-PLM*.
-- Install BioMedGPT checkpoint [here](https://pan.baidu.com/s/19L1sMZBkY_43nrZ9NCZTYg?pwd=jg4y#list/path=%2F). The password is jg4y.
+- Install BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`)
 
 The above 3 checkpoints should be placed under `ckpts/fusion_ckpts/` .
 
@@ -30,7 +30,7 @@ You can run scripts using bash under `open_biomed/scripts/mtr/`:
 
 ```bash
 open_biomed/scripts/mtr
-├── run.sh                      # evaluate MoMu / BioMedGPT under supervised learning or zero-shot
+├── run.sh                      # evaluate MoMu / BioMedGPT-1.6B under supervised learning or zero-shot
 ├── run_baseline.sh             # train composed models (an arbitary molecule encoder and an arbitary text encoder)
 ├── train_kvplm.sh              # train KV-PLM
 ├── train_kvplm_star.sh         # train KV-PLM*

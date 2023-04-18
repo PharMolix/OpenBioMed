@@ -3,7 +3,7 @@ Molecule captioning is a multi-modal task that aims to generate texts for a mole
 
 #### Feature
 
-- Supported models: MolT5, MoMu, BioMedGPT and GNN models followed by a MolT5 decoder. 
+- Supported models: MolT5, MoMu, BioMedGPT-1.6B and GNN models followed by a MolT5 decoder. 
 
 - Supported dataset: CheBI-20.
 
@@ -37,7 +37,7 @@ Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [
 The multi-modal models are optional if you don't want to reproduce their results:
 
 - Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
-- Install BioMedGPT checkpoint [here](https://pan.baidu.com/s/19L1sMZBkY_43nrZ9NCZTYg?pwd=jg4y#list/path=%2F) (password is jg4y).
+- Install BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
 
 The above 2 checkpoints should be placed under `ckpts/fusion_ckpts/` .
 
@@ -49,8 +49,8 @@ You can run scripts using bash under `open_biomed/scripts/molcap/`:
 
 ```bash
 open_biomed/scripts/molcap/
-├── train.sh										# train MoMu / BioMedGPT enhanced MolT5 model
-├── test.sh											# test MoMu / BioMedGPT enhanced MolT5 model
+├── train.sh										# train MoMu / BioMedGPT-1.6B enhanced MolT5 model
+├── test.sh											# test MoMu / BioMedGPT-1.6B enhanced MolT5 model
 └── test_molt5.sh								# test the original MolT5 model
 ```
 

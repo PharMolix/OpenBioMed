@@ -3,7 +3,7 @@ Text-to-SMILES generations, also called text-based de novo molecule generation, 
 
 #### Feature
 
-- Supported models: MolT5, MoMu and BioMedGPT. 
+- Supported models: MolT5, MoMu and BioMedGPT-1.6B. 
 - Supported dataset: Chebi-20.
 - Supproted evaluation: BLEU, Exact ratio, Valid ratio, Levenshtein distance, MACCS fingerprint similarity, RDKit fingerprint similarity, Morgan fingerprint similarity and Text2Mol score.
 
@@ -40,7 +40,7 @@ Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [
 The multi-modal models are optional if you don't want to reproduce their results:
 
 - Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
-- Install BioMedGPT checkpoint [here](https://pan.baidu.com/s/19L1sMZBkY_43nrZ9NCZTYg?pwd=jg4y#list/path=%2F) (password is jg4y).
+- Install BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
 
 The above 2 checkpoints should be placed under `ckpts/fusion_ckpts/` .
 
@@ -52,7 +52,7 @@ You can run scripts using bash under `open_biomed/scripts/text2smi/`:
 open_biomed/scripts/text2smi/
 ├── evaluate_text2mol.sh         # calculate Text2Mol score with generated results from file
 ├── test_molt5.sh                # test MolT5 model
-└── train.sh                     # train MoMu / BioMedGPT with MolT5 as decoder
+└── train.sh                     # train MoMu / BioMedGPT-1.6B with MolT5 as decoder
 ```
 
 You can also modify the scripts or directly use the following command:

@@ -9,10 +9,10 @@ Cell type classification aims to predict .
 
 #### Data Preparation
 
-Install Zheng68k [here](https://github.com/10XGenomics/single-cell-3prime-paper/blob/master/pbmc68k_analysis/68k_pbmc_barcodes_annotation.tsv) and put them under `datasets/ctc/`.
+Install Zheng68k [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and put them under `datasets/ctc/`.
 
 #### Model preparation
-Install ScBERT following instructions [here](https://github.com/TencentAILabHealthcare/scBERT) and CellLM from [here]( https://pan.baidu.com/s/19L1sMZBkY_43nrZ9NCZTYg?pwd=jg4y) (`password is jg4y`) and put them under `ckpts/cell_ckpts/`. 
+Install ScBERT following instructions [here](https://github.com/TencentAILabHealthcare/scBERT) and CellLM from [here]( https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and put them under `ckpts/cell_ckpts/`. 
 
 #### Training and Evaluation
 
