@@ -1,0 +1,6 @@
+{
+    "emb_dim": 300,
+    "num_layer": 5,
+    "dropout": 0.1,
+    "init_checkpoint": "../ckpts/gnn_ckpts/graphmvp/pretraining_model.pth"
+}

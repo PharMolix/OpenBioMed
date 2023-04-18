@@ -1,0 +1,30 @@
+{
+    "model": "combined",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 128,
+                    "model_name_or_path": "../ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "structure": {
+            "name": "graphmvp",
+            "config_path": "configs/encoders/drug/graphmvp.json"
+        },
+        "text": {
+            "name": "transformer",
+            "config_path": "configs/encoders/text/scibert.json"
+        },
+        "projection_dim": 256
+    }
+}

@@ -1,0 +1,7 @@
+{
+    "model_name_or_path": "../ckpts/text_ckpts/scibert_scivocab_uncased",
+    "dropout": 0.1,
+    "load_model": false,
+    "pooler": "default",
+    "init_checkpoint": "../ckpts/bert_ckpts/kvplm/ckpt_KV_1.pt"
+}

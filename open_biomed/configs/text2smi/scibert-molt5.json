@@ -1,0 +1,39 @@
+{
+    "model": "SciBERT-T5",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "../ckpts/text_ckpts/MolT5-small",
+                    "max_length": 512
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 512,
+                    "model_name_or_path": "../ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "smiles": {
+            "model_name_or_path": "../ckpts/text_ckpts/MolT5-small",
+            "transformer_type": "t5",
+            "stop_grad": false
+        },
+        "text": {
+            "name": "SciBERT",
+            "model_name_or_path": "../ckpts/text_ckpts/scibert_scivocab_uncased",
+            "load_model": true,
+            "use_num_layers": 6,
+            "output_dim": 768,
+            "dropout": 0.0,
+            "pooler": "default",
+            "stop_grad": false
+        }
+    }
+}

@@ -1,0 +1,8 @@
+{
+    "embedding_num": 128,
+    "hidden_size": 96,
+    "output_size": 96,
+    "vocab_size": 26,
+    "block_num": 3,
+    "kernel_size": 3
+}

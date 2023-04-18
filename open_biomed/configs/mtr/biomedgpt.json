@@ -1,0 +1,33 @@
+{
+    "model": "BioMedGPT",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "ogb"
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "gpt2",
+                    "max_length": 128,
+                    "model_name_or_path": "../ckpts/text_ckpts/gpt2-xl"
+                }
+            }
+        }
+    },
+    "network": {
+        "structure": {
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "dropout": 0.0
+        },
+        "text": {
+            "model_name_or_path": "../ckpts/text_ckpts/gpt2-xl",
+            "load_model": false,
+            "pooler": "mean",
+            "dropout": 0.1
+        },
+        "projection_dim": 256
+    }
+}

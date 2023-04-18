@@ -1,0 +1,33 @@
+{
+    "model": "scbert",
+    "data": {
+        "cell": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "Bar",
+                    "n_bars": 5
+                }
+            }
+        }
+    },
+    "network": {
+        "structure": {
+            "name": "scbert",
+            "num_tokens": 7,
+            "dim": 200,
+            "depth": 6,
+            "max_seq_len": 16907,
+            "heads": 10,
+            "local_attn_heads": 0,
+            "g2v_position_emb": true,
+            "gene2vec_path": "../assets/gene2vec_16906.npy",
+            "ckpt_path": "../ckpts/cell_ckpts/scbert/panglao_pretrain.pth",
+            "param_key": "model_state_dict"
+        },
+        "pred_head": {
+            "hidden_size": [512, 128],
+            "dropout": 0
+        }
+    }
+}

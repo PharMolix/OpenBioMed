@@ -1,0 +1,7 @@
+{
+    "vocab_size": 63,
+    "max_length": 100,
+    "in_ch": [63, 32, 64, 96],
+    "kernels": [4, 8, 12],
+    "output_dim": 256
+}

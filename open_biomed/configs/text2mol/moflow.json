@@ -1,0 +1,18 @@
+{
+    "model": "MoFlow",
+    "data": {
+        "drug": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                }
+            }
+        }
+    },
+    "network": {
+        "model_path": "../ckpts/gnn_ckpts/moflow",
+        "snapshot": "model_snapshot_epoch_200",
+        "hparams": "moflow-params.json"
+    }
+}

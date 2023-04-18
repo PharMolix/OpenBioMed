@@ -1,0 +1,33 @@
+{
+    "model": "TGDRP",
+    "data": {
+        "drug": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "TGSA"
+                }
+            }
+        },
+        "cell": {
+            "gene_selector": "TGSA",
+            "gene_feature": ["EXP"],
+            "featurizer": {
+                "name": "TGSA",
+                "edge_threshold": 0.95 
+            }
+        },
+        "split": {
+            "type": "kfold",
+            "nfolds": 5
+        }
+    },
+    "network": {
+        "input_dim_cell": 1,
+        "layer_drug": 3,
+        "dim_drug": 128,
+        "layer_cell": 3,
+        "dim_cell": 8,
+        "dropout": 0.2
+    }
+}

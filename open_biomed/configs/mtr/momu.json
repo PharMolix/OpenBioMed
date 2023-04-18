@@ -1,0 +1,29 @@
+{
+    "model": "MoMu",
+    "data": {
+        "drug": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "ogb"
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 128,
+                    "model_name_or_path": "../ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "gin_hidden_dim": 300,
+        "gin_num_layers": 5,
+        "drop_ratio": 0.0,
+        "graph_pooling": "sum",
+        "graph_self": false,
+        "bert_dropout": 0.0,
+        "bert_hidden_dim": 768,
+        "projection_dim": 256
+    }
+}

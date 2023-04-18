@@ -1,0 +1,81 @@
+{
+    "model": "deepeik",
+    "data": {
+        "drug": {
+            "modality": ["structure", "kg", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "MGNN"
+                },
+                "kg": {
+                    "name": "KGE",
+                    "kg_name": "BMKG",
+                    "kg_path": "../assets/kg/BMKG/",
+                    "save_path": "../assets/kg/BMKG/kge",
+                    "embed_dim": 256
+                },
+                "text": {
+                    "name": "TransformerEncoder",
+                    "transformer_type": "bert",
+                    "model_name_or_path": "../ckpts/text_ckpts/pubmedbert_uncased",
+                    "max_length": 512,
+                    "device": "cuda:0"
+                }
+            }
+        },
+        "protein": {
+            "modality": ["structure", "kg", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "index",
+                    "max_len": 1200
+                },
+                "kg": {
+                    "name": "KGE",
+                    "kg_name": "BMKG",
+                    "kg_path": "../assets/kg/BMKG/",
+                    "save_path": "../assets/kg/BMKG/kge",
+                    "embed_dim": 256
+                },
+                "text": {
+                    "name": "TransformerEncoder",
+                    "transformer_type": "bert",
+                    "model_name_or_path": "../ckpts/text_ckpts/pubmedbert_uncased",
+                    "max_length": 512,
+                    "device": "cuda:0"
+                }
+            }
+        },
+        "concat_text_first": true
+    },
+    "network": {
+        "drug": {
+            "structure": {
+                "name": "mgnn",
+                "config_path": "configs/encoders/drug/mgnn.json"
+            },
+            "kg": {
+                "embedding_dim": 256
+            }
+        },
+        "protein": {
+            "structure": {
+                "name": "mcnn",
+                "config_path": "configs/encoders/protein/mcnn.json"
+            },
+            "kg": {
+                "embedding_dim": 256
+            }
+        },
+        "pred_head": {
+            "hidden_size": [1024, 1024, 256],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        },
+        "use_attention": false,
+        "text_dim": 768,
+        "projection_dim": 256,
+        "projection_dropout": 0.1
+    }
+}
