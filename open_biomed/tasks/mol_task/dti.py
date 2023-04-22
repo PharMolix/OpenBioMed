@@ -244,6 +244,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser = add_arguments(parser)
     args = parser.parse_args()
+    
+    output_dir = os.path.dirname(args.output_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
     config = json.load(open(args.config_path, "r"))
     main(args, config)
+    
+    
