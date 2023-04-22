@@ -1,32 +1,32 @@
 ## Drug Property Prediction
+
 Drug property prediction (DP) aims to predict molecule properties such as toxicity and side effects, which is a significant task in drug discovery.  
 
-#### Feature
+#### Features
 
 - Supported models: [MolCLR](https://github.com/yuyangw/MolCLR), [MGraphDTA](https://github.com/guaguabujianle/MGraphDTA), [MoMu](https://github.com/ddz16/MoMu) and **DeepEIK**. More models will be implemented and more combinations will be tested in the future.
-- Supported datasets: 8 classification datasets i.e. BBBP, Tox21, Toxcast, sider, clintox, muv, hiv and bace of [Moleculenet](https://moleculenet.org).
+- Supported datasets: 8 classification datasets i.e. BBBP, Tox21, ToxCast, SIDER, ClinTox, MUV, HIV and BACE of [MoleculeNet](https://moleculenet.org).
 - Supported split: random split, scaffold split and random-scaffold split;
 - Supproted evaluation: ROC_AUC.
 
-
 #### Data Preparation
 
-Download Moleculenet datasets [here](http://snap.stanford.edu/gnn-pretrain/data/chem_dataset.zip), unzip the file and put the dataset fold under `datasets/dp/`. 
+Download MoleculeNet datasets [here](http://snap.stanford.edu/gnn-pretrain/data/chem_dataset.zip), unzip the file, and put the dataset fold under `datasets/dp/`. You can use the following commands from within `OpenBioMed/`:
 
 ```shell
-cd BioMed/
 wget http://snap.stanford.edu/gnn-pretrain/data/chem_dataset.zip
 unzip chem_dataset.zip
 mkdir -p datasets/dp
 mv dataset datasets/dp/moleculenet
 rm chem_dataset.zip
 ```
-After downloading and unzipping, you should remove all the processed/ directories of 8 datasets in the dataset/ folder. Otherwise you will get the following error:
+
+After downloading and unzipping, you should remove all the `processed/` directories of 8 datasets in the `dataset/` folder. Otherwise you will get the following error:
 ```shell
 RuntimeError: The 'data' object was created by an older version of PyG. If this error occurred while loading an already existing dataset, remove the 'processed/' directory in the dataset's root folder and try again.
 ```
 
-#### Model preparation
+#### Model Preparation
 
 To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and put the checkpoint under `ckpts/text_ckpts/`. 
 
@@ -35,8 +35,7 @@ MolCLR: https://github.com/yuyangw/MolCLR
 MoMu: https://github.com/ddz16/MoleculePrediction  
 GraphMVP: https://github.com/chao1224/GraphMVP  
 
-You need rename and put the checkpoints according to the following path.
-
+You will need to rename and put the checkpoints at the following paths.
 ```shell
 # MolCLR
 ckpts/gnn_ckpts/molclr/model.pth

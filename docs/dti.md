@@ -1,7 +1,8 @@
 ## Drug-Target Interaction Prediction
-Drug-target interaction prediction aims to predict the binding relationships between drugs and target proteins, which is a significant task in AI drug discovery.  
 
-#### Feature
+Drug-target interaction prediction aims to predict the binding relationships between drugs and target proteins, which is a significant task in AI drug discovery.
+
+#### Features
 
 - Supported models: DeepDTA, MGraphDTA and DeepEIK. More models will be implemented and more combinations will be tested in the future.
 - Supported datasets: 2 classification datasets i.e. Yamanishi08's and BMKG-DTI, 2 regression datasets i.e. Davis and KIBA.
@@ -13,15 +14,19 @@ Drug-target interaction prediction aims to predict the binding relationships bet
 To get full access to DTI functions (all splitting strategies and evaluation metrics), run the following:
 
 ```bash
-# NOTE: make sure you are at BioMed/ directory
+# NOTE: Make sure you are at OpenBioMed/ directory
 pip install lifelines
 
-cd assets
+# NOTE: ONLY RUN THE FOLLOWING SECTION IF YOU HAVE NOT YET INSTALLED
+# PyBioMed
+#-------------------------------------------------------------------
+cd assets # create this directory if not yet existent
 # PyBioMed for calculating protein descriptors
 git clone https://github.com/gadsbyfly/PyBioMed
 cd PyBioMed
 python setup.py install
 cd ..
+#-------------------------------------------------------------------
 
 # It is recommended to install cogdl for calculating network embeddings if you want to reproduce DeepEIK
 git clone https://github.com/THUDM/cogdl
@@ -34,7 +39,7 @@ pip install -e .
 Davis and KIBA can download from [DeepDTA](https://github.com/hkmztrk/DeepDTA/tree/master/data), Yamanishi08 and BMKG_DTI can download from [here](​https://drive.google.com/drive/folders/1AaUWLlOOua5BH7Q-bBVUBgOugDfWF3ip?usp=sharing). The 4 datasets should put under `datasets/dti/`. It is recommended to install BMKGv1 [here](​https://drive.google.com/drive/folders/1U2M3383-3dDAyLTAcXGcUagAEjlB6QgN?usp=sharing
 ) and put it under `assets/kg/`.
 
-#### Model preparation
+#### Model Preparation
 
 To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and put the checkpoint under `ckpts/text_ckpts/`. 
 
