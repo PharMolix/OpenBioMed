@@ -92,7 +92,7 @@ As a pre-alpha version release, we are looking forward to user feedback to help 
 If you find our open-sourced code & models helpful to your research, please also consider star🌟 and cite📑 this repo. Thank you for your support!
 ```
 @misc{OpenBioMed_code,
-  author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai},
+  author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
   title={Code of OpenBioMed},
   year={2023},
   howpublished={\url{https://github.com/BioFM/OpenBioMed.git}}
