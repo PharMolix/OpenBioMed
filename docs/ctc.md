@@ -1,22 +1,30 @@
 ##  Cell Type Classification
-Cell type classification aims to predict .  
 
-#### Feature
+#### Features
 
 - Supported models: ScBERT and CellLM. 
 - Supported dataset: Zheng68k.
-- Supproted evaluation: Accuracy and F1 Score.
+- Supported evaluation: Accuracy and F1 Score.
+
+#### Additional Packages
+
+To support usage of cell type classification, run the following commands:
+```
+pip install scanpy
+pip install einops
+```
 
 #### Data Preparation
 
-Install Zheng68k [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and put them under `datasets/ctc/`.
+Download Zheng68k [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (password is `7a6b`) and put `BioMedGPT/data/zheng68k_hgnc.h5ad` under `OpenBioMed/datasets/ctc/zheng68k/`.
 
-#### Model preparation
-Install ScBERT following instructions [here](https://github.com/TencentAILabHealthcare/scBERT) and CellLM from [here]( https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and put them under `ckpts/cell_ckpts/`. 
+#### Model Preparation
+
+Install ScBERT following instructions [here](https://github.com/TencentAILabHealthcare/scBERT) and CellLM [here]( https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (password is `7a6b`) and put them under `ckpts/cell_ckpts/`. 
 
 #### Training and Evaluation
 
-You can run scripts using bash script `open_biomed/scripts/ctc/train.sh`:
+You can run the Bash script `open_biomed/scripts/ctc/train.sh`:
 
 You can also modify the script or directly use the following command:
 

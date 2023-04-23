@@ -1,13 +1,12 @@
 ##  Molecule Captioning
-Molecule captioning is a multi-modal task that aims to generate texts for a molecule that describes its funcitons and properties.  
 
-#### Feature
+Molecule captioning is a multi-modal task that aims to generate texts for a molecule that describes its funcitons and properties  
+
+#### Features
 
 - Supported models: MolT5, MoMu, BioMedGPT-1.6B and GNN models followed by a MolT5 decoder. 
-
-- Supported dataset: CheBI-20.
-
-- Supproted evaluation: BLEU-2, BLEU-4, ROUGE score, METEOR score, Text2Mol score.
+- Supported dataset: ChEBI-20.
+- Supported evaluation: BLEU-2, BLEU-4, ROUGE score, METEOR score, Text2Mol score.
 
 Pipelines that only generate captioning results will be developed in the future.
 
@@ -19,6 +18,7 @@ To evaluate the performance of molecule captioning, run the following:
 # NOTE: make sure you are at BioMed/ directory
 pip install spacy
 pip install rouge_score
+pip install sentencepiece
 
 pip install nltk
 python
@@ -29,15 +29,15 @@ python
 
 #### Data Preparation
 
-Install CheBI-20 [here](https://github.com/blender-nlp/MolT5/tree/main/ChEBI-20_data) and put the files under `datasets/molcap/chebi-20`.  For Text2Mol evaluation, download `cids_to_smiles.pkl` from [here](https://uofi.box.com/v/MolT5-cid-to-smiles) and `test.txt` from [here](https://github.com/blender-nlp/MolT5/tree/main/evaluation/text2mol_data) and put them under `assets/molcap/text2mol_data`.
+Install ChEBI-20 [here](https://github.com/blender-nlp/MolT5/tree/main/ChEBI-20_data) and put the files under `datasets/molcap/chebi-20`. For Text2Mol evaluation, download `cids_to_smiles.pkl` from [here](https://uofi.box.com/v/MolT5-cid-to-smiles) and `test.txt` from [here](https://github.com/blender-nlp/MolT5/tree/main/evaluation/text2mol_data) and put them under `assets/molcap/text2mol_data`.
 
-#### Model preparation
-Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-smiles2caption (fine-tuned for molecule caption) and MolT5 (not fine-tuned). You can also change the value of `"model_name_or_path"` to `"allenai/scibert_scivocab_uncased"` or `"laituan245/molt5-[small/base/large]"` in the config json file to download the PLM when running the code.
+#### Model Preparation
+Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-smiles2caption (fine-tuned for molecule caption) and MolT5 (not fine-tuned). You can also change the value of `"model_name_or_path"` to `"allenai/scibert_scivocab_uncased"` or `"laituan245/molt5-[small/base/large]"` in the `config/` JSON file to download the PLM when running the code.
 
-The multi-modal models are optional if you don't want to reproduce their results:
+These multi-modal models are optional if you don't want to reproduce their results:
 
 - Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
-- Install BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
+- Install the BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
 
 The above 2 checkpoints should be placed under `ckpts/fusion_ckpts/` .
 
@@ -45,13 +45,13 @@ For Text2Mol evaluation, download the Text2Mol checkpoint `test_outputfinal_weig
 
 #### Training and Evaluation
 
-You can run scripts using bash under `open_biomed/scripts/molcap/`:
+You can run the Bash scripts under `scripts/molcap/`:
 
 ```bash
-open_biomed/scripts/molcap/
+scripts/molcap/
 ├── train.sh										# train MoMu / BioMedGPT-1.6B enhanced MolT5 model
 ├── test.sh											# test MoMu / BioMedGPT-1.6B enhanced MolT5 model
-└── test_molt5.sh								# test the original MolT5 model
+└── test_molt5.sh									# test the original MolT5 model
 ```
 
 You can also modify the scripts or directly use the following command:

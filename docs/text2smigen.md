@@ -1,13 +1,14 @@
 ##  Text-to-SMILES Generation
+
 Text-to-SMILES generations, also called text-based de novo molecule generation, is a task that aims to generate SMILES strings based on text descriptions.  
 
-#### Feature
+#### Features
 
-- Supported models: MolT5, MoMu and BioMedGPT-1.6B. 
-- Supported dataset: Chebi-20.
+- Supported models: MolT5, MoMu, and BioMedGPT-1.6B. 
+- Supported dataset: ChEBI-20.
 - Supproted evaluation: BLEU, Exact ratio, Valid ratio, Levenshtein distance, MACCS fingerprint similarity, RDKit fingerprint similarity, Morgan fingerprint similarity and Text2Mol score.
 
-Pipelines that generates SMILES without calculating evaluation metrics will be developed in the future.
+Pipelines that generate SMILES without calculating evaluation metrics will be developed in the future.
 
 #### Addtional Packages
 
@@ -32,7 +33,7 @@ pip install .
 
 #### Data Preparation
 
-Follow `Data Preparation` in [molcap.md](./mocap.md) to install the CheBI-20 dataset and Text2Mol model.
+Follow `Data Preparation` in [molcap.md](./mocap.md) to install the ChEBI-20 dataset and Text2Mol model.
 
 #### Model preparation
 Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-caption2smiles (fine-tuned for text-to-SMILES generation) and MolT5 (not fine-tuned). You can also change the value of `"model_name_or_path"` to `"allenai/scibert_scivocab_uncased"` or `"laituan245/molt5-[small/base/large]"`in the config json file to download the PLM when running the code.
@@ -46,10 +47,10 @@ The above 2 checkpoints should be placed under `ckpts/fusion_ckpts/` .
 
 #### Training and Evaluation
 
-You can run scripts using bash under `open_biomed/scripts/text2smi/`:
+You can run the Bash scripts under `scripts/text2smi/`:
 
 ```bash
-open_biomed/scripts/text2smi/
+scripts/text2smi/
 ├── evaluate_text2mol.sh         # calculate Text2Mol score with generated results from file
 ├── test_molt5.sh                # test MolT5 model
 └── train.sh                     # train MoMu / BioMedGPT-1.6B with MolT5 as decoder
