@@ -89,7 +89,7 @@ As a pre-alpha version release, we are looking forward to user feedback to help 
 
 ## Cite Us
 
-If you find our open-sourced code & models helpful to your research, please consider star🌟 this repo and cite📑 the following article. Thank you for your support!
+If you find our open-sourced code & models helpful to your research, please consider giving this repo a star🌟 and citing📑 the following article. Thank you for your support!
 ```
 @misc{OpenBioMed_code,
   author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
@@ -101,7 +101,8 @@ If you find our open-sourced code & models helpful to your research, please cons
 ```
 @article{luo2023empowering,
   title={Empowering AI drug discovery with explicit and implicit knowledge},
-  author={Yizhen Luo, Kui Huang, Massimo Hong, Kai Yang, Jiahuan Zhang, Yushuai Wu, Zaiqin Nie},
+  author={Luo, Yizhen and Huang, Kui and Hong, Massimo and Yang, Kai and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqin},
+  journal={arXiv preprint arXiv:2305.01523}
   year={2023}
 }
 ```
