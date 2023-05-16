@@ -145,7 +145,7 @@ class EarlyStopping(object):
         """
         return score < prev_best_score
 
-    def step(self, score, model):
+    def step(self, score, model, epoch):
         """Update based on a new score.
         The new score is typically model performance on the validation set
         for a new epoch.
@@ -162,9 +162,11 @@ class EarlyStopping(object):
         """
         if self.best_score is None:
             self.best_score = score
+            self.best_epoch = epoch
             self.save_checkpoint(model)
         elif self._check(score, self.best_score):
             self.best_score = score
+            self.best_epoch = epoch
             self.save_checkpoint(model)
             self.counter = 0
         else:

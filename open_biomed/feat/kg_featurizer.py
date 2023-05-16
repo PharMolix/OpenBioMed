@@ -37,6 +37,25 @@ class KGIDFeaturizer(KGFeaturizer):
             return index
         else:
             return None
+          
+class KGNeighbourFeaturizer(KGFeaturizer):
+    def __init__(self, config):
+        super().__init__(config)
+        self.embed_dim = config["embed_dim"]
+        # TODO: hard code
+        self.max_index = 49111
+
+    # data: SMILES list
+    def __call__(self, data):
+        index_list = []
+        if self.transform is not None:
+            index_list = self.transform[data]
+            if len(index_list) > 0 and index_list[0] != -1:
+                return index_list
+            else:
+                return [self.max_index]
+        else:
+            return [self.max_index]
 
 # ugly, redesign later
 class KGEFeaturizer(KGFeaturizer):
@@ -56,5 +75,6 @@ class KGEFeaturizer(KGFeaturizer):
 
 SUPPORTED_KG_FEATURIZER = {
     "id": KGIDFeaturizer,
-    "KGE": KGEFeaturizer
+    "KGE": KGEFeaturizer,
+    "neighbour": KGNeighbourFeaturizer
 }

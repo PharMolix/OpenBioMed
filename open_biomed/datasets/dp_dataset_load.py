@@ -19,7 +19,7 @@ def _load_bbbp_dataset(input_path):
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
     assert len(smiles_list) == len(labels)
-    return preprocessed_smiles_list, \
+    return smiles_list, \
            preprocessed_rdkit_mol_objs_list, labels.values
 
 
@@ -40,7 +40,7 @@ def _load_clintox_dataset(input_path):
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
     assert len(smiles_list) == len(labels)
-    return preprocessed_smiles_list, \
+    return smiles_list, \
            preprocessed_rdkit_mol_objs_list, labels.values
 
 
@@ -255,7 +255,7 @@ def _load_toxcast_dataset(input_path):
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
     assert len(smiles_list) == len(labels)
-    return preprocessed_smiles_list, \
+    return smiles_list, \
            preprocessed_rdkit_mol_objs_list, labels.values
 
 

@@ -665,8 +665,10 @@ class DrugGraphFeaturizerV2(BaseFeaturizer):
         self.config = config
 
     def __call__(self, data):
-        # mol = Chem.MolFromSmiles(data)
-        mol = AllChem.MolFromSmiles(data)
+        if isinstance(data, str):
+            mol = AllChem.MolFromSmiles(data)
+        else:
+            mol = data
         # atoms
         atom_features_list = []
         for atom in mol.GetAtoms():
@@ -779,6 +781,7 @@ SUPPORTED_SINGLE_SCALE_DRUG_FEATURIZER = {
     "ogb": DrugGraphFeaturizer,
     "MGNN": DrugMGNNFeaturizer,
     "BaseGNN": DrugGraphFeaturizer,
+    "BaseGNNv2": DrugGraphFeaturizerV2,
 }
 
 SUPPORTED_SINGLE_MODAL_DRUG_FEATURIZER = copy.deepcopy(SUPPORTED_SINGLE_SCALE_DRUG_FEATURIZER)

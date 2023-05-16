@@ -10,6 +10,7 @@ import os
 from rdkit import Chem
 import os
 import sys
+import pickle
 
 import torch
 from torch.utils.data import Dataset
@@ -34,24 +35,30 @@ class DPDataset(Dataset, ABC):
         self.path = path
         self.config = config
         self.in_memory = in_memory
-        self._load_data()
         # self._featurize()
 
     @abstractmethod
     def _load_data(self, path):
         raise NotImplementedError
 
-    def _featurize(self):
+    def _featurize(self, save=True):
         logger.info("Featurizing...")
         # self.featurized_drugs: 如果是多模态就是一个dict, 如果是structure单模态就是list[Data()]
         self.featurized_drugs = [self.drug_featurizer(drug) for drug in self.drugs]
         self.labels = [torch.tensor(label) for label in self.labels]
+        if save:
+            torch.save((self.featurized_drugs, self.labels, self.drugs, self.train_index, self.val_index, self.test_index), self.processed_file_path)
 
-    def _build(self, save_path=""):
-        if len(self.config["drug"]["modality"]) > 1 and save_path:
+    def _load_kg(self):
+        
+        if len(self.config["drug"]["modality"]) > 1:
             kg_config = self.config["drug"]["featurizer"]["kg"]
             self.kg = SUPPORTED_KG[kg_config["kg_name"]](kg_config["kg_path"])
-            self.drug2kg, self.drug2text, _, _ = self.kg.link(self)
+            # TODO: 
+            if kg_config["kg_name"] == "BMKG":
+                self.drug2kg, self.drug2text, _, _ = self.kg.link(self)
+            else:
+                self.drug2kg, self.drug2text, _, _ = self.kg.link_chebi20(self)
             # TODO: dp use TransE, don't need filter_out?
             filter_out = []
             """
@@ -61,17 +68,26 @@ class DPDataset(Dataset, ABC):
                 #    filter_out.append((self.drug2kg[smi], self.protein2kg[protein]))
             """
             # embed once for consistency
-            try:
-                kge = embed(self.kg, 'ProNE', filter_out=filter_out, dim=kg_config["embed_dim"], save=True, save_path=save_path)
-            except Exception as e:
+            if kg_config["kg_name"] == "BMKG":
+                try:
+                    save_path = self.config["drug"]["featurizer"]["kg"]["save_path"]
+                    kge = embed(self.kg, 'ProNE', filter_out=filter_out, dim=kg_config["embed_dim"], save=True, save_path=save_path)
+                except Exception as e:
+                    kge = None
+            else:
                 kge = None
             self.config["drug"]["featurizer"]["kg"]["kge"] = kge
-        self._configure_featurizer()
+
+    def _build(self):
         # featurize all data pairs in one pass for training efficency
+        # TODO: 如果已经有了现成的文件直接加载一下就好了，没有的话还有load_kg
+        self._load_kg()
+        self._configure_featurizer()
         if self.in_memory:
             self._featurize()
 
-    def _configure_featurizer(self):
+    def _configure_featurizer(self, save_path=""):
+        
         if len(self.config["drug"]["modality"]) > 1:
             self.drug_featurizer = DrugMultiModalFeaturizer(self.config["drug"])
             self.drug_featurizer.set_drug2kgid_dict(self.drug2kg)
@@ -84,6 +100,7 @@ class DPDataset(Dataset, ABC):
         new_dataset = copy.copy(self)
         new_dataset.drugs = [new_dataset.drugs[i] for i in indexes]
         new_dataset.labels = [new_dataset.labels[i] for i in indexes]
+        new_dataset.featurized_drugs = [new_dataset.featurized_drugs[i] for i in indexes]
         return new_dataset
 
     def __getitem__(self, index):
@@ -146,28 +163,66 @@ class MoleculeNetDataset(DPDataset):
         "qm9":      Task.REGRESSION
     }
 
-    def __init__(self, path, config, name="BBBP", label_type=1):
+    def __init__(self, fold_path, config, name="BBBP"):
         if name not in self.name2target:
             raise ValueError("%s is not a valid moleculenet task!" % name)
-        file_name = os.listdir(os.path.join(path, name.lower(), "raw"))[0]
+        file_name = os.listdir(os.path.join(fold_path, name.lower(), "raw"))[0]
         assert file_name[-4:] == ".csv"
-        path = os.path.join(path, name.lower(), "raw", file_name)
+        path = os.path.join(fold_path, name.lower(), "raw", file_name)
         self.name = name
         self.targets = self.name2target[name]
         # TODO: del: no use
         self.task = self.name2task[name]
-        # TODO: del label_type
-        self.label_type = label_type
         super(MoleculeNetDataset, self).__init__(path, config)
-        self._train_test_split()
-        self._normalize()
+        self.processed_file_path = self.get_processed_file_path(fold_path, name.lower(), config)
+        if os.path.exists(self.processed_file_path):
+            self.featurized_drugs, self.labels, self.drugs, self.train_index, self.val_index, self.test_index = torch.load(self.processed_file_path)
+        else:
+            self._load_data()
+            self._train_test_split()
+            self._normalize()
+            self._build()
         
+        #debug
+        """    
+        index_dict = {"train": self.train_index, "val": self.val_index, "test": self.test_index}
+        with open("index.pkl", "wb") as f:
+            pickle.dump(index_dict, f)
+        """
+     
+    @property
+    def processed_kg_file_names(self):
+        return 'kg_processed.pkl'
+      
+    def get_processed_file_path(self, fold_path, name, config):
+        """
+        get the .pt file path based on modality
+        Args:
+            fold_path (str): flod path of MoleculeNet
+            
+            config (dict): the config of task which used to get the modality
+        """
+        modality = config["drug"]["modality"]
+        assert "structure" in modality
+        if len(modality) == 2 and "kg" in modality:
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed_kg.pt")
+        elif len(modality) == 2 and "text" in modality:
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed_text.pt")
+        elif len(modality) == 3 and config["drug"]["featurizer"]["kg"]["kg_name"] == "BMKG":
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed_bmkgv1.pt")
+        elif len(modality) == 3:
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed_text_kg.pt")
+        elif len(modality) == 1 and config["drug"]["featurizer"]["structure"]["name"] in ["transformer"]:
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed_kvplm.pt")
+        else:
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed.pt")
     
-    def _load_data(self):       
+    def _load_data(self):
+        
         smiles_list, rdkit_mol_objs, labels = getattr(globals()["dpload"], f"_load_{self.name.lower()}_dataset")(self.path)
         if labels.ndim == 1:
             labels = np.expand_dims(labels, axis=1)
-        self.smiles, self.drugs, self.labels = [], [], []
+        self.smiles, self.drugs, self.labels, self.mols = [], [], [], []
         for i in range(len(smiles_list)):
             rdkit_mol = rdkit_mol_objs[i]
             if rdkit_mol is None:
@@ -175,7 +230,7 @@ class MoleculeNetDataset(DPDataset):
             # TODO: drugs and smiles are all get from AllChem.MolFromSmiles()
             self.smiles.append(smiles_list[i])
             self.drugs.append(smiles_list[i])
-            # self.drugs.append(rdkit_mol[i])
+            self.mols.append(rdkit_mol_objs[i])
             self.labels.append(labels[i])
     """        
     def _load_data(self):
