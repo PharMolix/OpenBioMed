@@ -16,7 +16,6 @@ SUPPORTED_DRUG_ENCODER = {
     "graphcl": MoMu,
     "molclr": GINet,
     "graphmvp": PygGNN,
-    "molalbef": MolALBEF,
     "biomedgpt": BioMedGPT,
     "kvplm": KVPLM
 }
@@ -106,19 +105,19 @@ class DPModel(nn.Module):
         
           
     def forward(self, drug):
-        if hasattr(self.encoder, "encode_structure") and not isinstance(self.encoder, MolALBEF) and not isinstance(self.encoder, BioMedGPT):
+        if hasattr(self.encoder, "encode_structure") and not isinstance(self.encoder, BioMedGPT):
             h = self.encoder.encode_structure(drug)  # Momu encoder_struct
         elif isinstance(self.encoder, BioMedGPT):
-            h = self.encoder.encode_structure_with_text(drug["structure"], drug["text"])  # encoder_struct_with_text
-        elif not isinstance(self.encoder, MolALBEF):
-            h, _ = self.encoder(drug)  # encoder_struct
+            h = self.encoder.encode_structure_with_text(drug["structure"], drug["text"], proj=True)  # encoder_struct_with_text
         elif len(self.config["data"]["drug"]["modality"]) == 1 and self.name == "molalbef":
             h = self.encoder.encode_structure(drug, proj=False)
-        else:
+        elif len(self.config["data"]["drug"]["modality"]) == 3 and self.name == "molalbef":
             # h = self.encoder.encode_structure_with_kg(drug["structure"], drug["kg"])  # encoder_struct_with_kg
             # h = self.encoder.encode_all_module(drug["structure"], drug["kg"], drug["text"])
             h = self.encoder.encode_structure_with_all(drug["structure"], drug["text"], drug["kg"])
             # h, _ = self.encoder.forward(drug["structure"], drug["text"], drug["kg"])
+        else:
+            h, _ = self.encoder(drug)  # encoder_struct
         return self.proj_head(h)
     
 

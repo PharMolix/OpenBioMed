@@ -51,7 +51,7 @@ class DPDataset(Dataset, ABC):
 
     def _load_kg(self):
         
-        if len(self.config["drug"]["modality"]) > 1:
+        if len(self.config["drug"]["modality"]) > 1 and "kg" in self.config["drug"]["modality"]:
             kg_config = self.config["drug"]["featurizer"]["kg"]
             self.kg = SUPPORTED_KG[kg_config["kg_name"]](kg_config["kg_path"])
             # TODO: 
@@ -88,7 +88,7 @@ class DPDataset(Dataset, ABC):
 
     def _configure_featurizer(self, save_path=""):
         
-        if len(self.config["drug"]["modality"]) > 1:
+        if len(self.config["drug"]["modality"]) > 1 and "kg" in self.config["drug"]["modality"]:
             self.drug_featurizer = DrugMultiModalFeaturizer(self.config["drug"])
             self.drug_featurizer.set_drug2kgid_dict(self.drug2kg)
             self.drug_featurizer.set_drug2text_dict(self.drug2text)
@@ -208,6 +208,8 @@ class MoleculeNetDataset(DPDataset):
             return os.path.join(fold_path, name.lower(), "processed", "data_processed_kg.pt")
         elif len(modality) == 2 and "text" in modality:
             return os.path.join(fold_path, name.lower(), "processed", "data_processed_text.pt")
+        elif len(modality) == 3 and config["drug"]["featurizer"]["text"]["transformer_type"] == "gpt2":
+            return os.path.join(fold_path, name.lower(), "processed", "data_processed_biomedgpt.pt")
         elif len(modality) == 3 and config["drug"]["featurizer"]["kg"]["kg_name"] == "BMKG":
             return os.path.join(fold_path, name.lower(), "processed", "data_processed_bmkgv1.pt")
         elif len(modality) == 3:

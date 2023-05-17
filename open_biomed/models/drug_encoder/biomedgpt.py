@@ -15,6 +15,7 @@ class BioMedGPT(nn.Module):
             drop_ratio=config["structure"]["dropout"],
             JK='last',
         )
+        self.model_name = config["structure"]["name"]
         self.text_encoder = BaseTransformers(config["text"])
         for param in self.text_encoder.parameters():
             param.requires_grad = False

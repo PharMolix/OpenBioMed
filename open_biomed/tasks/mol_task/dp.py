@@ -281,7 +281,7 @@ def main(args, config):
             for name, param in model.encoder.named_parameters():
                 if any(nd in name for nd in freeze_layers):
                     param.requires_grad = False
-        elif config["model"] == "DeepEIK":
+        elif config["model"] in ["DeepEIK", "biomedgpt"]:
             # freeze_layers = ["drug_structure_encoder", "text_encoder"]
             freeze_layers = ["text_encoder"]
             for name, param in model.named_parameters():
@@ -317,8 +317,9 @@ def main(args, config):
     except:
         init_ckpts = None
         
-    with open(f"{model.name}_{model.model_num}_{args.dataset_name}_test.txt", "a") as f:
-        f.write(f"{args.dataset_name} test {metric_name}={results[metric_name]} seed {args.seed} best_epoch {epoch} batch_size {args.batch_size} lr {args.lr} weight_decay {args.weight_decay} dropout {config['network']['structure']['drop_ratio']}  ckpts {init_ckpts}\n ")
+    module_num = len(config["data"]["drug"]["modality"])
+    with open(f"{model.name}_{module_num}_{args.dataset_name}_test.txt", "a") as f:
+        f.write(f"{args.dataset_name} test {metric_name}={results[metric_name]} seed {args.seed} best_epoch {epoch} batch_size {args.batch_size} lr {args.lr} weight_decay {args.weight_decay} dropout {config['network']['structure']['drop_ratio']} ckpts {init_ckpts}\n ")
         # f.write(f"test {metric_name}={results[metric_name]} best_epoch {epoch} \n ")
 
 
