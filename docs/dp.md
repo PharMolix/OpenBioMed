@@ -4,7 +4,7 @@ Drug property prediction (DP) aims to predict molecule properties such as toxici
 
 #### Features
 
-- Supported models: [MolCLR](https://github.com/yuyangw/MolCLR), [MGraphDTA](https://github.com/guaguabujianle/MGraphDTA), [MoMu](https://github.com/ddz16/MoMu) and **DeepEIK**. More models will be implemented and more combinations will be tested in the future.
+- Supported models: [MolCLR](https://github.com/yuyangw/MolCLR), [MGraphDTA](https://github.com/guaguabujianle/MGraphDTA), [MoMu](https://github.com/ddz16/MoMu), [DeepEIK](https://arxiv.org/abs/2305.01523) and **BioMedGPT-1.6B**. More models will be implemented and more combinations will be tested in the future.
 - Supported datasets: 8 classification datasets i.e. BBBP, Tox21, ToxCast, SIDER, ClinTox, MUV, HIV and BACE of [MoleculeNet](https://moleculenet.org).
 - Supported split: random split, scaffold split and random-scaffold split;
 - Supproted evaluation: ROC_AUC.
@@ -28,15 +28,19 @@ RuntimeError: The 'data' object was created by an older version of PyG. If this 
 
 #### Model Preparation
 
-To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and put the checkpoint under `ckpts/text_ckpts/`. 
+To finetune used **BioMedGPT-1.6B**, you should install the checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and placed it under `ckpts/fusion_ckpts/biomedgpt`
+
+To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and placed it under `ckpts/text_ckpts/`. 
 
 To reproduce or finetune MolCLR, MoMu and GraphMVP used their trained checkpoints, you can download the checkpoints from:  
 MolCLR: https://github.com/yuyangw/MolCLR  
 MoMu: https://github.com/ddz16/MoleculePrediction  
 GraphMVP: https://github.com/chao1224/GraphMVP  
 
-You will need to rename and put the checkpoints at the following paths.
+You will need to rename and placed the checkpoints at the following paths.
 ```shell
+# BioMedGPT-1.6B
+ckpts/gnn_ckpts/biomedgpt/pretrain.pth
 # MolCLR
 ckpts/gnn_ckpts/molclr/model.pth
 # Momu
@@ -51,9 +55,10 @@ You can run scripts using bash under `scripts/dp/`:
 
 ```bash
 scripts/dp
-├── train_molclr.sh		# running MolCLR on 8 datasets of  moleculenet
+├── train_biomedgpt.sh		# running BioMedGPT-1.6B on 8 datasets of moleculenet
+├── train_molclr.sh		# running MolCLR on 8 datasets of moleculenet
 ├── train_graphmvp.sh  # running GraphMVP on 8 datasets of moleculenet
-├── train_momu.sh      # running MoMu on 8 datasets of  moleculenet
+├── train_momu.sh      # running MoMu on 8 datasets of moleculenet
 └── train_deepeik.sh   # running DeepEIK on 8 datasets of moleculenet
 ```
 
