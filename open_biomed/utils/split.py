@@ -24,8 +24,10 @@ def kfold_split(n, k):
 
 def _generate_scaffold(smiles, include_chirality=False, is_standard=False):
     if is_standard:
+        # 这里的smiles应该是和mvp一样，经过data_loader处理的
         scaffold = MurckoScaffoldSmiles(smiles=smiles, includeChirality=True)
     else:
+        # 这里的smiles应该是raw smiles，没有经过allchem反向处理的
         mol = Chem.MolFromSmiles(smiles)
         scaffold = MurckoScaffoldSmiles(mol=mol, includeChirality=include_chirality)
     return scaffold

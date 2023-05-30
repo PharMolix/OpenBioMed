@@ -1,0 +1,30 @@
+{
+  "model": "kvplm",
+  "data": {
+      "drug": {
+          "modality": ["structure"],
+          "featurizer": {
+              "structure": {
+                  "name": "transformer",
+                  "transformer_type": "bert",
+                  "max_length": 128,
+                  "model_name_or_path": "ckpts/text_ckpts/scibert_scivocab_uncased"
+              }
+          }
+      }
+  },
+  "network": {
+      "structure": {
+          "name": "kvplm",
+          "bert_config_path": "open_biomed/configs/mtr/kvplm_bert_config.json",
+          "checkpoint_path": "ckpts/text_ckpts/kvplm/ckpt_KV.pt",
+          "dropout": 0.1
+      },
+      "pred_head": {
+        "hidden_size": [512, 256],
+        "activation": "relu",
+        "batch_norm": "True",
+        "dropout": 0.2
+      }
+  }
+}

@@ -45,11 +45,20 @@ class KVPLM(nn.Module):
 
         self.dropout = nn.Dropout(config["dropout"])
         
+        self.text_projector = nn.Sequential(
+                nn.Linear(bert_config.hidden_size, 512),
+                nn.ReLU(inplace=True),
+                nn.Linear(512, 256)
+            )
+
+        self.output_dim = bert_config.hidden_size
+        
     def forward(self, drug):
         return self.encode_structure(drug["strcture"]), self.encode_text(drug["text"])
 
     def encode_structure(self, structure):
         h = self.text_encoder(**structure)["pooler_output"]
+        # h = self.text_projector(h)
         return self.dropout(h)
 
     def encode_text(self, text):

@@ -1,5 +1,5 @@
 #!/bin/bash
-DATASET="Tox21"
+for data in MUV 
 
 python tasks/mol_task/dp.py \
 --device cuda:0 \

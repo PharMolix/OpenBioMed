@@ -45,6 +45,8 @@ class BaseCollator(ABC):
             return result
         elif isinstance(data[0], int):
             return torch.tensor(data).view((-1, 1))
+        elif isinstance(data[0], list):
+            return [torch.tensor(i) for i in data]
 
     def _collate_multiple(self, data, config):
         cor = []
@@ -80,6 +82,8 @@ class DrugCollator(BaseCollator):
             for modality in self.config["modality"]:
                 batch[modality] = self._collate_single([drug[modality] for drug in drugs], self.config["featurizer"][modality])
         else:
+            if isinstance(drugs[0], dict):
+                drugs = [drug["structure"] for drug in drugs]
             batch = self._collate_single(drugs, self.config["featurizer"]["structure"])
         return batch
 

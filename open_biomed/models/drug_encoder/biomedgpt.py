@@ -15,6 +15,7 @@ class BioMedGPT(nn.Module):
             drop_ratio=config["structure"]["dropout"],
             JK='last',
         )
+        self.model_name = config["structure"]["name"]
         self.text_encoder = BaseTransformers(config["text"])
         for param in self.text_encoder.parameters():
             param.requires_grad = False
@@ -23,6 +24,8 @@ class BioMedGPT(nn.Module):
 
         self.graph_proj_head = nn.Linear(self.graph_encoder.output_dim, config["projection_dim"])
         self.text_proj_head = nn.Linear(self.text_encoder.output_dim, config["projection_dim"])
+        
+        self.output_dim = config["projection_dim"] * 2
 
     def forward(self, features_graph, features_text):
         batch_size = features_graph.size(0)
@@ -57,3 +60,13 @@ class BioMedGPT(nn.Module):
         if proj:
             h = self.text_proj_head(h)
         return h
+      
+    def encode_structure_with_text(self, mol, text, proj=True):
+        # get structure embedding first 
+        h_structure, _ = self.graph_encoder(mol)
+        h_text = self.text_encoder(text)
+        if proj:
+            h_structure = self.graph_proj_head(h_structure)
+            h_text = self.text_proj_head(h_text)
+        feats = torch.cat((h_structure, h_text.squeeze()), dim=1)
+        return feats

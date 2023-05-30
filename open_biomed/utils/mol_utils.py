@@ -111,6 +111,33 @@ def convert_pyg_batch(output, batch_idx, max_n_nodes):
     batch_output = torch.stack(batch_output, dim=0)
     batch_attention_mask = torch.stack(batch_attention_mask, dim=0)
     return batch_output, batch_attention_mask
+  
+
+def convert_kge_batch(all_neigh_feats, max_n_nodes=16):
+    batch_size = len(all_neigh_feats)
+    batch_output = []
+    batch_attention_mask = []
+    for i in range(batch_size):
+        feats = all_neigh_feats[i]
+        if feats.size(0) < max_n_nodes:
+            batch_output.append(torch.cat((
+                feats,
+                torch.zeros(max_n_nodes - feats.shape[0], feats.shape[1]).to(feats.device)
+            ), dim=0))
+            batch_attention_mask.append(torch.cat((
+                torch.ones(feats.shape[0]).to(feats.device), 
+                torch.zeros(max_n_nodes - feats.shape[0]).to(feats.device)
+            ), dim=0))
+        else:
+            batch_output.append(feats[:max_n_nodes, :])
+            batch_attention_mask.append(torch.ones(max_n_nodes).to(feats.device))
+    batch_output = torch.stack(batch_output, dim=0)
+    batch_attention_mask = torch.stack(batch_attention_mask, dim=0)
+    return batch_output, batch_attention_mask
+    #neigh_attn = torch.ones((neigh_feats.size(0), 1)).to(node_attention_mask.device).type(node_attention_mask.type())
+    #neigh_feats = self.kg_linear(neigh_feats).unsqueeze(1)
+    #neigh_feats = self.kg_linear(neigh_feats).unsqueeze(1)
+
 
 def add_argument(parser):
     parser.add_argument("--mode", type=str, choices=["write_sdf", "unittest"])

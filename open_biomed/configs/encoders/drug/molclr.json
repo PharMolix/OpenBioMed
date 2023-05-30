@@ -1,0 +1,8 @@
+{
+"emb_dim": 300,
+"num_layer": 5,
+"drop_ratio": 0.5,
+"feat_dim": 512,
+"init_checkpoint": "../ckpts/gnn_ckpts/molclr/model.pth",
+"param_key": ""
+}
