@@ -4,6 +4,7 @@ This repository holds OpenBioMed, an open-source toolkit for multi-modal represe
 ## News!
 
 - [04/23] 🔥The pre-alpha BioMedGPT model and OpenBioMed are available!
+- [06/12] 🔥The paper of CellLM is now avaliable on arxiv, and the latest checkpoint of CellLM has been updated on the cloud drive!
 
 ## Features
 
@@ -99,11 +100,23 @@ If you find our open-sourced code & models helpful to your research, please cons
 }
 ```
 ```
-@article{luo2023empowering,
-  title={Empowering AI drug discovery with explicit and implicit knowledge},
-  author={Luo, Yizhen and Huang, Kui and Hong, Massimo and Yang, Kai and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqin},
-  journal={arXiv preprint arXiv:2305.01523}
-  year={2023}
+@misc{luo2023empowering,
+      title={Empowering AI drug discovery with explicit and implicit knowledge}, 
+      author={Yizhen Luo and Kui Huang and Massimo Hong and Kai Yang and Jiahuan Zhang and Yushuai Wu and Zaiqin Nie},
+      year={2023},
+      eprint={2305.01523},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
+```
+```
+@misc{zhao2023largescale,
+      title={Large-Scale Cell Representation Learning via Divide-and-Conquer Contrastive Learning}, 
+      author={Suyuan Zhao and Jiahuan Zhang and Zaiqing Nie},
+      year={2023},
+      eprint={2306.04371},
+      archivePrefix={arXiv},
+      primaryClass={cs.CE}
 }
 ```
 
