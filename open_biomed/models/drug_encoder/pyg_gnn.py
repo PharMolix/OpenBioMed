@@ -300,7 +300,7 @@ class GraphMVP(nn.Module):
         if return_node_feats:
             return h_graph, h_node
         else:
-            return h_node
+            return h_graph
 
     def load_state_dict(self, state_dict, strict=True):
         return self.main_model.load_state_dict(state_dict, strict)
