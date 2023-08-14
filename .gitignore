@@ -137,16 +137,12 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# Datasets
-/datasets
 /logs/*
-/ckpts/*
 /.vscode
 /assets/*
-!ckpts/**/
-!ckpts/**/.placeholder
-!datasets/**/
-!datasets/**/.placeholder
+/ckpts/**/*
+!/ckpts/**/.placeholder
+!/datasets/**/.placeholder
 
 #files
 *.csv
