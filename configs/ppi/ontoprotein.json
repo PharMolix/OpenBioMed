@@ -1,0 +1,33 @@
+{
+    "model": "gnn_ppi_ontoprotein",
+    "data": {
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformerenc",
+                    "transformer_type": "bert",
+                    "model_name_or_path": "./ckpts/protein_ckpts/ontoprotein",
+                    "device": "cuda:0",
+                    "max_length": 1024
+                }
+            }
+        }
+    },
+    "network": {
+        "name": "gin",
+        "feature_network": {
+            "name": "linear",
+            "input_dim": 1024,
+            "output_dim": 512
+        },
+        "gnn": {
+            "use_jk": false,
+            "train_eps": true,
+            "hidden_dim": 512,
+            "num_layers": 1
+        },
+        "dropout": 0.5,
+        "feature_fusion": "mul"
+    }
+}

@@ -1,0 +1,54 @@
+{
+    "model": "TGDRP",
+    "data": {
+        "mol": {
+            "modality": [
+                "structure"
+            ],
+            "featurizer": {
+                "structure": {
+                    "name": "TGSA"
+                }
+            }
+        },
+        "cell": {
+            "gene_selector": "TGSA",
+            "gene_feature": [
+                "EXP",
+                "MUT",
+                "CNV"
+            ],
+            "featurizer": {
+                "name": "TensorDict"
+            }
+        },
+        "split": {
+            "type": "random",
+            "train": 0.8,
+            "val": 0.1,
+            "test": 0.1
+        }
+    },
+    "network": {
+        "input_dim_cell": 3,
+        "layer_drug": 3,
+        "dim_drug": 128,
+        "layer_cell": 3,
+        "dim_cell": 8,
+        "dropout": 0.2,
+        "cell_encoder": {
+            "name": "celllm",
+            "num_tokens": 8,
+            "dim": 512,
+            "depth": 10,
+            "max_seq_len": 6000,
+            "gene_num": 19379,
+            "heads": 16,
+            "local_attn_heads": 0,
+            "g2v_position_emb": true,
+            "gene2vec_path": "../assets/gene2vec_19379_512.npy",
+            "ckpt_path": "../ckpts/cell_ckpts/celllm/ckpt.pth",
+            "param_key": "model_state_dict"
+        }
+    }
+}

@@ -1,0 +1,47 @@
+{
+    "name": "molt5",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+                    "max_length": 512
+                } 
+            }
+        },
+        "text": {
+            "question": {
+                "featurizer": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+                    "max_length": 512
+                }
+            },
+            "answer": {
+                "featurizer": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+                    "max_length": 512
+                }
+            }
+        }
+    },
+    "network": {
+        "type": "joint_rep",
+        "encoder": {
+            "name": "molt5",
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+            "transformer_type": "t5"
+        },
+        "text_decoder": {
+            "name": "molt5",
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+            "transformer_type": "t5"
+        }
+    }
+}

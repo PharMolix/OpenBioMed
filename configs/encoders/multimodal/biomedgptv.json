@@ -1,0 +1,43 @@
+{
+    "name": "biomedgptv",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                } 
+            }
+        },
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformertok",
+                    "transformer_type": "esm",
+                    "model_name_or_path": "./ckpts/protein_ckpts/esm2-3b",
+                    "max_length": 1024
+                }
+            }
+        }
+    },
+    "network": {
+        "mol": {
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0,
+            "max_n_nodes": 256,
+            "freeze": true
+        },
+        "protein": {
+            "model_name_or_path": "./ckpts/protein_ckpts/esm2-3b",
+            "lora": false,
+            "freeze": true,
+            "use_float16": true
+        },
+        "llm": {
+            "model_name_or_path": "./ckpts/text_ckpts/biomed-llama-7b",
+            "use_float16": true
+        }
+    }
+}

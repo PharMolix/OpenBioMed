@@ -1,0 +1,39 @@
+{
+    "model": "graphmvp-cnn",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                }
+            }
+        },
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "OneHot",
+                    "max_length": 1024
+                }
+            }
+        }
+    },
+    "network": {
+        "mol": {
+            "name": "graphmvp",
+            "config_path": "configs/encoders/mol/graphmvp.json",
+            "ckpt": "./ckpts/gnn_ckpts/graphmvp/pretraining_model.pth"
+        },
+        "protein": {
+            "name": "cnn",
+            "config_path": "configs/encoders/protein/cnn.json"
+        },
+        "pred_head": {
+            "hidden_size": [1024, 1024, 256],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        }
+    }
+}

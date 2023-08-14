@@ -1,0 +1,45 @@
+{
+    "model": "MoMu-T5",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+                    "max_length": 512
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 512,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "smiles": {
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+            "transformer_type": "t5",
+            "stop_grad": false
+        },
+        "text": {
+            "name": "momu",
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0,
+            "graph_pooling": "sum",
+            "graph_self": false,
+            "bert_dropout": 0.0,
+            "bert_hidden_dim": 768,
+            "output_dim": 768,
+            "projection_dim": 256,
+            "use_num_layers": 6,
+            "init_checkpoint": "./ckpts/fusion_ckpts/momu/MoMu-K.ckpt",
+            "param_key": "state_dict",
+            "stop_grad": false
+        }
+    }
+}

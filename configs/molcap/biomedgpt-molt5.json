@@ -1,0 +1,53 @@
+{
+    "model": "BioMedGPT-MolT5",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES", "graph"],
+                    "SMILES": {
+                        "name": "transformer",
+                        "transformer_type": "t5",
+                        "model_name_or_path": "./ckpts/text_ckpts/MolT5-small",
+                        "max_length": 512
+                    },
+                    "graph": {
+                        "name": "ogb"
+                    }
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "t5",
+                    "max_length": 512,
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-small"
+                }
+            }
+        }
+    },
+    "network": {
+        "graph": {
+            "name": "biomedgpt",
+            "structure": {
+                "gin_hidden_dim": 300,
+                "gin_num_layers": 5,
+                "dropout": 0.0
+            },
+            "text": {
+                "model_name_or_path": "./ckpts/text_ckpts/gpt2-xl",
+                "load_model": false,
+                "pooler": "mean",
+                "dropout": 0.1
+            },
+            "output_dim": 300,
+            "projection_dim": 256,
+            "max_n_nodes": 256,
+            "stop_grad": false
+        },
+        "text": {
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-small",
+            "stop_grad": false
+        }
+    }
+}

@@ -4,7 +4,7 @@ Text-to-SMILES generations, also called text-based de novo molecule generation, 
 
 #### Features
 
-- Supported models: MolT5, MoMu, and BioMedGPT-1.6B. 
+- Supported models: [MolT5](https://arxiv.org/abs/2204.11817), [MoMu](https://arxiv.org/abs/2209.05481), BioMedGPT-1.6B, and [MolFM](https://arxiv.org/abs/2307.09484). 
 - Supported dataset: ChEBI-20.
 - Supproted evaluation: BLEU, Exact ratio, Valid ratio, Levenshtein distance, MACCS fingerprint similarity, RDKit fingerprint similarity, Morgan fingerprint similarity and Text2Mol score.
 
@@ -15,7 +15,6 @@ Pipelines that generate SMILES without calculating evaluation metrics will be de
 To evaluate the performance of molecule captioning, run the following:
 
 ```bash
-# NOTE: make sure you are at BioMed/ directory
 pip install Levenshtein
 
 pip install nltk
@@ -23,8 +22,10 @@ python
 >>> import nltk
 >>> nltk.download('wordnet')
 >>> nltk.download('omw-1.4')
+```
 
-# mol2vec is required if you want to evaluate models with Text2Mol metric
+To evaluate models with Text2Mol metric, install [mol2vec](https://pubs.acs.org/doi/10.1021/acs.jcim.7b00616) using the following command:
+```bash
 cd assets
 git clone https://github.com/samoturk/mol2vec
 cd mol2vec
@@ -33,40 +34,43 @@ pip install .
 
 #### Data Preparation
 
-Follow `Data Preparation` in [molcap.md](./mocap.md) to install the ChEBI-20 dataset and Text2Mol model.
+Follow `Data Preparation` in [molecule captioning](./molcap.md) to install the ChEBI-20 dataset and Text2Mol model.
 
 #### Model preparation
-Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-caption2smiles (fine-tuned for text-to-SMILES generation) and MolT5 (not fine-tuned). You can also change the value of `"model_name_or_path"` to `"allenai/scibert_scivocab_uncased"` or `"laituan245/molt5-[small/base/large]"`in the config json file to download the PLM when running the code.
+Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-caption2smiles (fine-tuned for text-to-SMILES generation) and MolT5 (not fine-tuned).
 
-The multi-modal models are optional if you don't want to reproduce their results:
+To reproduce **MoMu**, install checkpoints following instructions [here](https://github.com/ddz16/MoMu) and put it under `ckpts/fusion_ckpts/momu`.
 
-- Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
-- Install BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
-
-The above 2 checkpoints should be placed under `ckpts/fusion_ckpts/` .
+To reproduce **MolFM** and **BioMedGPT-1.6B**, install checkpoints [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and put them under `ckpts/fusion_ckpts/` .
 
 #### Training and Evaluation
 
-You can run the Bash scripts under `scripts/text2smi/`:
+You can run the Bash scripts under `scripts/multimodal/text2smi/`:
 
 ```bash
-scripts/text2smi/
+scripts/multimodal/text2smi/
 ├── evaluate_text2mol.sh         # calculate Text2Mol score with generated results from file
 ├── test_molt5.sh                # test MolT5 model
-└── train.sh                     # train MoMu / BioMedGPT-1.6B with MolT5 as decoder
+└── train.sh                     # train SciBERT / MoMu / MolFM / BioMedGPT-1.6B
+```
+
+Example:
+
+```bash
+bash scripts/multimodal/text2smi/train.sh cuda:0 # switch to your own cuda device or cpu
 ```
 
 You can also modify the scripts or directly use the following command:
 
 ```bash
-python tasks/mol_task/mtr.py \
+python open_biomed/tasks/multimodal_task/text2smigen.py \
 --device DEVICE \                         # gpu device id
 --mode MODE \                             # traning mode, select from [train, test, traintest, test_text2mol]
---config_path CONFIG_PATH \               # configuration file, see configs/mtr/ for more details
+--config_path CONFIG_PATH \               # configuration file, see configs/text2smigen/ for more details
 --dataset DATASET \                       # dataset name, now only PCdes is available
 --dataset_path DATASET_PATH \             # path to the dataset
 --smi_save_path SMI_SAVE_PATH \           # path to save the generated SMILES
---output_path OUTPUT_PATH \               # save checkpoint path
+--output_path OUTPUT_PATH \               # checkpoint save path
 --num_workers NUM_WORKERS \               # number of workers when loading data
 --epochs EPOCHS \                         # number of training epochs
 --patience PATIENCE \                     # number of tolerant epochs for early-stopping

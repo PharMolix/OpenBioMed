@@ -1,0 +1,59 @@
+{
+    "model": "drugfm",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["smiles", "graph"],
+                    "smiles": {
+                        "name": "transformer",
+                        "transformer_type": "unimap",
+                        "max_length": 128,
+                        "model_name_or_path": "./assets/unimap/smiles_tokenizer/"
+                    },
+                    "graph": {
+                        "name": "unimap"
+                    }
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 256,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "atom_vocab_size": 10535,
+        "roberta": {
+            "vocab_size": 2426,
+            "max_length": 128,
+            "max_position_embeddings": 515,
+            "type_vocab_size": 1,
+            "pooler_type": "avg"
+        },
+        "gnn": {
+            "gnn_number_layer": 3,
+            "gnn_dropout": 0.1,
+            "conv_encode_edge": true,
+            "gnn_embed_dim": 384,
+            "gnn_aggr": "maxminmean",
+            "gnn_norm": "layer",
+            "gnn_act": "gelu",
+            "atom_vocab_size": 10535,
+            "graph_max_seq_size": 128
+        },
+        "kge": {
+            "n_ents": 49151,
+            "n_rels": 16,
+            "norm": 2,
+            "hidden_size": 256,
+            "margin": 2.0
+        },
+        "bert_config_path": "./configs/encoders/multimodal/molfm_bert_config.json",
+        "projection_dim": 256
+    }
+}

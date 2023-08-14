@@ -1,0 +1,6 @@
+{
+    "gin_hidden_dim": 300,
+    "gin_num_layers": 5,
+    "drop_ratio": 0.1,
+    "init_checkpoint": "./ckpts/gnn_ckpts/graphmvp/pretraining_model.pth"
+}

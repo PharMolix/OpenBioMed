@@ -31,7 +31,7 @@ You can also modify the script or directly use the following command:
 ```bash
 python tasks/mol_task/ctc.py \
 --device DEVICE \                         # gpu device id
---mode MODE \                             # traning mode, select from [train, zero_shot]
+--mode MODE \                             # training mode, select from [train, zero_shot]
 --config_path CONFIG_PATH \               # configuration file, see configs/mtr/ for more details
 --dataset DATASET \                       # dataset name, now only PCdes is available
 --dataset_path DATASET_PATH \             # path to the dataset

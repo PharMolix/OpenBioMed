@@ -4,39 +4,41 @@ Molecule-text retrieval is a multi-modal task that aims to select the most relev
 
 #### Features
 
-- Supported models: SciBERT, KV-PLM, MoMu, BioMedGPT-1.6B and combination of models. 
+- Supported models: [SciBERT](https://arxiv.org/abs/1903.10676), [KV-PLM](https://www.nature.com/articles/s41467-022-28494-3), [MoMu](https://arxiv.org/abs/2209.05481), BioMedGPT-1.6B, [GraphMVP](https://arxiv.org/abs/2110.07728), and [MolFM](https://arxiv.org/abs/2307.09484). 
 - Supported dataset: PCdes.
 - Supproted evaluation: MRR (Mean Reversed Rank), Recall@1, Recall@5, Recall@10.
 
-*Warning*: We provide supervised learning and zero-shot evaluation, and the latter could only be applied to multi-modal models like MoMu and BioMedGPT-1.6B. 
+*Warning*: We provide supervised setting and zero-shot setting. The latter should only be applied to pre-trained multimodal molecular models like MoMu, MolFM and BioMedGPT-1.6B. 
 
 #### Data Preparation
 
-Install PCdes [here](https://github.com/thunlp/KV-PLM/tree/master/Ret) (`align_des_filt3.txt` and `align_smiles.txt`) and put them under `datasets/mtr/`. Install `pair.txt` [here](https://pan.baidu.com/s/1c1IDHiQ4df64rbgLaVFw9w) (`password is iv7a`) and put it under `datasets/mtr/momu_pretrain` (The file is used to filter out molecules appear in MoMu pretraining). 
+Install [PCdes](https://github.com/thunlp/KV-PLM/tree/master/Ret) (`align_des_filt3.txt` and `align_smiles.txt`) and put them under `datasets/mtr/`. Install `pair.txt` [here](https://pan.baidu.com/s/1c1IDHiQ4df64rbgLaVFw9w) (`password is iv7a`) and put it under `datasets/mtr/momu_pretrain` (The file is used to filter out molecules that overlap with pre-training data). 
 
 #### Model Preparation
 
-Install SciBERT from [Hugging Face](https://huggingface.co/allenai/scibert_scivocab_uncased) and put it under `ckpts/text_ckpts/`. You can also change the value of `"model_name_or_path"` to `"allenai/scibert_scivocab_uncased"` in the `config/` JSON file to download the PLM when running the code.
+Install SciBERT from [Hugging Face](https://huggingface.co/allenai/scibert_scivocab_uncased) and put it under `ckpts/text_ckpts/`. 
 
-The multi-modal models are optional if you don't want to reproduce their results:
+To reproduce **MoMu**, install checkpoints following instructions [here](https://github.com/ddz16/MoMu) and put it under `ckpts/fusion_ckpts/momu`.
 
-- Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
-- Install KV-PLM checkpoints following instructions [here](https://github.com/thunlp/KV-PLM). You should also install `bpe_encoding.txt` and `bpe_vocab.txt` in the repository and put them under `assets/KV-PLM` if you want to experiment with KV-PLM*.
-- Install BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
+To reproduce **KV-PLM**, install checkpoints following instructions [here](https://github.com/thunlp/KV-PLM) and put it under `ckpts/text_ckpts/kvplm`. You should also install `bpe_encoding.txt` and `bpe_vocab.txt` in the repository and put them under `assets/KV-PLM` if you want to experiment with KV-PLM*.
+
+To reproduce **MolFM** and **BioMedGPT-1.6B**, install checkpoints [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
 
 The above 3 checkpoints should be placed under `ckpts/fusion_ckpts/` .
 
 #### Training and Evaluation
 
-You can run scripts using bash under `scripts/mtr/`:
+You can run scripts using bash under `scripts/multimodal/mtr/`:
 
 ```bash
-scripts/mtr
-├── run.sh                      # evaluate MoMu/BioMedGPT-1.6B under supervised learning or zero-shot
-├── run_baseline.sh             # train composed models (an arbitary molecule encoder and an arbitary text encoder)
-├── train_kvplm.sh              # train KV-PLM
-├── train_kvplm_star.sh         # train KV-PLM*
-└── train_scibert.sh            # train SciBert
+scripts/multimodal/mtr
+├── run_multimodal.sh           # train MoMu/BioMedGPT-1.6B/MolFM under supervised or zero-shot settings
+└── run_baseline.sh             # train composed models (an arbitary molecule encoder and an arbitary text encoder)
+```
+
+Example:
+```bash
+bash scripts/multimodal/mtr/run_multimodal.sh cuda:0 # switch to your own cuda device or cpu
 ```
 
 You can also modify the scripts or directly use the following command:

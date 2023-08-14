@@ -1,0 +1,29 @@
+{
+  "model": "graphmvp",
+  "data": {
+      "mol": {
+          "modality": ["structure"],
+          "featurizer": {
+              "structure": {
+              "name": "BaseGNN" 
+              }
+          }
+      }
+  },
+  "network": {
+      "structure": {
+          "name": "graphmvp",
+          "gin_hidden_dim": 300,
+          "gin_num_layers": 5,
+          "drop_ratio": 0.5,
+          "init_checkpoint": "./ckpts/gnn_ckpts/graphmvp/pretraining_model.pth",
+          "param_key": ""
+      },
+      "pred_head": {
+          "hidden_size": [],
+          "activation": "relu",
+          "batch_norm": true,
+          "dropout": 0.1
+      }
+  }
+}

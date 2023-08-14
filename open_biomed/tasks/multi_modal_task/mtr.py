@@ -14,44 +14,65 @@ import torch
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from utils import EarlyStopping, AverageMeter, DrugCollator, ToDevice, recall_at_k
+from utils import EarlyStopping, AverageMeter, MolCollator, ToDevice, recall_at_k
 from utils.optimizers import BertAdam
 from datasets.mtr_dataset import SUPPORTED_MTR_DATASETS
-from models.drug_encoder import KVPLM, MoMu, DrugBERT, BioMedGPT
-from models.mtr_model import MTRModel
+from models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM
+from models.task_model.mtr_model import MTRModel
 
 SUPPORTED_MTR_MODEL = {
-    "SciBERT": DrugBERT,
-    "KV-PLM": KVPLM, 
-    "KV-PLM*": KVPLM,
-    "MoMu": MoMu, 
-    "BioMedGPT": BioMedGPT,
+    "scibert": MolBERT,
+    "kv-plm": KVPLM, 
+    "kv-plm*": KVPLM,
+    "momu": MoMu, 
+    "molfm": MolFM,
+    "drugfm": DrugFM,
+    "biomedgpt": BioMedGPTCLIP,
     "combined": MTRModel
 }
 
-def contrastive_loss(logits_des, logits_smi, margin, device):
-    scores = torch.cosine_similarity(logits_smi.unsqueeze(1).expand(logits_smi.shape[0], logits_smi.shape[0], logits_smi.shape[1]), logits_des.unsqueeze(0).expand(logits_des.shape[0], logits_des.shape[0], logits_des.shape[1]), dim=-1)
-    diagonal = scores.diag().view(logits_smi.size(0), 1)
+def similarity(logits1, logits2):
+    if len(logits1.shape) >= 2: 
+        sim = logits1 @ logits2.transpose(0, 1)
+        sim, _ = torch.max(sim, dim=0)
+    else:
+        sim = torch.cosine_similarity(logits1, logits2)
+        
+    return sim
+
+def contrastive_loss(logits_structure, logits_text, margin, device):
+    if len(logits_structure.shape) <= 2:
+        scores = torch.cosine_similarity(
+            logits_structure.unsqueeze(1).expand(logits_structure.shape[0], logits_structure.shape[0], logits_structure.shape[1]), 
+            logits_text.unsqueeze(0).expand(logits_text.shape[0], logits_text.shape[0], logits_text.shape[1]), 
+            dim=-1
+        )
+    else:
+        scores = torch.matmul(logits_structure.unsqueeze(1), logits_text.unsqueeze(-1)).squeeze()
+        scores, _ = scores.max(dim=-1) 
+    #print(scores)
+    diagonal = scores.diag().view(logits_text.size(0), 1)
     d1 = diagonal.expand_as(scores)
     d2 = diagonal.t().expand_as(scores)
     
-    cost_des = (margin + scores - d1).clamp(min=0)
-    cost_smi = (margin + scores - d2).clamp(min=0)
+    cost_s2t = (margin + scores - d1).clamp(min=0)
+    cost_t2s = (margin + scores - d2).clamp(min=0)
 
     # clear diagonals
     mask = torch.eye(scores.size(0)) > .5
     I = Variable(mask)
     if torch.cuda.is_available():
         I = I.to(device)
-    cost_des = cost_des.masked_fill_(I, 0)
-    cost_smi = cost_smi.masked_fill_(I, 0)
+    cost_s2t = cost_s2t.masked_fill_(I, 0)
+    cost_t2s = cost_t2s.masked_fill_(I, 0)
 
     # keep the maximum violating negative for each query
     #if self.max_violation:
-    cost_des = cost_des.max(1)[0]
-    cost_smi = cost_smi.max(0)[0]
+    cost_s2t = cost_s2t.max(1)[0]
+    cost_t2s = cost_t2s.max(0)[0]
 
-    return cost_des.sum() + cost_smi.sum()
+    return cost_s2t.sum() + cost_t2s.sum()
+
 
 def train_mtr(train_dataset, val_dataset, model, collator, args):
     train_loader = DataLoader(train_dataset, batch_size=args.train_batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collator)
@@ -83,13 +104,15 @@ def train_mtr(train_dataset, val_dataset, model, collator, args):
         running_loss.reset()
 
         step = 0
-        for drug in tqdm(train_loader):
-            drug = ToDevice(drug, args.device)
-            drug_rep = model.encode_structure(drug["structure"])
-            text_rep = model.encode_text(drug["text"])
-            loss = loss_fn(drug_rep, text_rep, margin=args.margin, device=args.device)
+        for mol in tqdm(train_loader):
+            mol = ToDevice(mol, args.device)
+            mol_rep = model.encode_mol(mol["structure"])
+            if hasattr(model, "structure_proj_head"):
+                mol_rep = model.structure_proj_head(mol_rep)
+            text_rep = model.encode_text(mol["text"])
+            loss = loss_fn(mol_rep, text_rep, margin=args.margin, device=args.device)
             if hasattr(model, "calculate_matching_loss"):
-                matching_loss = model.calculate_matching_loss(drug["structure"], drug["text"])
+                matching_loss = model.calculate_matching_loss(mol["structure"], mol["text"])
                 loss += matching_loss
                 
             loss.backward()
@@ -102,7 +125,7 @@ def train_mtr(train_dataset, val_dataset, model, collator, args):
                 logger.info("Steps=%d Training Loss=%.4lf" % (step, running_loss.get_average()))
                 running_loss.reset()
 
-        val_metrics = val_mtr(val_dataset, model, collator, args)
+        val_metrics = val_mtr(val_dataset, model, collator, False, args)
         logger.info(", ".join(["val %s: %.4lf" % (k, val_metrics[k]) for k in val_metrics]))
         if stopper.step((val_metrics["mrr_d2t"] + val_metrics["mrr_t2d"]), model):
             break
@@ -118,6 +141,7 @@ def rerank(dataset, model, index_structure, index_text, score, alpha, collator, 
                 "text": dataset[j]["text"],
             })
     mini_batch = ToDevice(collator(mini_batch), device)
+    #print(index_structure, index_text, score, model.predict_similarity_score(mini_batch).squeeze())
     score = score.to(device) * alpha + model.predict_similarity_score(mini_batch).squeeze() * (1 - alpha)
     _, new_idx = torch.sort(score, descending=True)
     if len(index_structure) > 1:
@@ -125,44 +149,38 @@ def rerank(dataset, model, index_structure, index_text, score, alpha, collator, 
     else:
         return torch.LongTensor([index_text[i] for i in new_idx.detach().cpu().tolist()])
 
-def val_mtr(val_dataset, model, collator, args):
+def val_mtr(val_dataset, model, collator, apply_rerank, args):
     val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collator)
     model.eval()
-    drug_rep_total, text_rep_total = [], []
+    mol_rep_total, text_rep_total = [], []
     n_samples = 0
     with torch.no_grad():
-        for drug in tqdm(val_loader):
-            drug = ToDevice(drug, args.device)
+        for mol in tqdm(val_loader):
+            mol = ToDevice(mol, args.device)
 
-            drug_rep = model.encode_structure(drug["structure"])
-            text_rep = model.encode_text(drug["text"])
-            drug_rep_total.append(drug_rep)
+            mol_rep = model.encode_mol(mol["structure"])
+            if hasattr(model, "structure_proj_head"):
+                mol_rep = model.structure_proj_head(mol_rep)
+            text_rep = model.encode_text(mol["text"])
+            mol_rep_total.append(mol_rep)
             text_rep_total.append(text_rep)
             
-            # calculate #1 acc
-            """
-            scores = torch.cosine_similarity(drug_rep.unsqueeze(1).expand(drug_rep.shape[0], drug_rep.shape[0], drug_rep.shape[1]), text_rep.unsqueeze(0).expand(text_rep.shape[0], text_rep.shape[0], text_rep.shape[1]), dim=-1)
-            mx_d2t = torch.argmax(scores, axis=1)
-            mx_t2d = torch.argmax(scores, axis=0)
-            acc_d2t += sum((mx_d2t == torch.arange(mx_d2t.shape[0]).to(args.device)).int()).item()
-            acc_t2d += sum((mx_t2d == torch.arange(mx_t2d.shape[0]).to(args.device)).int()).item()
-            """
-            n_samples += drug_rep.shape[0]
+            n_samples += mol_rep.shape[0]
 
-        drug_rep = torch.cat(drug_rep_total, dim=0)
+        mol_rep = torch.cat(mol_rep_total, dim=0)
         text_rep = torch.cat(text_rep_total, dim=0)
         score = torch.zeros(n_samples, n_samples)
         mrr_m2t, mrr_t2m = 0, 0
         rec_m2t, rec_t2m = [0, 0, 0], [0, 0, 0]
         logger.info("Calculating cosine similarity...")
         for i in tqdm(range(n_samples)):
-            score[i] = torch.cosine_similarity(drug_rep[i], text_rep)
-        if hasattr(model, "predict_similarity_score") and args.rerank:
+            score[i] = similarity(mol_rep[i], text_rep)
+        if hasattr(model, "predict_similarity_score") and apply_rerank:
             logger.info("Reranking...")
         for i in tqdm(range(n_samples)):
             _, idx = torch.sort(score[i, :], descending=True)
             idx = idx.detach().cpu()
-            if hasattr(model, "predict_similarity_score") and args.rerank:
+            if hasattr(model, "predict_similarity_score") and apply_rerank:
                 idx = torch.cat((
                     rerank(val_dataset, model, [i], idx[:args.rerank_num].tolist(), score[i, idx[:args.rerank_num]], args.alpha_m2t, collator, args.device),
                     idx[args.rerank_num:]
@@ -173,7 +191,7 @@ def val_mtr(val_dataset, model, collator, args):
 
             _, idx = torch.sort(score[:, i], descending=True)
             idx = idx.detach().cpu()
-            if hasattr(model, "predict_similarity_score") and args.rerank:
+            if hasattr(model, "predict_similarity_score") and apply_rerank:
                 idx = torch.cat((
                     rerank(val_dataset, model, idx[:args.rerank_num].tolist(), [i], score[idx[:args.rerank_num], i], args.alpha_t2m, collator, args.device),
                     idx[args.rerank_num:]
@@ -198,23 +216,34 @@ def main(args, config):
     test_dataset = dataset.index_select(dataset.test_index)
     val_dataset.set_test()
     test_dataset.set_test()
-    collator = DrugCollator(config["data"]["drug"])
+    collator = MolCollator(config["data"]["mol"])
 
     model = SUPPORTED_MTR_MODEL[config["model"]](config["network"])
     if args.init_checkpoint != "None":
         ckpt = torch.load(args.init_checkpoint, map_location="cpu")
         if args.param_key != "None":
             ckpt = ckpt[args.param_key]
+        to_add = []
+        to_remove = []
+        for name in ckpt:
+            if "graph_" in name:
+                key_orig = name.replace("graph_", "structure_")
+                to_add.append((key_orig, ckpt[name]))
+                to_remove.append(name)
+        for elem in to_add:
+            ckpt[elem[0]] = elem[1]
+        for key in to_remove:
+            del ckpt[key]
         model.load_state_dict(ckpt)
     model = model.to(args.device)
-    
+
     if args.mode == "zero_shot":
         model.eval()
-        result = val_mtr(test_dataset, model, collator, args)
+        result = val_mtr(test_dataset, model, collator, args.rerank, args)
         print(result)
     elif args.mode == "train":
         train_mtr(train_dataset, val_dataset, model, collator, args)
-        result = val_mtr(test_dataset, model, collator, args)
+        result = val_mtr(test_dataset, model, collator, args.rerank, args)
         print(result)
 
 def add_arguments(parser):
@@ -260,7 +289,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = json.load(open(args.config_path, "r"))
     if args.dataset_mode == "sentence":
-        config["data"]["drug"]["featurizer"]["text"]["name"] = "TransformerSentenceTokenizer"
-        config["data"]["drug"]["featurizer"]["text"]["min_sentence_length"] = 5
+        config["data"]["mol"]["featurizer"]["text"]["name"] = "TransformerSentenceTokenizer"
+        config["data"]["mol"]["featurizer"]["text"]["min_sentence_length"] = 5
 
     main(args, config)

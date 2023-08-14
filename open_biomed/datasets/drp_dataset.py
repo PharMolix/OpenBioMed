@@ -4,6 +4,8 @@ logger = logging.getLogger(__name__)
 
 import copy
 import pickle
+import json
+import random
 import numpy as np
 import pandas as pd
 import os.path as osp
@@ -12,8 +14,8 @@ import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch
 
-from feat.drug_featurizer import SUPPORTED_DRUG_FEATURIZER, DrugMultiModalFeaturizer
-from feat.cell_featurizer import SUPPORTED_CELL_FEATURIZER
+from feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
 from utils.cell_utils import SUPPORTED_GENE_SELECTOR
 
 class DRPDataset(Dataset, ABC):
@@ -32,10 +34,10 @@ class DRPDataset(Dataset, ABC):
 
     def _featurize(self):
         # featurize drug
-        if len(self.config["drug"]["modality"]) > 1:
-            featurizer = DrugMultiModalFeaturizer(self.config["drug"])
+        if len(self.config["mol"]["modality"]) > 1:
+            featurizer = MolMultiModalFeaturizer(self.config["mol"])
         else:
-            featurizer = SUPPORTED_DRUG_FEATURIZER[self.config["drug"]["featurizer"]["structure"]["name"]](self.config["drug"]["featurizer"]["structure"])
+            featurizer = SUPPORTED_MOL_FEATURIZER[self.config["mol"]["featurizer"]["structure"]["name"]](self.config["mol"]["featurizer"]["structure"])
         for key in self.drug_dict:
             smi = self.drug_dict[key]
             self.drug_dict[key] = featurizer(smi)
@@ -64,6 +66,24 @@ class DRPDataset(Dataset, ABC):
             nfolds = self.config["split"]["nfolds"]
             indexes = np.random.permutation(N)
             self.fold_indexes = [indexes[int(N * k / nfolds): int(N * (k + 1) / nfolds)] for k in range(nfolds)]
+        elif self.config["split"]["type"] == "cell":
+            train_ratio, val_ratio = self.config["split"]["train"], self.config["split"]["val"]
+            cells = list(set(self.cell_dict.keys()))
+            random.shuffle(cells)
+            cell_num = len(cells)
+            train_cells = cells[:int(cell_num * train_ratio)]
+            val_cells = cells[int(cell_num * train_ratio): int(cell_num * (train_ratio + val_ratio))]
+            test_cells = cells[int(cell_num * (train_ratio + val_ratio)):]
+            self.train_indexes, self.val_indexes, self.test_indexes = [], [], []
+            for i in range(N):
+                if self.cell_index[i] in val_cells:
+                    self.val_indexes.append(i)
+                elif self.cell_index[i] in test_cells:
+                    self.test_indexes.append(i)
+                else:
+                    self.train_indexes.append(i)
+            self.train_indexes, self.val_indexes, self.test_indexes = np.array(self.train_indexes), np.array(self.val_indexes), np.array(self.test_indexes)
+
 
     def index_select(self, indexes):
         new_dataset = copy.copy(self)
@@ -88,7 +108,7 @@ class GDSC(DRPDataset):
         
     def _load_data(self):
         # load drug information
-        data_drug = np.loadtxt(osp.join(self.path, "GDSC_DrugAnnotation.csv"), dtype=str, delimiter=',', comments='?', skiprows=1)
+        data_drug = np.loadtxt(osp.join(self.path, "GDSC_MolAnnotation.csv"), dtype=str, delimiter=',', comments='?', skiprows=1)
         self.drug_dict = dict([
             (data_drug[i][0], data_drug[i][2]) for i in range(data_drug.shape[0])
         ])
@@ -115,7 +135,7 @@ class GDSC(DRPDataset):
 
         # load drug-cell response information
         data_IC50 = pd.read_csv(osp.join(self.path, "GDSC_DR.csv"))
-        self.drug_index = data_IC50["DRUG_NAME"].to_numpy()
+        self.drug_index = data_IC50["MOL_NAME"].to_numpy()
         self.cell_index = data_IC50["cell_tissue"].to_numpy()
         self.IC = data_IC50["LN_IC50"].astype(np.float)
         resp2val = {'R': 1, 'S': 0}
@@ -162,7 +182,36 @@ class TCGA(DRPDataset):
         self.cell_index = df["bcr_patient_barcode"].to_numpy()
         self.response = df["label"].to_numpy().astype(np.float)
 
+class GDSC2(DRPDataset):
+    def __init__(self, path, config, task="regression"):
+        super(GDSC2, self).__init__(path, config, task)
+        self._train_test_split()
+        
+    def _load_data(self):
+        pertid_ach_smiles_ic50s = json.load(open(osp.join(self.path, "gdsc.json")))
+        self.drug_index = [i[2] for i in pertid_ach_smiles_ic50s]
+        self.drug_dict = {}
+        for smiles in set(self.drug_index):
+            self.drug_dict[smiles] = smiles
+        self.drug_index = np.array(self.drug_index)
+        self.cell_index = [i[1] for i in pertid_ach_smiles_ic50s]
+        self.cell_index = np.array(self.cell_index)
+        self.IC = [float(i[-1]) for i in pertid_ach_smiles_ic50s]
+        if 'lnIC' in self.config and self.config['lnIC']:
+            self.IC = [np.log(ic) for ic in self.IC]
+        self.IC = np.array(self.IC)
+        self.response = np.zeros_like(self.IC)
+        
+        if 'ach2vec' in self.config['cell']:
+            self.cell_dict = json.load(open(osp.join(self.path, self.config['cell']['ach2vec'])))
+        else:
+            self.cell_dict = json.load(open(osp.join(self.path, "ach2gene.json")))
+        for k in self.cell_dict:
+            self.cell_dict[k] = np.array(self.cell_dict[k])
+
+
 SUPPORTED_DRP_DATASET = {
     "GDSC": GDSC,
-    "TCGA": TCGA
+    "TCGA": TCGA,
+    "GDSC2": GDSC2
 }

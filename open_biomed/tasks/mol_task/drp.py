@@ -20,7 +20,9 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from scipy.stats import pearsonr
 
 from datasets.drp_dataset import SUPPORTED_DRP_DATASET, TCGA
-from models.drp_model import TGDRP
+# from models.drp_model import TGDRP
+# from datasets.drp_dataset import SUPPORTED_DRP_DATASET, TCGA
+from models.task_model.drp_model import TGDRP
 from utils import EarlyStopping, AverageMeter, seed_all, roc_auc, metrics_average
 from utils.collators import DRPCollator
 
@@ -62,6 +64,7 @@ def train_drp(train_loader, val_loader, model, args):
             step_loss = loss.item()
             running_loss.update(step_loss)
             t.set_description("Loss=%.4lf" % (step_loss))
+        del drug, cell, label
         logger.info("Average training loss %.4lf" % (running_loss.get_average()))
 
         val_metrics = val_drp(val_loader, model, args)
@@ -75,11 +78,13 @@ def val_drp(val_loader, model, args):
 
     logger.info("Validating...")
     for drug, cell, label in tqdm(val_loader):
+        torch.cuda.empty_cache()
         if isinstance(cell, list):
             drug, cell, label = drug.to(args.device), [feat.to(args.device) for feat in cell], label.to(args.device)
         else:
             drug, cell, label = drug.to(args.device), cell.to(args.device), label.to(args.device)
-        pred = model(drug, cell)
+        with torch.no_grad():
+            pred = model(drug, cell)
         y_true.append(label.view(-1, 1).detach().cpu())
         y_pred.append(pred.detach().cpu())
     y_true = torch.cat(y_true, dim=0).numpy().flatten()
@@ -110,7 +115,8 @@ def main(args, config):
     # build model
     model = SUPPORTED_DRP_MODEL[config["model"]](config["network"])
     if config["model"] in ["TGSA", "TGDRP"]:
-        model.cluster_predefine = {i: j.to(args.device) for i, j in dataset.predefined_cluster.items()}
+        if config["data"]["cell"]["featurizer"]["name"] == "TGSA":
+            model.cluster_predefine = {i: j.to(args.device) for i, j in dataset.predefined_cluster.items()}
         model._build()
     model = model.to(args.device)
     if args.init_checkpoint != '':

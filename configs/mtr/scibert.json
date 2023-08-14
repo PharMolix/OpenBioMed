@@ -1,0 +1,26 @@
+{
+    "model": "scibert",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "bert",
+                    "max_length": 64,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 128,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+        "dropout": 0.1
+    }
+}

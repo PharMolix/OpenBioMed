@@ -1,8 +1,8 @@
 import numpy as np
 import math
-from PyBioMed.PyProtein import CTD
 
 def get_normalized_ctd(proteins):
+    from PyBioMed.PyProtein import CTD
     ctds = []
     for prot in proteins:
         ctds.append(np.array(list(CTD.CalculateCTD(prot).values())))

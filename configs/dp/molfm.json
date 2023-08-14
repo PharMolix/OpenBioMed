@@ -1,0 +1,54 @@
+{
+  "model": "molfm",
+  "data": {
+    "mol": {
+        "modality": ["structure", "text", "kg"],
+        "featurizer": {
+            "structure": {
+                "name": "BaseGNN" 
+            },
+            "text": {
+                "name": "TransformerTokenizer",
+                "max_length": 128,
+                "transformer_type": "bert",
+                "model_name_or_path": "./ckpts/bert_ckpts/pubmedbert_uncased"
+            },
+            "kg": {
+                "name": "id",
+                "kg_name": "BMKGV2",
+                "kg_path": "./kg_data",
+                "save_path": "./kg_data/kge",
+                "embed_dim": 256
+             }
+        }   
+    }
+  },
+  "network": {
+      "structure": {
+          "name": "molfm",
+          "gin_ckpt": "/share/project/biomed/GraphMVP/output/3D_hybrid_03_masking/GEOM_3D_nmol50000_nconf5_nupper1000/CL_1_VAE_1_AM_1/6_51_10_0.1/0.3_EBM_dot_prod_0.05_normalize_l2_detach_target_2_100_0/pretraining_model.pth",
+          "init_checkpoint": "./ckpts/fusion_ckpts/molfm.pth",
+          "param_key": "model",
+          "gin_hidden_dim": 300,
+          "gin_num_layers": 5,
+          "drop_ratio": 0.2,
+          "bert_config_path": "configs/mtr/kvplm_bert_config.json",
+          "bert_ckpt": "./ckpts/bert_ckpts/kvplm/ckpt_KV_1.pt",
+          "max_n_nodes": 64,
+          "projection_dim": 256,
+          "kge": {
+            "n_ents": 49111,
+            "n_rels": 16,
+            "norm": 1,
+            "hidden_size": 256,
+            "margin": 1.0
+          }
+      },
+      "pred_head": {
+          "hidden_size": [],
+          "activation": "relu",
+          "batch_norm": false,
+          "dropout": 0.1
+      }
+  }
+} 

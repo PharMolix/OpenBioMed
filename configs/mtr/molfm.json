@@ -1,0 +1,34 @@
+{
+    "model": "molfm",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 128,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "gin_hidden_dim": 300,
+        "gin_num_layers": 5,
+        "drop_ratio": 0.0,
+        "bert_config_path": "./configs/encoders/multimodal/molfm_bert_config.json",
+        "max_n_nodes": 128,
+        "projection_dim": 256,
+        "kge": {
+            "n_ents": 49151,
+            "n_rels": 16,
+            "norm": 2,
+            "hidden_size": 256,
+            "margin": 2.0
+        }
+    }
+}

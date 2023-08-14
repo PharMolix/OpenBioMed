@@ -1,96 +1,112 @@
 # OpenBioMed
-This repository holds OpenBioMed, an open-source toolkit for multi-modal representation learning in AI-driven biomedical research. Our focus is on multi-modal information, e.g. knowledge graphs and biomedical texts for drugs, proteins, and single cells, as well as a wide range of applications, including drug-target interaction prediction, molecular property prediction, cell-type prediction, molecule-text retrieval, molecule-text generation, and drug-response prediction. **Researchers can compose a large number of deep learning models including LLMs like BioMedGPT-1.6B and CellLM to facilitate downstream tasks.** We provide easy-to-use APIs and commands to accelerate life science research.
+## News 🎉
 
-## News!
+- [08/14] 🔥 Released implementation of **BioMedGPT-LM-7B** ([HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) and **BioMedGPT-10B** ([Technical Report](), [Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F) (password is `7a6b`), [Cite](#to cite biomedgpt)) and **DrugFM** ([Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), password is `7a6b`).
 
-- [04/23] 🔥The pre-alpha BioMedGPT model and OpenBioMed are available!
-- [06/12] 🔥The paper of CellLM is now avaliable on arxiv, and the latest checkpoint of CellLM has been updated on the cloud drive!
+    > BioMedGPT-LM-7B is the first commercial-friendly generative foundation model fine-tuned with biomedical corpus. It achieves comparable performance with human experts on biomedical QA benchmarks. BioMedGPT-10B further decyphers the language of life (molecular structures and protein sequences) with human natural language, demonstrating powerful performance in molecule and protein question answering. 
 
-## Features
+    > DrugFM is a multi-modal molecular foundation model jointly developed by Institute of AI Industry Research (AIR) and Beijing Academy of Artificial Intelligence, BAAI. DrugFM achieves SOTA on cross-modal retrieval by incorporating UniMAP, a universal SMILES-graph representation learning model that captures fine-grained properties of molecules.
 
-- **3 different modalities for drugs, proteins, and cell-lines**: molecular structure, knowledge graphs, and biomedical texts. We present a unified and easy-to-use pipeline to load, process, and fuse the multi-modal information.
-- **BioMedGPT-1.6B, including other 20 deep learning models**, ranging from CNNs and GNNs to Transformers. **BioMedGPT-1.6B** is a pre-trained multi-modal molecular foundation model with 1.6B parameters that associates 2D molecular graphs with texts. We also present **CellLM**, a single cell foundation model with 50M parameters.
-- The checkpoints of BioMedGPT-1.6B and CellLM can be downloaded from [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (password is `7a6b`). You can test the performance of BioMedGPT-1.6B on molecule-text retrieval by running `scripts/mtr/run.sh`, or test the performance of CellLM on cell type classification by running `scripts/ctc/train.sh`.
-- **8 downstream tasks** including AIDD tasks like drug-target interaction prediction and molecule property training, as wel as cross-modal tasks like molecule captioning and text-based molecule generation.  
+- [06/12] Released implementation of **MolFM** ([Paper](https://arxiv.org/abs/2307.09484), [Model](), [Cite](#to cite molfm)) and **CellLM** ([Paper](https://arxiv.org/abs/2306.04371), [Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), password is `7a6b`, [Cite](#to cite celllm)). 
+
+> MolFM is a multi-modal molecular foundation model that enables joint comprehension of molecular structures, biomedical documents and knowledge graphs. On cross-modal retrieval, MolFM outperforms existing models by 12.03% and 5.04% under zero-shot and fine-tuning settings. MolFM also excels in molecule captioning, text-to-molecule generation and molecule generation.
+
+> CellLM is the first large-scale cell representation learning model trained on both normal cells and cancer cells with divide-and-conquer contrastive learning. CellLM beats ScBERT on cell type annotation (71.8 vs 68.8), few-shot single-cell drug sensitivity prediction (88.9 vs 80.6) and single-omics cell line drug sensitivity prediction (93.4 vs 87.2).
+
+- [04/23] Released implementation of **BioMedGPT-1.6B** ([Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), password is `7a6b`) and **OpenBioMed**.
+
+## Table of contents
+
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Documentations](./docs)
+- [Cite us](#cite us)
+
+## Introduction
+
+This repository holds OpenBioMed, a Python deep learning toolkit for AI-empowered life science and biomedicine. OpenBioMed provides easy access to multimodal biomedical data, i.e. molecular structures, transcriptomics, knowledge graphs and biomedical texts for molecules, proteins, and single cells. OpenBioMed supports a wide range of downstream applications, ranging from traditional AI drug discovery tasks to newly-emerged multimodal challenges. 
+
+OpenBioMed provide researchers with easy-to-use APIs to:
+
+- **3 different modalities for molecules, proteins, and single cells**: molecular structures or transcriptomics, biomedical texts, and knowledge graphs. OpenBioMed provide a unified pipeline for researchers to access, process, and fuse these modalities.
+- **10 downstream tasks**, categorized into AI drug discovery (AIDD) tasks like drug-target binding affinity prediction and molecule property prediction, as well as multimodal tasks like molecule captioning and text-based molecule generation. 
+- **20+ deep learning models**, including [BioMedGPT-10B](), [MolFM](https://arxiv.org/abs/2307.09484), [CellLM](https://arxiv.org/abs/2306.04371). Researchers can flexibly compose different components to curate their own models.
 - **20+ datasets** that are most popular in AI-driven biomedical research. Reproductible benchmarks with abundant model combinations and comprehensive evaluations are provided.
-- **3 knowledge graphs** with extensive domain expertise. We present **BMKGv1**, a knowledge graph containing 6,917 drugs, 19,992 proteins, and 2,223,850 relationships with text descriptions. We offer APIs to load and process these graphs and link drugs and proteins based on structural information.
+
+Key features of OpenBioMed include:
+
+- **Unified Data Processing Pipeline**: easily load and transform the heterogeneous data from different biomedical entities and modalities into a unified format.
+- **Off-the-shelf Inference**: publicly available pre-trained models and inference demos, readily to be transferred to your own data or task. 
+- **Reproducible Model Zoo**: flexibly replicate and extend state-of-the-art models on existing and new applications.
+
+The following table shows the supported tasks, datasets and models in OpenBioMed. This is a continuing effort and we are working on further growing the list.
+
+|                  Task                   |         Supported Datasets         |              Supported Models               |
+| :-------------------------------------: | :--------------------------------: | :-----------------------------------------: |
+|          Cross-modal Retrieval          |               PCdes                |   KV-PLM, SciBERT, MoMu, GraphMVP, MolFM    |
+|           Molecule Captioning           |              ChEBI-20              |   MolT5, MoMu, GraphMVP, MolFM, BioMedGPT   |
+|     Text-based Molecule Generation      |              ChEBI-20              |         MolT5, SciBERT, MoMu, MolFM         |
+|       Molecule Question Answering       |             ChEMBL-QA              |           MolT5, MolFM, BioMedGPT           |
+|        Cell Type Classification         |          Zheng68k, Baron           |               scBERT, CellLM                |
+|  Single Cell Drug Response Prediction   |                GDSC                |            DeepCDR, TGSA, CellLM            |
+|      Molecule Property Prediction       |            MoleculeNet             | MolCLR, GraphMVP, MolFM, DeepEIK, BioMedGPT |
+| Drug-target Binding Affinity Prediction | Yamanishi08, BMKG-DTI, DAVIS, KIBA |         DeepDTA, MGraphDTA, DeepEIK         |
+| Protein-protein Interaction Prediction  |      SHS27k, SHS148k, STRING       |         PIPR, GNN-PPI, OntoProtein          |
+|       Protein Question Answering        |             UniProtQA              |                  BioMedGPT                  |
+
 
 ## Installation
 
-To support basic usage of OpenBioMed, run the following commands:
+1. (Optional) Creating conda environment:
 
 ```bash
-conda create -n OpenBioMed python=3.8
+conda create -n OpenBioMed python=3.9
 conda activate OpenBioMed
-conda install -c conda-forge rdkit
-
-pip install torch
-conda install pytorch-cluster -c pyg
-conda install pytorch-scatter -c pyg
-conda install pytorch-sparse -c pyg
-conda install pytorch-spline-conv -c pyg
-pip install torch-geometric
-# If you have issues installing the above PyTorch-related packages, instructions at https://pytorch.org/get-started/locally/
-# and https://github.com/pyg-team/pytorch_geometric may help. You may find it convenient to directly install PyTorch
-# Geometric and its extensions from wheels available at https://data.pyg.org/whl/.
-
-pip install transformers
-pip install ogb
-git clone https://github.com/BioFM/OpenBioMed.git # this repository
-cd OpenBioMed
-mkdir assets
-mkdir ckpts
 ```
 
-**Note** that additional packages may be required for specific downstream tasks.
+2. Install required packages:
+
+```
+pip install -r requirements.txt
+```
+
+3. Install Pyg dependencies:
+
+```bash
+pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-(your_torch_version)+(your_cuda_version).html
+pip install torch-geometric
+# If you have issues installing the above PyTorch-related packages, instructions at https://pytorch.org/get-started/locally/ and https://github.com/pyg-team/pytorch_geometric may help. You may find it convenient to directly install PyTorch Geometric and its extensions from wheels available at https://data.pyg.org/whl/.
+```
+
+**Note**: additional packages may be required for some downstream tasks.
 
 ## Quick Start
 
-Here, we provide a quick example of training DeepDTA for drug-target interaction prediction on the Davis dataset. For more models, datasets, and tasks, please refer to our [scripts](./open_biomed/scripts) and [documents](./docs).
+Checkout our [Jupytor notebooks](./examples) and [documentations](./docs) for a quick start!
 
-This quick example requires installation of an additional package:
-```bash
-cd assets
-git clone https://github.com/gadsbyfly/PyBioMed.git
-cd PyBioMed
-python setup.py install
-cd ..
-```
-
-### Step 1: Data Preparation
-
-Download the Davis dataset [here](https://github.com/hkmztrk/DeepDTA/tree/master/data) and run the following from `OpenBioMed/` directory (the top level of this repository):
-
-```
-mkdir datasets
-cd datasets
-mkdir dti
-mv [your_path_of_davis] ./dti/davis
-```
-
-### Step 2: Training and Evaluation
-
-Run:
-
-```bash
-cd ../open_biomed
-bash scripts/dti/train_baseline_regression.sh
-```
-
-The results will look like the following (running takes around 40 minutes on an NVIDIA A100 GPU):
-
-```bash
-INFO - __main__ - MSE: 0.2198, Pearson: 0.8529, Spearman: 0.7031, CI: 0.8927, r_m^2: 0.6928
-```
+| Name                                                         | Description                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [BioMedGPT-10B Inference](./examples/biomedgpt_inference.ipynb) | Example of using BioMedGPT-10B to answer questions about molecules and proteins. |
+| [Cross-modal Retrieval with MolFM](./examples/cross_modal_retrieval) | Example of using MolFM to retrieve the most related text descriptions for a molecule. |
+| [Text-based Molecule Generation with MolT5](./examples/molecule_generation.ipynb) | Example of using MolT5 to generate the SMILES string of a molecule based on text description. |
+| [Cell Type classification with CellLM](./examples/cell_type_classification.ipynb) | Example of using fine-tuned CellLM to classify cell types.   |
+| [Molecule Property prediction](./docs/dp.md)                 | Training & testing pipeline of the molecule propery prediction task |
+| [Drug-response prediction](./docs/drp.md)                    | Training & testing pipeline of the drug-response prediction task |
+| [Drug-target binding affinity prediction](./docs/dti.md)     | Training & testing pipeline of the drug-target binding affinity prediction task |
+| [Molecule captioning](./docs/molcap.md)                      | Training & testing pipeline of the molecule captioning task  |
 
 ## Contact Us
 
-As a pre-alpha version release, we are looking forward to user feedback to help us improve our framework. If you have any questions or suggestions, please open an issue or contact [dair@air.tsinghua.edu.cn](mailto:dair@air.tsinghua.edu.cn).
+We are looking forward to user feedback to help us improve our framework. If you have any questions or suggestions, please open an issue or contact [dair@air.tsinghua.edu.cn](mailto:dair@air.tsinghua.edu.cn).
 
 
 ## Cite Us
 
-If you find our open-sourced code & models helpful to your research, please consider giving this repo a star🌟 and citing📑 the following article. Thank you for your support!
+If you find our open-sourced code & models helpful to your research, please consider giving this repo a star🌟 and citing📑 the following articles. Thank you for your support!
+
+##### To cite OpenBioMed:
+
 ```
 @misc{OpenBioMed_code,
   author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
@@ -109,6 +125,25 @@ If you find our open-sourced code & models helpful to your research, please cons
       primaryClass={cs.LG}
 }
 ```
+##### To cite BioMedGPT:
+
+```
+
+```
+
+##### To cite MolFM:
+```
+@misc{luo2023molfm,
+      title={MolFM: A Multimodal Molecular Foundation Model}, 
+      author={Yizhen Luo and Kai Yang and Massimo Hong and Xing Yi Liu and Zaiqing Nie},
+      year={2023},
+      eprint={2307.09484},
+      archivePrefix={arXiv},
+      primaryClass={q-bio.BM}
+}
+```
+
+##### To cite CellLM:
 ```
 @misc{zhao2023largescale,
       title={Large-Scale Cell Representation Learning via Divide-and-Conquer Contrastive Learning}, 
