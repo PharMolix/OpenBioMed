@@ -14,6 +14,6 @@ You have the right to use BioMedGPT pursuant to relevant agreements, but you can
 8. publicly humiliating others, inventing stories to defame others, or committing other malicious attacks;
 9. harming the credibility of state organs;
 10. violating the public interest or public morality or not suitable for publication on BioMedGPT in accordance with the provisions of the relevant BioMedGPT agreements and rules;
-11. violating the Constitution, laws and administrative regulations; and
+11. violating the Constitution, laws and administrative regulations.
 
 You fully understand and acknowledge that you are responsible for all your activities and consequences that occur in using the BioMedGPT services, including any content, data or information you provide or publish. BioMedGPT will not be responsible for any losses thereof.
