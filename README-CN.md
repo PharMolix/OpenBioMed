@@ -106,6 +106,12 @@ pip install torch-geometric
 
 ## 局限性
 
+本项目包含BioMedGPT-LM-7B和BioMedGPT-10B，这些模型应当被负责任地使用。BioMedGPT不应用于向公众提供服务。我们严禁使用BioMedGPT生成任何违反适用法律法规的内容，如煽动颠覆国家政权、危害国家安全和利益、传播恐怖主义、极端主义、种族仇恨和歧视、暴力、色情或虚假有害信息等。BioMedGPT不对用户提供或发布的任何内容、数据或信息产生的任何后果负责。
+
+## 协议
+
+本项目代码依照[MIT](./LICENSE)协议开源。使用BioMedGPT-LM-7B和BioMedGPT-10B模型，需要遵循[使用协议](./USE_POLICY.md)。
+
 ## 联系方式
 
 我们期待您的反馈以帮助我们改进这一框架。若您在使用过程中有任何技术问题或建议，请随时在GitHub issue中提出。若您有商业合作的意向，请联系[opensource@pharmolix.com](mailto:opensource@pharmolix.com)。
@@ -119,10 +125,10 @@ pip install torch-geometric
 
 ```
 @misc{OpenBioMed_code,
-  author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
-  title={Code of OpenBioMed},
-  year={2023},
-  howpublished={\url{https://github.com/BioFM/OpenBioMed.git}}
+      author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
+      title={Code of OpenBioMed},
+      year={2023},
+      howpublished={\url{https://github.com/BioFM/OpenBioMed.git}}
 }
 ```
 

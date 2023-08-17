@@ -107,6 +107,12 @@ Checkout our [Jupytor notebooks](./examples) and [documentations](./docs) for a 
 
 ## Limitations
 
+This repository holds BioMedGPT-LM-7B and BioMedGPT-10B, and we emphasize the responsible and ethical use of these model. BioMedGPT should **NOT** be used to provide services to the general public. Generating any content that violates applicable laws and regulations, such as inciting subversion of state power, endangering national security and interests, propagating terrorism, extremism, ethnic hatred and discrimination, violence, pornography, or false and harmful information, etc. is strictly prohibited. BioMedGPT is not liable for any consequences arising from any content, data, or information provided or published by users.
+
+## License
+
+This repository is licensed under the [MIT License](./LICENSE). The use of BioMedGPT-LM-7B and BioMedGPT-10B models is accompanied with [Acceptable Use Policy](./USE_POLICY.md).
+
 ## Contact Us
 
 We are looking forward to user feedback to help us improve our framework. If you have any technical questions or suggestions, please feel free to open an issue. For commercial support or collaboration, please contact [opensource@pharmolix.com](mailto:opensource@pharmolix.com).
@@ -120,10 +126,10 @@ If you find our open-sourced code and models helpful to your research, please co
 
 ```
 @misc{OpenBioMed_code,
-  author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
-  title={Code of OpenBioMed},
-  year={2023},
-  howpublished={\url{https://github.com/BioFM/OpenBioMed.git}}
+      author={Luo, Yizhen and Yang, Kai and Hong, Massimo and Liu, Xing Yi and Zhao, Suyuan and Zhang, Jiahuan and Wu, Yushuai and Nie, Zaiqing},
+      title={Code of OpenBioMed},
+      year={2023},
+      howpublished={\url{https://github.com/BioFM/OpenBioMed.git}}
 }
 ```
 
