@@ -102,7 +102,7 @@ If you find our open-sourced code & models helpful to your research, please cons
 ```
 @misc{luo2023empowering,
       title={Empowering AI drug discovery with explicit and implicit knowledge}, 
-      author={Yizhen Luo and Kui Huang and Massimo Hong and Kai Yang and Jiahuan Zhang and Yushuai Wu and Zaiqin Nie},
+      author={Yizhen Luo and Kui Huang and Massimo Hong and Kai Yang and Jiahuan Zhang and Yushuai Wu and Zaiqing Nie},
       year={2023},
       eprint={2305.01523},
       archivePrefix={arXiv},
