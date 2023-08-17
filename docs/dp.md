@@ -4,10 +4,10 @@ Drug property prediction (DP) aims to predict molecule properties such as toxici
 
 #### Features
 
-- Supported models: [MolCLR](https://github.com/yuyangw/MolCLR), [MGraphDTA](https://github.com/guaguabujianle/MGraphDTA), [MoMu](https://github.com/ddz16/MoMu), [DeepEIK](https://arxiv.org/abs/2305.01523) and **BioMedGPT-1.6B**. More models will be implemented and more combinations will be tested in the future.
+- Supported models:  [MolCLR](https://arxiv.org/abs/2102.10056), [GraphMVP](https://arxiv.org/abs/2110.07728), [MoMu](https://arxiv.org/abs/2209.05481), [MolFM](https://arxiv.org/abs/2307.09484) and [DeepEIK](https://arxiv.org/abs/2305.01523). This is a continuing effort and we are working on further growing the list.
 - Supported datasets: 8 classification datasets i.e. BBBP, Tox21, ToxCast, SIDER, ClinTox, MUV, HIV and BACE of [MoleculeNet](https://moleculenet.org).
 - Supported split: random split, scaffold split and random-scaffold split;
-- Supproted evaluation: ROC_AUC.
+- Supproted evaluation: ROC-AUC.
 
 #### Data Preparation
 
@@ -28,19 +28,15 @@ RuntimeError: The 'data' object was created by an older version of PyG. If this 
 
 #### Model Preparation
 
-To finetune used **BioMedGPT-1.6B**, you should install the checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and placed it under `ckpts/fusion_ckpts/biomedgpt`
-
-To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and placed it under `ckpts/text_ckpts/`. 
+To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and put the checkpoint under `ckpts/text_ckpts/`. 
 
 To reproduce or finetune MolCLR, MoMu and GraphMVP used their trained checkpoints, you can download the checkpoints from:  
 MolCLR: https://github.com/yuyangw/MolCLR  
 MoMu: https://github.com/ddz16/MoleculePrediction  
 GraphMVP: https://github.com/chao1224/GraphMVP  
 
-You will need to rename and placed the checkpoints at the following paths.
+You will need to rename and put the checkpoints at the following paths.
 ```shell
-# BioMedGPT-1.6B
-ckpts/gnn_ckpts/biomedgpt/pretrain.pth
 # MolCLR
 ckpts/gnn_ckpts/molclr/model.pth
 # Momu
@@ -51,24 +47,30 @@ ckpts/gnn_ckpts/graphmvp/pretraining_model.pth
 
 #### Training and Evaluation
 
-You can run scripts using bash under `scripts/dp/`:
+You can run scripts using bash under `scripts/aidd/dp/`:
 
 ```bash
-scripts/dp
-├── train_biomedgpt.sh		# running BioMedGPT-1.6B on 8 datasets of moleculenet
-├── train_molclr.sh		# running MolCLR on 8 datasets of moleculenet
+scripts/aidd/dp
+├── train_molclr.sh		 # running MolCLR on 8 datasets of moleculenet
 ├── train_graphmvp.sh  # running GraphMVP on 8 datasets of moleculenet
 ├── train_momu.sh      # running MoMu on 8 datasets of moleculenet
+├── train_molfm.sh     # running MolFM on 8 datasets of moleculenet
 └── train_deepeik.sh   # running DeepEIK on 8 datasets of moleculenet
+```
+
+Example:
+
+```bash
+bash scripts/aidd/dp/train_molfm.sh cuda:0   # switch to your on cuda device or cpu
 ```
 
 You can also modify the scripts or directly use the following command:
 
 ```bash
-python tasks/mol_task/dp.py \
+python open_biomed/tasks/mol_task/dp.py \
 [--device DEVICE] \									  # gpu device id
 [--mode MODE] \											  # training mode, train: train-test
-[--config_path CONFIG_PATH] \				  # configuration file, see configs/dti/ for more details
+[--config_path CONFIG_PATH] \				  # configuration file, see configs/dp/ for more details
 [--dataset DATASET] \								  # datasets name, support MoleculeNet now
 [--dataset_path DATASET_PATH] \       # path to the datasets
 [--dataset_name DATASET_NAME] \       # name of the dataset

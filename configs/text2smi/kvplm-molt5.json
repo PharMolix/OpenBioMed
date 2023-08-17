@@ -1,0 +1,35 @@
+{
+    "model": "MolALBEF-T5",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+                    "max_length": 512
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 512,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "smiles": {
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+            "transformer_type": "t5",
+            "stop_grad": false
+        },
+        "text": {
+            "name": "kv-plm*",
+            "config_path": "./configs/encoders/text/kvplm.json",
+            "output_dim": 768,
+            "use_num_layers": 6
+        }
+    }
+}

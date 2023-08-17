@@ -21,17 +21,17 @@ from nltk.translate.bleu_score import corpus_bleu
 from Levenshtein import distance as lev
 
 from datasets.molcap_dataset import SUPPORTED_MOLCAP_DATASET
-from models.drug_encoder import Text2MolMLP
-from models.text2smi_model import Text2SMILESModel
+from models.multimodal.text2mol import Text2MolMLP
+from models.task_model.text2smi_model import Text2SMILESModel
 
-from utils import AverageMeter, ToDevice, DrugCollator
+from utils import AverageMeter, ToDevice, MolCollator
 
 def train_text2smi(train_loader, val_loader, test_loader, test_dataset, model, args, device):
     requires_grad = []
     for k, v in model.named_parameters():
         if v.requires_grad:
             requires_grad.append(k)
-    logger.info("parameters requires grad: %s" % (" ".join(requires_grad)))
+    logger.debug("parameters requires grad: %s" % (" ".join(requires_grad)))
 
     optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=args.weight_decay)
 
@@ -65,10 +65,11 @@ def val_text2smi(val_loader, model, device):
     val_loss = 0
 
     logger.info("Validating...")
-    for mol in val_loader:
-        mol = ToDevice(mol, device)
-        loss = model(mol)
-        val_loss += loss.detach().cpu().item()
+    with torch.no_grad():
+        for mol in val_loader:
+            mol = ToDevice(mol, device)
+            loss = model(mol)
+            val_loss += loss.detach().cpu().item()
     logger.info("validation loss %.4lf" % (val_loss / len(val_loader)))
     return val_loss / len(val_loader)
 
@@ -193,10 +194,10 @@ if __name__ == "__main__":
         exit(0)
 
     # load dataset
-    train_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["drug"], split="train")
-    val_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["drug"], split="validation")
-    test_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["drug"], split="test")
-    collator = DrugCollator(config["data"]["drug"])
+    train_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
+    val_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="validation")
+    test_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="test")
+    collator = MolCollator(config["data"]["mol"])
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, collate_fn=collator, num_workers=args.num_workers)
     val_dataloader = DataLoader(val_dataset, args.batch_size, shuffle=False, collate_fn=collator, num_workers=args.num_workers)
     test_dataloader = DataLoader(test_dataset, args.batch_size, shuffle=False, collate_fn=collator, num_workers=args.num_workers)

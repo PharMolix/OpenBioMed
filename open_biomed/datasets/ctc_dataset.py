@@ -11,7 +11,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 import torch
 from torch.utils.data import Dataset
 
-from feat.cell_featurizer import SUPPORTED_CELL_FEATURIZER
+from feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
 
 class CTCDataset(Dataset, ABC):
     def __init__(self, path, config, seed):
@@ -60,6 +60,24 @@ class Zheng68k(CTCDataset):
             self.train_index = train_index
             self.val_index = val_index
 
+class Baron(CTCDataset):
+    def __init__(self, path, config, seed):
+        super(Baron, self).__init__(path, config, seed)
+        self._train_test_split(seed)
+
+    def _load_data(self):
+        data = scanpy.read_h5ad(os.path.join(self.path, "Baron.h5ad"))
+        self.cells = data.X
+        self.label_dict, self.labels = np.unique(np.array(data.obs['celltype']), return_inverse=True)
+        self.num_classes = self.label_dict.shape[0]
+
+    def _train_test_split(self, seed):
+        split = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=seed).split(self.cells, self.labels)
+        for train_index, val_index in split:
+            self.train_index = train_index
+            self.val_index = val_index
+
 SUPPORTED_CTC_DATASETS = {
-    "zheng68k": Zheng68k,
+    "zheng68k": Zheng68k, 
+    "baron": Baron
 }        

@@ -1,0 +1,15 @@
+{
+    "gin_hidden_dim": 300,
+    "gin_num_layers": 5,
+    "drop_ratio": 0.0,
+    "bert_config_path": "./configs/encoders/multimodal/molfm_bert_config.json",
+    "max_n_nodes": 128,
+    "projection_dim": 256,
+    "kge": {
+        "n_ents": 49111,
+        "n_rels": 16,
+        "norm": 1,
+        "hidden_size": 256,
+        "margin": 1.0
+    }
+}

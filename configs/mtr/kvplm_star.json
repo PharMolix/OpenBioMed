@@ -1,0 +1,29 @@
+{
+    "model": "kv-plm*",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "KV-PLM*",
+                    "code_name": "./assets/KV-PLM*/bpe_coding.txt",
+                    "vocabulary": "./assets/KV-PLM*/bpe_vocab.txt",
+                    "vocabulary_threshold": 80,
+                    "max_length": 64
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 128,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "name": "kv-plm",
+        "bert_config_path": "./configs/encoders/multimodal/kvplm_bert_config.json",
+        "checkpoint_path": "./ckpts/text_ckpts/kvplm/ckpt_KV_1.pt",
+        "dropout": 0.1
+    }
+}

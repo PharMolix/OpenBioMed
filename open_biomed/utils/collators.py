@@ -2,12 +2,15 @@ from abc import ABC, abstractmethod
 
 import torch
 from torch_geometric.data import Data, Batch
-from transformers import BatchEncoding, DataCollatorWithPadding, BertTokenizer, T5Tokenizer, GPT2Tokenizer
+from transformers import BatchEncoding, DataCollatorWithPadding, BertTokenizer, T5Tokenizer, GPT2Tokenizer, EsmTokenizer
+from utils.mol_utils import SmilesTokenizer
 
 name2tokenizer = {
     "bert": BertTokenizer,
     "t5": T5Tokenizer,
-    "gpt2": GPT2Tokenizer
+    "gpt2": GPT2Tokenizer,
+    "esm": EsmTokenizer,
+    "unimap": SmilesTokenizer,
 }
 
 def ToDevice(obj, device):
@@ -41,12 +44,10 @@ class BaseCollator(ABC):
         elif isinstance(data[0], dict):
             result = {}
             for key in data[0]:
-                result[key] = self._collate_single([x[key] for x in data], config[key])
+                result[key] = self._collate_single([x[key] for x in data], config[key] if key in config else {})
             return result
         elif isinstance(data[0], int):
             return torch.tensor(data).view((-1, 1))
-        elif isinstance(data[0], list):
-            return [torch.tensor(i) for i in data]
 
     def _collate_multiple(self, data, config):
         cor = []
@@ -72,19 +73,17 @@ class BaseCollator(ABC):
         for key in config:
             self._build(config[key])
 
-class DrugCollator(BaseCollator):
+class MolCollator(BaseCollator):
     def __init__(self, config):
-        super(DrugCollator, self).__init__(config)
+        super(MolCollator, self).__init__(config)
 
-    def __call__(self, drugs):
+    def __call__(self, mols):
         if len(self.config["modality"]) > 1:
             batch = {}
             for modality in self.config["modality"]:
-                batch[modality] = self._collate_single([drug[modality] for drug in drugs], self.config["featurizer"][modality])
+                batch[modality] = self._collate_single([mol[modality] for mol in mols], self.config["featurizer"][modality])
         else:
-            if isinstance(drugs[0], dict):
-                drugs = [drug["structure"] for drug in drugs]
-            batch = self._collate_single(drugs, self.config["featurizer"]["structure"])
+            batch = self._collate_single(mols, self.config["featurizer"]["structure"])
         return batch
 
 class ProteinCollator(BaseCollator):
@@ -111,6 +110,14 @@ class CellCollator(BaseCollator):
         batch = self._collate_single(cells, self.config["featurizer"])
         return batch
 
+class TextCollator(BaseCollator):
+    def __init__(self, config):
+        super(TextCollator, self).__init__(config)
+
+    def __call__(self, texts):
+        batch = self._collate_single(texts, self.config)
+        return batch
+
 class TaskCollator(ABC):
     def __init__(self, config):
         super(TaskCollator, self).__init__()
@@ -123,28 +130,57 @@ class TaskCollator(ABC):
 class DPCollator(TaskCollator):
     def __init__(self, config):
         super(DPCollator, self).__init__(config)
-        self.drug_collator = DrugCollator(config)
+        self.mol_collator = MolCollator(config)
 
     def __call__(self, data):
-        drugs, labels = map(list, zip(*data))
-        return self.drug_collator(drugs), torch.stack(labels)
+        mols, labels = map(list, zip(*data))
+        return self.mol_collator(mols), torch.stack(labels)
 
 class DTICollator(TaskCollator):
     def __init__(self, config):
         super(DTICollator, self).__init__(config)
-        self.drug_collator = DrugCollator(config["drug"])
+        self.mol_collator = MolCollator(config["mol"])
         self.protein_collator = ProteinCollator(config["protein"])
 
     def __call__(self, data):
-        drugs, prots, labels = map(list, zip(*data))
-        return self.drug_collator(drugs), self.protein_collator(prots), torch.tensor(labels)
+        mols, prots, labels = map(list, zip(*data))
+        return self.mol_collator(mols), self.protein_collator(prots), torch.tensor(labels)
 
 class DRPCollator(TaskCollator):
     def __init__(self, config):
         super(DRPCollator, self).__init__(config)
-        self.drug_collator = DrugCollator(config["drug"])
+        self.mol_collator = MolCollator(config["mol"])
         self.cell_collator = CellCollator(config["cell"])
 
     def __call__(self, data):
-        drugs, cells, labels = map(list, zip(*data))
-        return self.drug_collator(drugs), self.cell_collator(cells), torch.tensor(labels)
+        mols, cells, labels = map(list, zip(*data))
+        return self.mol_collator(mols), self.cell_collator(cells), torch.tensor(labels)
+
+class PPICollator(TaskCollator):
+    def __init__(self, config, graph_ppi):
+        super(PPICollator, self).__init__(config)
+        self.graph_ppi = graph_ppi
+        self.protein_collator = ProteinCollator(config)
+
+    def __call__(self, data):
+        prots1, prots2, labels = map(list, zip(*data))
+        if self.graph_ppi:
+            return torch.LongTensor(prots1), torch.LongTensor(prots2), torch.stack(labels)
+        else:
+            return self.protein_collator(prots1), self.protein_collator(prots2), torch.stack(labels)
+
+class MolQACollator(TaskCollator):
+    def __init__(self, config, collate_outputs=True):
+        super(MolQACollator, self).__init__(config)
+        self.mol_collator = MolCollator(config["mol"])
+        self.question_collator = TextCollator(config["text"]["question"])
+        self.collate_outputs = collate_outputs
+        if self.collate_outputs:
+            self.answer_collator = TextCollator(config["text"]["answer"])
+
+    def  __call__(self, data):
+        mols, questions, answers = map(list, zip(*data))
+        if self.collate_outputs:
+            return self.mol_collator(mols), self.question_collator(questions), self.answer_collator(answers)
+        else:
+            return self.mol_collator(mols), self.question_collator(questions), answers

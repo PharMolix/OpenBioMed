@@ -1,0 +1,8 @@
+{
+    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+    "bert_config_path": "./configs/encoders/multimodal/kvplm_bert_config.json",
+    "dropout": 0.1,
+    "load_model": false,
+    "pooler": "default",
+    "init_checkpoint": "./ckpts/text_ckpts/kvplm/ckpt_KV_1.pt"
+}

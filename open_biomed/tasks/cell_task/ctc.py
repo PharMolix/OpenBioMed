@@ -19,9 +19,11 @@ from torch.utils.data.distributed import DistributedSampler
 from sklearn.metrics import accuracy_score, f1_score
 
 from datasets.ctc_dataset import SUPPORTED_CTC_DATASETS
-from models.ctc_model import CTCModel
+# from models.ctc_model import CTCModel
+# from datasets.ctc_dataset import SUPPORTED_CTC_DATASETS
+from models.task_model.ctc_model import CTCModel
 from utils import EarlyStopping, AverageMeter, seed_all, ToDevice
-from utils.ditributed_utils import init_distributed_mode, get_rank, is_main_process, concat_reduce
+from utils.distributed_utils import init_distributed_mode, get_rank, is_main_process, concat_reduce
 from utils.schedulars import CosineAnnealingWarmupRestarts
 
 def add_arguments(parser):
@@ -38,7 +40,7 @@ def add_arguments(parser):
 
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--batch_size", type=int, default=3)
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=60)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--patience", type=int, default=10)
     parser.add_argument("--logging_steps", type=int, default=1000)
@@ -47,17 +49,19 @@ def add_arguments(parser):
     return parser
 
 def train_ctc(train_loader, val_loader, model, device, args):
-    loss_fn = nn.CrossEntropyLoss()
+    class_num = np.unique(train_loader.dataset.labels, return_counts=True)[1].tolist()
+    class_weight = torch.tensor([(1 - (x / sum(class_num))) ** 2 for x in class_num]).to(device)
+    loss_fn = nn.CrossEntropyLoss(weight = class_weight)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    schedular = CosineAnnealingWarmupRestarts(
-        optimizer,
-        first_cycle_steps=15,
-        cycle_mult=2,
-        max_lr=args.lr,
-        min_lr=1e-6,
-        warmup_steps=5,
-        gamma=0.9
-    )
+    # schedular = CosineAnnealingWarmupRestarts(
+    #     optimizer,
+    #     first_cycle_steps=15,
+    #     cycle_mult=2,
+    #     max_lr=args.lr,
+    #     min_lr=1e-6,
+    #     warmup_steps=5,
+    #     gamma=0.9
+    # )
     stopper = EarlyStopping(mode="higher", patience=args.patience, filename=args.output_path)
     running_loss = AverageMeter(distributed=args.distributed, local_rank=args.local_rank, dest_device=0, world_size=args.world_size)
     running_acc = AverageMeter(distributed=args.distributed, local_rank=args.local_rank, dest_device=0, world_size=args.world_size)
@@ -96,7 +100,7 @@ def train_ctc(train_loader, val_loader, model, device, args):
                 running_acc.reset()
         if args.distributed:
             dist.barrier()
-        schedular.step()
+        # schedular.step()
         results = val_ctc(val_loader, model, device, args)
         logger.info(", ".join(["%s: %.4lf" % (k, v) for k, v in results.items()]))
         if args.distributed:
@@ -110,27 +114,30 @@ def train_ctc(train_loader, val_loader, model, device, args):
     return model
 
 def val_ctc(val_loader, model, device, args):
-    model.eval()
-    all_preds, all_y = [], []
-    for cell, label in tqdm(val_loader):
-        cell= ToDevice(cell, device)
-        logits = model(cell)
-        pred = nn.Softmax(dim=-1)(logits).argmax(dim=-1).detach().cpu()
-        pred[np.amax(np.array(pred), axis=-1) < args.unassign_threshold] = -1
+    with torch.no_grad():
+        model.eval()
+        all_preds, all_y = [], []
+        for cell, label in tqdm(val_loader):
+            cell= ToDevice(cell, device)
+            logits = model(cell)
+            pred = nn.Softmax(dim=-1)(logits).argmax(dim=-1).detach().cpu()
+            # pred[np.amax(np.array(pred), axis=-1) < args.unassign_threshold] = -1
 
-        all_preds.append(pred)
-        all_y.append(label)
-    if args.distributed:
-        dist.barrier()
-        all_preds = concat_reduce(all_preds, len(val_loader.dataset), args.world_size)
-        all_y = concat_reduce(all_y, len(val_loader.dataset), args.world_size)
-    else:
-        all_preds = torch.cat(all_preds, dim=0)
-        all_y = torch.cat(all_y, dim=0)
-    return {
-        "Accuracy": accuracy_score(all_preds, all_y),
-        "F1 Score": f1_score(all_preds, all_y),
-    }
+            all_preds.append(pred)
+            all_y.append(label)
+        if args.distributed:
+            dist.barrier()
+            all_preds = concat_reduce(all_preds, len(val_loader.dataset), args.world_size)
+            all_y = concat_reduce(all_y, len(val_loader.dataset), args.world_size)
+        else:
+            all_preds = torch.cat(all_preds, dim=0)
+            all_y = torch.cat(all_y, dim=0)
+        for i in range(20):
+            print(all_preds[i].item(), all_y[i].item())
+        return {
+            "Accuracy": accuracy_score(all_preds, all_y),
+            "F1 Score": f1_score(all_preds, all_y, average='macro'),
+        }
 
 def main(args, config):
     # prepare dataset

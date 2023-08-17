@@ -17,7 +17,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from datasets.dti_dataset import SUPPORTED_DTI_DATASETS
-from models.dti_model import DTIModel, DeepEIK4DTI
+# from models.dti_model import DTIModel, DeepEIK4DTI
+# from datasets.dti_dataset import SUPPORTED_DTI_DATASETS
+from models.task_model.dti_model import DTIModel, DeepEIK4DTI
 from utils import DTICollator, AverageMeter, EarlyStopping, ToDevice, metrics_average
 from utils.metrics import roc_auc, pr_auc, concordance_index, rm2_index
 from sklearn.metrics import f1_score, precision_score, recall_score, mean_squared_error
@@ -140,16 +142,16 @@ def main(args, config):
         test_dataset = dataset.index_select(dataset.test_index)
         train_dataset._build(
             test_dataset.pair_index, 
-            None if "kg" not in config["data"]["drug"]["modality"] else os.path.join(config["data"]["drug"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + ".pkl")
+            None if "kg" not in config["data"]["mol"]["modality"] else os.path.join(config["data"]["mol"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + ".pkl")
         )
         if val_dataset is not None:
             val_dataset._build(
                 test_dataset.pair_index, 
-                None if "kg" not in config["data"]["drug"]["modality"] else os.path.join(config["data"]["drug"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + ".pkl")
+                None if "kg" not in config["data"]["mol"]["modality"] else os.path.join(config["data"]["mol"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + ".pkl")
             )
         test_dataset._build(
             test_dataset.pair_index, 
-            None if "kg" not in config["data"]["drug"]["modality"] else os.path.join(config["data"]["drug"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + ".pkl")
+            None if "kg" not in config["data"]["mol"]["modality"] else os.path.join(config["data"]["mol"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + ".pkl")
         )
         collator = DTICollator(config["data"])
         train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collator)
@@ -159,7 +161,7 @@ def main(args, config):
             val_loader = None
         test_loader = DataLoader(test_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collator)
         
-        if len(config["data"]["drug"]["modality"]) > 1:
+        if len(config["data"]["mol"]["modality"]) > 1:
             model = DeepEIK4DTI(config["network"], pred_dim)
         else:
             model = DTIModel(config["network"], pred_dim)
@@ -182,18 +184,18 @@ def main(args, config):
             test_dataset = dataset.index_select(dataset.folds[i]["test"])
             train_dataset._build(
                 test_dataset.pair_index, 
-                None if "kg" not in config["data"]["drug"]["modality"] else os.path.join(config["data"]["drug"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + "-" + args.split_strategy + "-fold" + str(i) + ".pkl")
+                None if "kg" not in config["data"]["mol"]["modality"] else os.path.join(config["data"]["mol"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + "-" + args.split_strategy + "-fold" + str(i) + ".pkl")
             )
             test_dataset._build(
                 test_dataset.pair_index, 
-                None if "kg" not in config["data"]["drug"]["modality"] else os.path.join(config["data"]["drug"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + "-" + args.split_strategy + "-fold" + str(i) + ".pkl")
+                None if "kg" not in config["data"]["mol"]["modality"] else os.path.join(config["data"]["mol"]["featurizer"]["kg"]["save_path"], "dti-" + args.dataset + "-" + args.split_strategy + "-fold" + str(i) + ".pkl")
             )
             collator = DTICollator(config["data"])
             train_loader = DataLoader(train_dataset, args.batch_size, shuffle=True, num_workers=args.num_workers, collate_fn=collator)
             test_loader = DataLoader(test_dataset, args.batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collator)
             
             # prepare model
-            if len(config["data"]["drug"]["modality"]) > 1:
+            if len(config["data"]["mol"]["modality"]) > 1:
                 model = DeepEIK4DTI(config["network"], pred_dim)
             else:
                 model = DTIModel(config["network"], pred_dim)
@@ -225,7 +227,7 @@ def add_arguments(parser):
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--batch_size", type=int, default=32)
+    parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--patience", type=int, default=10)

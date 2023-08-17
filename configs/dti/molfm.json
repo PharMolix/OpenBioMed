@@ -1,0 +1,40 @@
+{
+    "model": "molfm",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                }
+            }
+        },
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "OneHot",
+                    "max_length": 1024
+                }
+            }
+        }
+    },
+    "network": {
+        "mol": {
+            "name": "molfm",
+            "config_path": "configs/encoders/multimodal/molfm.json",
+            "ckpt": "./ckpts/fusion_ckpts/molfm-hn/checkpoint_199.pth",
+            "param_key": "model"
+        },
+        "protein": {
+            "name": "cnn",
+            "config_path": "configs/encoders/protein/cnn.json"
+        },
+        "pred_head": {
+            "hidden_size": [1024, 1024, 256],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        }
+    }
+}

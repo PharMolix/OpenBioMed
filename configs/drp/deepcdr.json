@@ -1,0 +1,45 @@
+{
+    "model": "TGDRP",
+    "data": {
+        "mol": {
+            "modality": [
+                "structure"
+            ],
+            "featurizer": {
+                "structure": {
+                    "name": "TGSA"
+                }
+            }
+        },
+        "cell": {
+            "gene_selector": "TGSA",
+            "gene_feature": [
+                "EXP",
+                "MUT",
+                "CNV"
+            ],
+            "featurizer": {
+                "name": "TensorDict"
+            }
+        },
+        "split": {
+            "type": "cell",
+            "train": 0.8,
+            "val": 0.1,
+            "test": 0.1
+        }
+    },
+    "network": {
+        "input_dim_cell": 3,
+        "layer_drug": 3,
+        "dim_drug": 128,
+        "layer_cell": 3,
+        "dim_cell": 8,
+        "dropout": 0.2,
+        "cell_encoder": {
+            "name": "deepcdr",
+            "input_dim": 19379,
+            "output_dim": 100
+        }
+    }
+}

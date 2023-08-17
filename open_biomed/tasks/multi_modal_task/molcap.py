@@ -21,17 +21,17 @@ from nltk.translate.meteor_score import meteor_score
 from rouge_score import rouge_scorer
 
 from datasets.molcap_dataset import SUPPORTED_MOLCAP_DATASET
-from models.drug_encoder import Text2MolMLP
-from models.molcap_model import MolCapModel, GraphEnhancedMolCapModel
+from models.multimodal.text2mol import Text2MolMLP
+from models.task_model.molcap_model import MolCapModel, GraphEnhancedMolCapModel
 
-from utils import AverageMeter, ToDevice, DrugCollator
+from utils import AverageMeter, ToDevice, MolCollator
 
 def train_molcap(train_loader, val_loader, test_loader, test_dataset, model, args, device):
     requires_grad = []
     for k, v in model.named_parameters():
         if v.requires_grad:
             requires_grad.append(k)
-    logger.info("parameters requires grad: %s" % (" ".join(requires_grad)))
+    logger.debug("parameters requires grad: %s" % (" ".join(requires_grad)))
 
     optimizer = torch.optim.Adam([p for p in model.parameters() if p.requires_grad], lr=args.lr, weight_decay=args.weight_decay)
 
@@ -105,7 +105,7 @@ def test_molcap(test_dataset, test_loader, model, args, device):
         cid2smiles_path=os.path.join(args.text2mol_data_path, "cid_to_smiles.pkl"),
         cid2vec_path=os.path.join(args.text2mol_data_path, "test.txt")
     )
-    text2mol.load_state_dict(torch.load(args.text2mol_ckpt_path))
+    text2mol.load_state_dict(torch.load(args.text2mol_ckpt_path), strict=False)
     device = torch.device(args.device)
     text2mol.to(device)
     with open(args.caption_save_path, "w") as f:
@@ -125,6 +125,56 @@ def test_molcap(test_dataset, test_loader, model, args, device):
             rouge_scores.append(scorer.score(outputs[i], gts[i]))
             text2mol_scores.append(text2mol(test_dataset.smiles[i], outputs[i], device).detach().cpu().item())
             f.write(test_dataset.smiles[i] + '\t' + gts[i] + '\t' + outputs[i] + '\n')
+    bleu2 = corpus_bleu(gt_tokens, output_tokens, weights=(0.5, 0.5))
+    bleu4 = corpus_bleu(gt_tokens, output_tokens, weights=(0.25, 0.25, 0.25, 0.25))
+
+    return {
+        "BLEU-2": bleu2,
+        "BLEU-4": bleu4,
+        "Meteor": np.mean(meteor_scores),
+        "ROUGE-1": np.mean([rs['rouge1'].fmeasure for rs in rouge_scores]),
+        "ROUGE-2": np.mean([rs['rouge2'].fmeasure for rs in rouge_scores]),
+        "ROUGE-L": np.mean([rs['rougeL'].fmeasure for rs in rouge_scores]),
+        "Text2Mol": np.mean(text2mol_scores)
+    }
+
+def test_molcap_from_file(file, args, device):
+    tokenizer = BertTokenizerFast.from_pretrained(args.text2mol_bert_path)
+    output_tokens = []
+    gt_tokens = []
+    meteor_scores = []
+    rouge_scores = []
+    text2mol_scores = []
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'])
+    text2mol = Text2MolMLP(
+        ninp=768, 
+        nhid=600, 
+        nout=300, 
+        model_name_or_path=args.text2mol_bert_path, 
+        cid2smiles_path=os.path.join(args.text2mol_data_path, "cid_to_smiles.pkl"),
+        cid2vec_path=os.path.join(args.text2mol_data_path, "test.txt")
+    )
+    text2mol.load_state_dict(torch.load(args.text2mol_ckpt_path), strict=False)
+    device = torch.device(args.device)
+    text2mol.to(device)
+    with open(file, "r") as f:
+        f.readline()
+        for i, line in enumerate(f.readlines()):
+            line = line.rstrip("\n").split("\t")
+            print(i, line[0])
+            output_tokens.append(tokenizer.tokenize(line[1], truncation=True, max_length=512, padding='max_length'))
+            output_tokens[i] = list(filter(('[PAD]').__ne__, output_tokens[i]))
+            output_tokens[i] = list(filter(('[CLS]').__ne__, output_tokens[i]))
+            output_tokens[i] = list(filter(('[SEP]').__ne__, output_tokens[i]))
+
+            gt_tokens.append(tokenizer.tokenize(line[2], truncation=True, max_length=512, padding='max_length'))
+            gt_tokens[i] = list(filter(('[PAD]').__ne__, gt_tokens[i]))
+            gt_tokens[i] = list(filter(('[CLS]').__ne__, gt_tokens[i]))
+            gt_tokens[i] = [list(filter(('[SEP]').__ne__, gt_tokens[i]))]
+
+            meteor_scores.append(meteor_score(gt_tokens[i], output_tokens[i]))
+            rouge_scores.append(scorer.score(line[1], line[2]))
+            text2mol_scores.append(text2mol(line[0], line[1], device).detach().cpu().item())
     bleu2 = corpus_bleu(gt_tokens, output_tokens, weights=(0.5, 0.5))
     bleu4 = corpus_bleu(gt_tokens, output_tokens, weights=(0.25, 0.25, 0.25, 0.25))
 
@@ -167,21 +217,25 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     add_arguments(parser)
     args = parser.parse_args()
+    device = torch.device(args.device)
+    if args.mode == "test_from_file":
+        results = test_molcap_from_file(args.caption_save_path, args, device)
+        print(results)
+        exit(0)
+
     config = json.load(open(args.config_path))
 
-    device = torch.device(args.device)
-
     # load dataset
-    train_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["drug"], split="train")
-    val_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["drug"], split="validation")
-    test_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["drug"], split="test")
-    collator = DrugCollator(config["data"]["drug"])
+    train_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
+    val_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="validation")
+    test_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="test")
+    collator = MolCollator(config["data"]["mol"])
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, collate_fn=collator, num_workers=args.num_workers)
     val_dataloader = DataLoader(val_dataset, args.batch_size, shuffle=False, collate_fn=collator, num_workers=args.num_workers)
     test_dataloader = DataLoader(test_dataset, args.batch_size, shuffle=False, collate_fn=collator, num_workers=args.num_workers)
 
     # load model
-    if config["data"]["drug"]["featurizer"]["structure"]["name"] == "MultiScale":
+    if config["data"]["mol"]["featurizer"]["structure"]["name"] == "MultiScale":
         model = GraphEnhancedMolCapModel(config["network"])
     else:
         model = MolCapModel(config["network"])

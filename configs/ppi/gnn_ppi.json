@@ -1,0 +1,33 @@
+{
+    "model": "gnn_ppi",
+    "data": {
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "protein2vec",
+                    "max_length": 2000
+                }
+            }
+        }
+    },
+    "network": {
+        "name": "gin",
+        "feature_network": {
+            "name": "cnn_gru",
+            "input_len": 2000,
+            "input_dim": 13,
+            "cnn_dim": 1,
+            "pool_size": 3,
+            "output_dim": 256
+        },
+        "gnn": {
+            "use_jk": false,
+            "train_eps": true,
+            "hidden_dim": 512,
+            "num_layers": 1
+        },
+        "dropout": 0.5,
+        "feature_fusion": "mul"
+    }
+}

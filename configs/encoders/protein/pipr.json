@@ -1,0 +1,7 @@
+{
+    "input_len": 2000,
+    "input_dim": 13,
+    "hidden_dim": 32,
+    "dropout": 0.3,
+    "output_dim": 256
+}

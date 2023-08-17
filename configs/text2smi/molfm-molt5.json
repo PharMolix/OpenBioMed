@@ -1,0 +1,49 @@
+{
+    "model": "MolFM-T5",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+                    "max_length": 512
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 512,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+                }
+            }
+        }
+    },
+    "network": {
+        "smiles": {
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
+            "transformer_type": "t5",
+            "stop_grad": false
+        },
+        "text": {
+            "name": "molfm",
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0,
+            "bert_config_path": "./configs/encoders/multimodal/molfm_bert_config.json",
+            "max_n_nodes": 256,
+            "projection_dim": 256,
+            "kge": {
+                "n_ents": 49111,
+                "n_rels": 16,
+                "norm": 1,
+                "hidden_size": 256,
+                "margin": 1.0
+            },
+            "output_dim": 768,
+            "init_checkpoint": "./ckpts/fusion_ckpts/molfm.pth",
+            "param_key": "model",
+            "stop_grad": false
+        }
+    }
+}

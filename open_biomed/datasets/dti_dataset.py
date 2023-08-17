@@ -14,11 +14,11 @@ from collections import OrderedDict
 import torch
 from torch.utils.data import Dataset
 
-from feat.drug_featurizer import SUPPORTED_DRUG_FEATURIZER, DrugMultiModalFeaturizer
-from feat.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
+from feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
 from utils.mol_utils import can_smiles
 from utils.kg_utils import SUPPORTED_KG, embed
-from utils.split import kfold_split, cold_drug_split, cold_protein_split, cold_cluster_split
+from utils.split_utils import kfold_split, cold_drug_split, cold_protein_split, cold_cluster_split
 
 class DTIDataset(Dataset, ABC):
     def __init__(self, path, config, split_strategy, in_memory=True):
@@ -40,8 +40,8 @@ class DTIDataset(Dataset, ABC):
 
     def _build(self, eval_pair_index, save_path):
         # build after train / test datasets are determined for filtering out edges
-        if len(self.config["drug"]["modality"]) > 1:
-            kg_config = self.config["drug"]["featurizer"]["kg"]
+        if len(self.config["mol"]["modality"]) > 1:
+            kg_config = self.config["mol"]["featurizer"]["kg"]
             self.kg = SUPPORTED_KG[kg_config["kg_name"]](kg_config["kg_path"])
             self.drug2kg, self.drug2text, self.protein2kg, self.protein2text = self.kg.link(self)
             self.concat_text_first = self.config["concat_text_first"]
@@ -53,7 +53,7 @@ class DTIDataset(Dataset, ABC):
                     filter_out.append((self.drug2kg[smi], self.protein2kg[protein]))
             # embed once for consistency
             kge = embed(self.kg, 'ProNE', filter_out=filter_out, dim=kg_config["embed_dim"], save=True, save_path=save_path)
-            self.config["drug"]["featurizer"]["kg"]["kge"] = kge
+            self.config["mol"]["featurizer"]["kg"]["kge"] = kge
             self.config["protein"]["featurizer"]["kg"]["kge"] = kge
         else:
             self.concat_text_first = False
@@ -69,8 +69,8 @@ class DTIDataset(Dataset, ABC):
         return new_dataset
 
     def _configure_featurizer(self):
-        if len(self.config["drug"]["modality"]) > 1:
-            self.drug_featurizer = DrugMultiModalFeaturizer(self.config["drug"])
+        if len(self.config["mol"]["modality"]) > 1:
+            self.drug_featurizer = MolMultiModalFeaturizer(self.config["mol"])
             self.protein_featurizer = ProteinMultiModalFeaturizer(self.config["protein"])
             self.drug_featurizer.set_drug2kgid_dict(self.drug2kg)
             self.protein_featurizer.set_protein2kgid_dict(self.protein2kg)
@@ -78,8 +78,8 @@ class DTIDataset(Dataset, ABC):
                 self.drug_featurizer.set_drug2text_dict(self.drug2text)
                 self.protein_featurizer.set_protein2text_dict(self.protein2text)
         else:
-            drug_feat_config = self.config["drug"]["featurizer"]["structure"]
-            self.drug_featurizer = SUPPORTED_DRUG_FEATURIZER[drug_feat_config["name"]](drug_feat_config)
+            drug_feat_config = self.config["mol"]["featurizer"]["structure"]
+            self.drug_featurizer = SUPPORTED_MOL_FEATURIZER[drug_feat_config["name"]](drug_feat_config)
             protein_feat_config = self.config["protein"]["featurizer"]["structure"]
             self.protein_featurizer = SUPPORTED_PROTEIN_FEATURIZER[protein_feat_config["name"]](protein_feat_config)
 
@@ -89,7 +89,7 @@ class DTIDataset(Dataset, ABC):
         self.featurized_proteins = []
         for i_drug, i_protein in tqdm(self.pair_index):
             drug, protein = self.smiles[i_drug], self.proteins[i_protein]
-            if len(self.config["drug"]["modality"]) > 1 and self.concat_text_first:
+            if len(self.config["mol"]["modality"]) > 1 and self.concat_text_first:
                 processed_drug = self.drug_featurizer(drug, skip=["text"])
                 processed_protein = self.protein_featurizer(protein)
                 processed_drug["text"] = self.drug_featurizer["text"](self.drug2text[drug] + " [SEP] " + self.protein2text[protein])

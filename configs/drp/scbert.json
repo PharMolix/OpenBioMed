@@ -1,0 +1,55 @@
+{
+    "model": "TGDRP",
+    "data": {
+        "drug": {
+            "modality": [
+                "structure"
+            ],
+            "featurizer": {
+                "structure": {
+                    "name": "TGSA"
+                }
+            }
+        },
+        "cell": {
+            "gene_selector": "TGSA",
+            "gene_feature": [
+                "EXP",
+                "MUT",
+                "CNV"
+            ],
+            "featurizer": {
+                "name": "BarDict",
+                "n_bars": 5
+            },
+            "ach2vec": "/home/DAIR/zhaosy/home/DeepCE_sc/DeepCE/data/gdsc/ach2vec16906.json"
+        },
+        "split": {
+            "type": "cell",
+            "train": 0.8,
+            "val": 0.1,
+            "test": 0.1
+        }
+    },
+    "network": {
+        "input_dim_cell": 3,
+        "layer_drug": 3,
+        "dim_drug": 128,
+        "layer_cell": 3,
+        "dim_cell": 8,
+        "dropout": 0.2,
+        "cell_encoder": {
+            "name": "scbert",
+            "num_tokens": 7,
+            "dim": 200,
+            "depth": 6,
+            "max_seq_len": 16907,
+            "heads": 10,
+            "local_attn_heads": 0,
+            "g2v_position_emb": true,
+            "gene2vec_path": "/home/DAIR/zhaosy/home/scBERT/data/gene2vec_16906.npy",
+            "ckpt_path": "/home/DAIR/zhaosy/home/scBERT/checkpoint/panglao_pretrain.pth",
+            "param_key": "model_state_dict"
+        }
+    }
+}

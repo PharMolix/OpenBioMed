@@ -4,10 +4,10 @@ Drug-target interaction prediction aims to predict the binding relationships bet
 
 #### Features
 
-- Supported models: DeepDTA, MGraphDTA and DeepEIK. More models will be implemented and more combinations will be tested in the future.
+- Supported models: [DeepDTA](https://arxiv.org/abs/1801.10193), [MGraphDTA](https://pubs.rsc.org/en/content/articlelanding/2022/sc/d1sc05180f) and [DeepEIK](https://arxiv.org/abs/2305.01523). This is a continuing effort and we are working on further growing the list.
 - Supported datasets: 2 classification datasets i.e. Yamanishi08's and BMKG-DTI, 2 regression datasets i.e. Davis and KIBA.
-- Supported split: warm start; cold-drug; cold-protein; cold-cluster;
-- Supproted evaluation: ROC_AUC, PR_AUC, F1, Precision and Recall for classification; MSE, Pearson and Spearman coefficient, CI index and $r_m^2$ index for regression.
+- Supported split: warm, cold-drug, cold-protein, cold-cluster;
+- Supported evaluation: ROC_AUC, PR_AUC, F1, Precision and Recall for classification; MSE, Pearson coefficient, Spearman coefficient, CI index and $r_m^2$ index for regression.
 
 #### Additional Packages
 
@@ -27,8 +27,10 @@ cd PyBioMed
 python setup.py install
 cd ..
 #-------------------------------------------------------------------
+```
 
-# It is recommended to install cogdl for calculating network embeddings if you want to reproduce DeepEIK
+To reproduce DeepEIK, install cogdl for calculating network embeddings:
+```
 git clone https://github.com/THUDM/cogdl
 cd cogdl
 pip install -e .
@@ -36,29 +38,37 @@ pip install -e .
 
 #### Data Preparation
 
-Davis and KIBA can download from [DeepDTA](https://github.com/hkmztrk/DeepDTA/tree/master/data), Yamanishi08 and BMKG_DTI can download from [here](​https://drive.google.com/drive/folders/1AaUWLlOOua5BH7Q-bBVUBgOugDfWF3ip?usp=sharing). The 4 datasets should put under `datasets/dti/`. It is recommended to install BMKGv1 [here](​https://drive.google.com/drive/folders/1U2M3383-3dDAyLTAcXGcUagAEjlB6QgN?usp=sharing
-) and put it under `assets/kg/`.
+Davis and KIBA can download [here](https://github.com/hkmztrk/DeepDTA/tree/master/data), Yamanishi08 and BMKG_DTI can download from [here](https://drive.google.com/drive/folders/1AaUWLlOOua5BH7Q-bBVUBgOugDfWF3ip?usp=sharing). The 4 datasets should put under `datasets/dti/`. To reproduce DeepEIK, install [BMKGv1](https://drive.google.com/drive/folders/1U2M3383-3dDAyLTAcXGcUagAEjlB6QgN?usp=sharing
+) and put it under `assets/kg/` 
 
 #### Model Preparation
 
-To reproduce DeepEIK, you should install PubMedBERT (uncased) from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and put the checkpoint under `ckpts/text_ckpts/`. 
+To reproduce DeepEIK, you should install PubMedBERT from [huggingface](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext) and put the checkpoint under `ckpts/text_ckpts/`. 
 
 #### Training and Evaluation
 
-You can run scripts using bash under `scripts/dti/`:
+You can run scripts using bash under `scripts/aidd/dti/`:
 
 ```bash
-scripts/dti
-├── train_baseline.sh             # running DeepDTA or MGraphDTA on Yamanishi08's and BMKG-DTI under 4 settings
-├── train_baseline_regression.sh  # running DeepDTA or MGraphDTA on Davis or KIBA
+scripts/aidd/dti
+├── train_baseline.sh             # running DeepDTA, MGraphDTA or MolFM on Yamanishi08's and BMKG-DTI under 4 settings
+├── train_baseline_regression.sh  # running DeepDTA, MGraphDTA or MolFM on Davis or KIBA
 ├── train_deepeik.sh              # running DeepEIK on Yamanishi08's and BMKG-DTI under 4 settings
 └── train_deepeik_regression.sh   # running DeepEIK on Davis or KIBA
 ```
 
+Example:
+
+```bash
+bash scripts/aidd/dti/train_baseline.sh cuda:0 # switch to your own cuda device or cpu
+```
+
+
+
 You can also modify the scripts or directly use the following command:
 
 ```bash
-python tasks/mol_task/dti.py \
+python open_biomed/tasks/mol_task/dti.py \
 --device DEVICE \                   # gpu device id
 --mode MODE \                       # training mode, kfold: 5-fold validation, train: train-test
 --config_path CONFIG_PATH \         # configuration file, see configs/dti/ for more details
@@ -74,7 +84,7 @@ python tasks/mol_task/dti.py \
 --weight_decay WEIGHT_DECAY \       # weight decay, default is 1e-5
 --lr LR \                           # learning rate, default is 1e-3
 --batch_size BATCH_SIZE \           # batch size, default is 128
---gradient_accumulation_steps GRADIENT_ACCUMULATION_STEPS \ # steps for gradient accumulation
+--gradient_accumulation_steps GRADIENT_ACCUMULATION_STEPS \ # steps for gradient accumulation, default is 1
 --logging_steps LOGGING_STEPS \     # steps for printing training information
 --seed SEED                         # random seed
 ```

@@ -1,24 +1,20 @@
 ##  Molecule Captioning
 
-Molecule captioning is a multi-modal task that aims to generate texts for a molecule that describes its funcitons and properties  
+Molecule captioning is a multi-modal task that aims to generate texts for a molecule that describes its funcitons and properties. 
 
 #### Features
 
-- Supported models: MolT5, MoMu, BioMedGPT-1.6B and GNN models followed by a MolT5 decoder. 
+- Supported models: [MolT5](https://arxiv.org/abs/2204.11817), [GraphMVP](https://arxiv.org/abs/2110.07728) with MolT5 decoder, [MoMu](https://arxiv.org/abs/2209.05481), BioMedGPT-1.6B, and [MolFM](https://arxiv.org/abs/2307.09484). 
 - Supported dataset: ChEBI-20.
 - Supported evaluation: BLEU-2, BLEU-4, ROUGE score, METEOR score, Text2Mol score.
-
-Pipelines that only generate captioning results will be developed in the future.
 
 #### Additional Packages
 
 To evaluate the performance of molecule captioning, run the following:
 
 ```bash
-# NOTE: make sure you are at BioMed/ directory
 pip install spacy
 pip install rouge_score
-pip install sentencepiece
 
 pip install nltk
 python
@@ -29,38 +25,41 @@ python
 
 #### Data Preparation
 
-Install ChEBI-20 [here](https://github.com/blender-nlp/MolT5/tree/main/ChEBI-20_data) and put the files under `datasets/molcap/chebi-20`. For Text2Mol evaluation, download `cids_to_smiles.pkl` from [here](https://uofi.box.com/v/MolT5-cid-to-smiles) and `test.txt` from [here](https://github.com/blender-nlp/MolT5/tree/main/evaluation/text2mol_data) and put them under `assets/molcap/text2mol_data`.
+Install [ChEBI-20](https://github.com/blender-nlp/MolT5/tree/main/ChEBI-20_data) and put the files under `datasets/molcap/chebi-20`. For Text2Mol evaluation, download `cids_to_smiles.pkl` [here](https://uofi.box.com/v/MolT5-cid-to-smiles) and `test.txt`  [here](https://github.com/blender-nlp/MolT5/tree/main/evaluation/text2mol_data). Put them under `assets/text2mol`.
 
 #### Model Preparation
-Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-smiles2caption (fine-tuned for molecule caption) and MolT5 (not fine-tuned). You can also change the value of `"model_name_or_path"` to `"allenai/scibert_scivocab_uncased"` or `"laituan245/molt5-[small/base/large]"` in the `config/` JSON file to download the PLM when running the code.
+Install [SciBERT](https://huggingface.co/allenai/scibert_scivocab_uncased) and [MolT5](https://huggingface.co/laituan245) and put them under `ckpts/text_ckpts/`. Distinguish between MolT5-smiles2caption (fine-tuned for molecule caption) and MolT5 (not fine-tuned). 
 
-These multi-modal models are optional if you don't want to reproduce their results:
+To reproduce **MoMu**, install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu) and put it under `ckpts/fusion_ckpts/momu`.
 
-- Install MoMu checkpoints following instructions [here](https://github.com/ddz16/MoMu).
-- Install the BioMedGPT-1.6B checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`).
-
-The above 2 checkpoints should be placed under `ckpts/fusion_ckpts/` .
+To reproduce **MolFM** and **BioMedGPT-1.6B**, install the checkpoint [here](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg) (`password is 7a6b`) and put them under `ckpts/fusion_ckpts/`.
 
 For Text2Mol evaluation, download the Text2Mol checkpoint `test_outputfinal_weights.320.pt` [here](https://uofi.box.com/s/es16alnhzfy1hpagf55fu48k49f8n29x) and put it under `ckpts/fusion_ckpts/text2mol/`.
 
 #### Training and Evaluation
 
-You can run the Bash scripts under `scripts/molcap/`:
+You can run the Bash scripts under `scripts/multimodal/molcap/`:
 
 ```bash
-scripts/molcap/
-├── train.sh										# train MoMu / BioMedGPT-1.6B enhanced MolT5 model
-├── test.sh											# test MoMu / BioMedGPT-1.6B enhanced MolT5 model
-└── test_molt5.sh									# test the original MolT5 model
+scripts/multimodal/molcap/
+├── train.sh										# train molecule captioning model
+├── test.sh											# test molecule captioning model
+└── test_from_file.sh						# report evaluation metrics for molecule captions within a given file
+```
+
+Example:
+
+```bash
+bash scripts/multimodal/molcap/train.sh cuda:0 # switch to your own cuda device or cpu
 ```
 
 You can also modify the scripts or directly use the following command:
 
 ```bash
-python tasks/mol_task/molcap.py \
+python open_biomed/tasks/multi_modal_task/molcap.py \
 --device DEVICE \                         # gpu device id
 --mode MODE \                             # traning mode, select from [train, test, traintest]
---config_path CONFIG_PATH \               # configuration file, see configs/mtr/ for more details
+--config_path CONFIG_PATH \               # configuration file, see configs/molcap/ for more details
 --dataset DATASET \                       # dataset name, now only PCdes is available
 --dataset_path DATASET_PATH \             # path to the dataset
 --output_path OUTPUT_PATH \               # path to save checkpoint for training

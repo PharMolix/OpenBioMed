@@ -1,0 +1,24 @@
+{
+    "model": "pipr",
+    "data": {
+        "protein": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "protein2vec",
+                    "max_length": 2000
+                }
+            }
+        }
+    },
+    "network": {
+        "encoder": {
+            "name": "pipr",
+            "config_path": "configs/encoders/protein/pipr.json"
+        },
+        "feature_fusion": "multiply",
+        "pred_head": {
+            "hidden_size": []
+        }
+    }
+}

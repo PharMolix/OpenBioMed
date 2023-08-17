@@ -9,8 +9,8 @@ import csv
 import torch
 from torch.utils.data import Dataset
 
-from feat.drug_featurizer import DrugMultiModalFeaturizer
-from feat.text_featurizer import TextTransformerTokFeaturizer
+from feature.mol_featurizer import MolMultiModalFeaturizer
+from feature.text_featurizer import TextTransformerTokFeaturizer
 from utils.mol_utils import valid_smiles
 
 class MolCapDataset(Dataset, ABC):
@@ -26,8 +26,8 @@ class MolCapDataset(Dataset, ABC):
         raise NotImplementedError
 
     def _featurize(self):
-        featurizer = DrugMultiModalFeaturizer(self.config)
-        featurizer.set_drug2text_dict(self.smi2text)
+        featurizer = MolMultiModalFeaturizer(self.config)
+        featurizer.set_mol2text_dict(self.smi2text)
         self.mols = [featurizer(smi) for smi in self.smiles]
         if "additional_text" in self.config["modality"]:
             featurizer = TextTransformerTokFeaturizer(self.config["featurizer"]["additional_text"])

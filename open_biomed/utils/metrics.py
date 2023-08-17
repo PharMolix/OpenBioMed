@@ -11,6 +11,24 @@ def pr_auc(y_true, y_pred):
     pr_auc = metrics.auc(recall, precision)
     return pr_auc
 
+def multilabel_f1(y_true, y_pred):
+    TP, FP, TN, FN = 0, 0, 0, 0
+    for i in range(y_true.shape[0]):
+        for j in range(y_true.shape[1]):
+            if y_true[i][j] == y_pred[i][j]:
+                if y_true[i][j] == 1:
+                    TP += 1
+                else:
+                    TN += 1
+            elif y_true[i][j] == 1:
+                FN += 1
+            else:
+                FP += 1
+    precision = 1.0 * TP / (TP + FP + 1e-10)
+    recall = 1.0 * TP / (TP + FN + 1e-10)
+    f1 = 2 * precision * recall / (precision + recall + 1e-10)
+    return f1, precision, recall
+
 def get_k(y_obs, y_pred):
     y_obs = np.array(y_obs)
     y_pred = np.array(y_pred)

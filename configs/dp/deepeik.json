@@ -1,0 +1,51 @@
+{
+    "model": "DeepEIK",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text", "kg"],
+            "featurizer": {
+                "structure": {
+                    "name": "OneHot",
+                     "max_len": 357
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "max_length": 128,
+                    "transformer_type": "bert",
+                    "model_name_or_path": "./ckpts/text_ckpts/pubmedbert_uncased"
+                },
+                "kg": {
+                    "name": "KGE",
+                    "kg_name": "BMKG",
+                    "kg_path": "./origin-data/BMKG-DP/",
+                    "save_path": "./origin-data/BMKG-DP/kge",
+                    "embed_dim": 256
+                 }
+            }   
+        }
+    },
+    "network": {
+        "mol": {
+            "structure": {
+                "name": "cnn",
+                "config_path": "configs/encoders/mol/cnn.json"
+            },
+            "kg": {
+                "embedding_dim": 256
+            },
+            "text":{
+                "model_name_or_path": "./ckpts/text_ckpts/pubmedbert_uncased"
+            }
+        },
+        "pred_head": {
+            "hidden_size": [512, 256],
+            "activation": "relu",
+            "batch_norm": false,
+            "dropout": 0.1
+        },
+        "use_attention": false,
+        "text_dim": 768,
+        "projection_dim": 256,
+        "projection_dropout": 0.1
+    }
+}

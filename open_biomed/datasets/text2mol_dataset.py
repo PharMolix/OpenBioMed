@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import torch
 from torch.utils.data import Dataset
 
-from feat.text_featurizer import SUPPORTED_TEXT_FEATURIZER
+from feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
 
 class Text2MolGenDataset(Dataset, ABC):
     def __init__(self, path, config):
