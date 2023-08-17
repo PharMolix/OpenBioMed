@@ -32,6 +32,8 @@ cd mol2vec
 pip install .
 ```
 
+Install the mol2vec checkpoint [here](https://github.com/blender-nlp/MolT5/blob/main/evaluation/m2v_model.pkl) and put it under `assets`.
+
 #### Data Preparation
 
 Follow `Data Preparation` in [molecule captioning](./molcap.md) to install the ChEBI-20 dataset and Text2Mol model.
