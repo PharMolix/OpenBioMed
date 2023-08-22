@@ -99,9 +99,9 @@ class BioMedGPTV(BioMedGPTBase):
 
         # load protein structure encoder
         self.prot_structure_config = EsmConfig.from_json_file(os.path.join(config["protein"]["model_name_or_path"], "config.json"))
-        if config["protein"]["use_float16"]:
-            self.prot_structure_config.torch_dtype = "float16" 
         self.prot_structure_encoder = EsmModel(self.prot_structure_config)
+        if config["protein"]["use_float16"]:
+            self.prot_structure_encoder = self.prot_structure_encoder.half()
         if config["protein"]["lora"]:
             from peft import get_peft_model, LoraConfig, TaskType
             logger.info("applying lora to protein structure encoder")
@@ -122,9 +122,9 @@ class BioMedGPTV(BioMedGPTBase):
         self.llm_tokenizer.add_special_tokens({'unk_token': '<unk>'})
         logger.info("loading llm")
         self.llm_config = LlamaConfig.from_json_file(os.path.join(config["llm"]["model_name_or_path"], "config.json"))
-        if config["llm"]["use_float16"]:
-            self.llm_config.torch_dtype = "float16"
         self.llm = LlamaForCausalLM(self.llm_config)
+        if config["llm"]["use_float16"]:
+            self.llm = self.llm.half()
         for name, param in self.llm.named_parameters():
             param.requires_grad = False
         #self.llm = LlamaForCausalLM.from_pretrained(config["llm"]["ckpt"], torch_dtype=torch.float16)

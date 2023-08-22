@@ -141,6 +141,7 @@ cython_debug/
 /.vscode
 /assets/*
 /ckpts/**/*
+/datasets/**/*
 !/ckpts/**/.placeholder
 !/datasets/**/.placeholder
 
