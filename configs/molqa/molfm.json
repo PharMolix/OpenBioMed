@@ -33,7 +33,7 @@
         "mol": {
             "name": "molfm",
             "config_path": "./configs/encoders/multimodal/molfm.json",
-            "init_checkpoint": "./ckpts/fusion_ckpts/molfm-hn/checkpoint_189.pth",
+            "init_checkpoint": "./ckpts/fusion_ckpts/molfm.pth",
             "param_key": "model"
         },
         "text_encoder": {

@@ -36,7 +36,7 @@
             "use_float16": true
         },
         "llm": {
-            "model_name_or_path": "./ckpts/text_ckpts/biomed-llama-7b",
+            "model_name_or_path": "./ckpts/text_ckpts/biomedgpt-lm-7b",
             "use_float16": true
         }
     }

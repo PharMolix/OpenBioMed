@@ -10,7 +10,7 @@
                     "SMILES": {
                         "name": "transformer",
                         "transformer_type": "t5",
-                        "model_name_or_path": "./ckpts/text_ckpts/MolT5-large",
+                        "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
                         "max_length": 512
                     },
                     "graph": {
@@ -21,7 +21,7 @@
                     "name": "TransformerTokenizer",
                     "transformer_type": "t5",
                     "max_length": 512,
-                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-large"
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base"
                 }
             }
         }
@@ -48,7 +48,7 @@
             "stop_grad": false
         },
         "text": {
-            "model_name_or_path": "./ckpts/text_ckpts/MolT5-large",
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
             "stop_grad": false
         }
     }
