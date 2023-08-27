@@ -135,7 +135,16 @@ If you find our open-sourced code and models helpful to your research, please co
 
 ##### To cite BioMedGPT:
 
-Please wait for our upcoming updates on Arxiv.
+```
+@misc{luo2023biomedgpt,
+      title={BioMedGPT: Open Multimodal Generative Pre-trained Transformer for BioMedicine}, 
+      author={Yizhen Luo and Jiahuan Zhang and Siqi Fan and Kai Yang and Yushuai Wu and Mu Qiao and Zaiqing Nie},
+      year={2023},
+      eprint={2308.09442},
+      archivePrefix={arXiv},
+      primaryClass={cs.CE}
+}
+```
 
 ##### To cite DeepEIK:
 
