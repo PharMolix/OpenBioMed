@@ -9,7 +9,7 @@
 
 ## 更新信息 🎉
 
-- [08/14] 🔥 发布 **BioMedGPT-LM-7B** (🤗[HuggingFace模型](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) 、 **BioMedGPT-10B** (📃[技术报告](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-biomedgpt)) 和 **DrugFM** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
+- [08/14] 🔥 发布 **BioMedGPT-LM-7B** (🤗[HuggingFace模型](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) 、 **BioMedGPT-10B** (📃[论文](https://arxiv.org/abs/2308.09442v2), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-biomedgpt)) 和 **DrugFM** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
 
     > BioMedGPT-10B是由水木分子联合清华大学智能产业研究院联合发布的首个可商用的多模态生物医药大模型。该模型将以分子结构和蛋白质序列为代表的生命语言与人类的自然语言相结合，在生物医药专业问答能力比肩人类专家水平，在分子和蛋白质跨模态问答中表现出强大的性能。BioMedGPT-LM-7B是首个可商用、生物医药专用的Llama2大模型。
 
