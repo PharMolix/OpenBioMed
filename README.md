@@ -100,7 +100,7 @@ Checkout our [Jupytor notebooks](./examples) and [documentations](./docs) for a 
 | [Cross-modal Retrieval with MolFM](./examples/cross_modal_retrieval) | Example of using MolFM to retrieve the most related text descriptions for a molecule. |
 | [Text-based Molecule Generation with MolT5](./examples/molecule_generation.ipynb) | Example of using MolT5 to generate the SMILES string of a molecule based on text description. |
 | [Cell Type classification with CellLM](./examples/cell_type_classification.ipynb) | Example of using fine-tuned CellLM to classify cell types.   |
-| [Molecule Property prediction](./docs/dp.md)                 | Training & testing pipeline of the molecule propery prediction task |
+| [Molecule Property prediction](./docs/dp.md)                 | Training & testing pipeline of the molecule property prediction task |
 | [Drug-response prediction](./docs/drp.md)                    | Training & testing pipeline of the drug-response prediction task |
 | [Drug-target binding affinity prediction](./docs/dti.md)     | Training & testing pipeline of the drug-target binding affinity prediction task |
 | [Molecule captioning](./docs/molcap.md)                      | Training & testing pipeline of the molecule captioning task  |
