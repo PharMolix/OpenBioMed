@@ -129,6 +129,7 @@ class PubChem15K(MTRDataset):
                 text_name, smi = line[0], line[1]
                 try:
                     mol = Chem.MolFromSmiles(smi)
+                    smi = Chem.MolToSmiles(mol, isomericSmiles=False)
                     if mol is not None:
                         self.mols.append(smi)
                         text_list = []

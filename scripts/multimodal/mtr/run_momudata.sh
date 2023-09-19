@@ -14,7 +14,7 @@ FILTER_FILE="./datasets/mtr/momu_pretrain/pair.txt"
 
 if [ $MODEL = "molfm_plus" ];
 then
-    CKPT="./ckpts/fusion_ckpts/molfm-plus/checkpoint_39.pth"
+    CKPT="./ckpts/fusion_ckpts/molfm-plus/checkpoint_49.pth"
     PARAM_KEY="model"
     RERANK="no_rerank"
 elif [ $MODEL = "molfm" ]; 
@@ -49,8 +49,8 @@ do
 echo "seed is "${SEED}
 python open_biomed/tasks/multi_modal_task/mtr.py \
 --device ${DEVICE} \
---dataset PCdes \
---dataset_path ./datasets/mtr/PCdes \
+--dataset PubChem15K \
+--dataset_path /mnt/luoyz_dair/data_pretrain/MoMu_data \
 --dataset_mode ${TASK_MODE} \
 --filter \
 --filter_path ${FILTER_FILE} \
@@ -64,6 +64,6 @@ python open_biomed/tasks/multi_modal_task/mtr.py \
 --epochs ${EPOCHS} \
 --${RERANK} \
 --rerank_num 32 \
---alpha_m2t 0.95 \
---alpha_t2m 0.95
+--alpha_m2t 0.9 \
+--alpha_t2m 0.9
 done

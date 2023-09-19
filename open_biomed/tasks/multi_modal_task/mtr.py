@@ -11,13 +11,14 @@ import math
 from tqdm import tqdm
 
 import torch
+import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
 from utils import EarlyStopping, AverageMeter, MolCollator, ToDevice, recall_at_k
 from utils.optimizers import BertAdam
 from datasets.mtr_dataset import SUPPORTED_MTR_DATASETS
-from models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM
+from models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM, MolFMPlus, MoleculeSTM
 from models.task_model.mtr_model import MTRModel
 
 SUPPORTED_MTR_MODEL = {
@@ -26,8 +27,10 @@ SUPPORTED_MTR_MODEL = {
     "kv-plm*": KVPLM,
     "momu": MoMu, 
     "molfm": MolFM,
+    "molfm_plus": MolFMPlus,
     "drugfm": DrugFM,
     "biomedgpt": BioMedGPTCLIP,
+    "moleculestm": MoleculeSTM,
     "combined": MTRModel
 }
 
@@ -160,8 +163,10 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
 
             mol_rep = model.encode_mol(mol["structure"])
             if hasattr(model, "structure_proj_head"):
-                mol_rep = model.structure_proj_head(mol_rep)
+                mol_rep = F.normalize(model.structure_proj_head(mol_rep), dim=-1)
             text_rep = model.encode_text(mol["text"])
+            if hasattr(model, "text_proj_head"):
+                text_rep = F.normalize(model.text_proj_head(text_rep), dim=-1)
             mol_rep_total.append(mol_rep)
             text_rep_total.append(text_rep)
             
@@ -223,17 +228,6 @@ def main(args, config):
         ckpt = torch.load(args.init_checkpoint, map_location="cpu")
         if args.param_key != "None":
             ckpt = ckpt[args.param_key]
-        to_add = []
-        to_remove = []
-        for name in ckpt:
-            if "graph_" in name:
-                key_orig = name.replace("graph_", "structure_")
-                to_add.append((key_orig, ckpt[name]))
-                to_remove.append(name)
-        for elem in to_add:
-            ckpt[elem[0]] = elem[1]
-        for key in to_remove:
-            del ckpt[key]
         model.load_state_dict(ckpt)
     model = model.to(args.device)
 

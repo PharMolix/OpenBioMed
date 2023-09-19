@@ -11,6 +11,7 @@ from transformers import LlamaTokenizer, EsmModel, EsmConfig
 
 from models.base_models import MolEncoder, ProteinEncoder, TextEncoder
 from models.molecule.gnn_graphmvp import GNNGraphMVP
+#from models.multimodal.molkformer.mol_kformer import MolKFormer
 from models.multimodal.biomedgpt.modeling_llama import LlamaForCausalLM, LlamaConfig
 from utils.mol_utils import convert_pyg_batch
 
@@ -276,3 +277,152 @@ class BioMedGPTV(BioMedGPTBase):
     def encode_protein(self, protein):
         with self.maybe_autocast():
             return self.prot_structure_encoder(**protein).last_hidden_state
+
+"""
+class BioMedGPT2(BioMedGPTBase):
+    def __init__(self, config):
+        super(BioMedGPT2, self).__init__()
+        self.mol_kformer_config = config["kformer"]
+        # load molecule kformer
+        self.mol_kformer = MolKFormer(self.mol_kformer_config) 
+        if "ckpt" in self.mol_kformer_config:
+            self.mol_kformer.load_state_dict(torch.load(self.mol_kformer_config["ckpt"], map_location="cpu")["model"], strict=True)
+
+        # load llm
+        self.llm_tokenizer = LlamaTokenizer.from_pretrained(config["llm"]["ckpt"], use_fast=False, truncation_side="left")
+        #self.llm_tokenizer = GPT2Tokenizer.from_pretrained(llama_ckpt, use_fast=False, truncation_side="left")
+        self.llm_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        self.llm_tokenizer.add_special_tokens({'bos_token': '<s>'})
+        self.llm_tokenizer.add_special_tokens({'eos_token': '</s>'})
+        self.llm_tokenizer.add_special_tokens({'unk_token': '<unk>'})
+        logger.info("loading llm")
+        self.llm = LlamaForCausalLM.from_pretrained(config["llm"]["ckpt"], torch_dtype=torch.float16)
+        #self.llm = GPT2LMHeadModel.from_pretrained(llama_ckpt, torch_dtype=torch.float16)
+        self.llm.resize_token_embeddings(len(self.llm_tokenizer))
+        self.proj = nn.Linear(self.mol_kformer.kqformer_config.hidden_size, self.llm.config.hidden_size)
+
+    def prompt_wrap(self, mol_feats, text_input, prompt):
+        batch_size = mol_feats.shape[0]
+        wrapped_embeds, wrapped_attention_mask = [], []
+        for i in range(batch_size):
+            text = prompt[i].format(text_input=text_input[i])
+            p_before, p_after = text.split("<moleculeHere>")
+            p_before_tokens = self.llm_tokenizer(
+                p_before,
+                return_tensors='pt',
+                add_special_tokens=False,
+            ).to(mol_feats.device)
+            bos_token = torch.ones((1, 1), dtype=p_before_tokens.input_ids.dtype, device=p_before_tokens.input_ids.device)
+            p_before_tokens.input_ids = torch.cat([bos_token * self.llm_tokenizer.bos_token_id, p_before_tokens.input_ids], dim=1)
+            p_before_tokens.attention_mask = torch.cat([bos_token, p_before_tokens.attention_mask], dim=1)
+            p_after_tokens = self.llm_tokenizer(
+                p_after,
+                return_tensors='pt',
+                add_special_tokens=False
+            ).to(mol_feats.device)
+
+            p_before_embeds = self.llm.get_input_embeddings()(p_before_tokens.input_ids)
+            p_after_embeds = self.llm.get_input_embeddings()(p_after_tokens.input_ids)
+            wrapped_embeds.append(torch.cat([p_before_embeds, mol_feats[i].unsqueeze(0), p_after_embeds], dim=1))
+            wrapped_attention_mask.append(torch.ones(wrapped_embeds[-1].shape[:-1]).to(mol_feats.device))
+        return wrapped_embeds, wrapped_attention_mask
+
+    def forward(self, samples):
+        with self.maybe_autocast():
+            text_inputs_kformer = self.mol_kformer.tokenizer(
+                samples["text_inputs"],
+                return_tensors='pt',
+                add_special_tokens=True,
+                padding='max_length',
+                max_length=self.mol_kformer.max_seq_len
+            ).to(samples["mol"].x.device)
+            mol_feats = self.mol_kformer(samples["mol"], text_inputs_kformer)
+            mol_feats = self.proj(mol_feats)
+
+        inputs_embeds, inputs_attention_mask = self.prompt_wrap(mol_feats, samples["text_inputs"], samples["prompt"])
+        
+        wrapped_embeds, wrapped_attention_mask, wrapped_targets = [], [], []
+        for i in range(len(inputs_embeds)):
+            output_tokens = self.llm_tokenizer(
+                samples["text_outputs"][i],
+                return_tensors='pt',
+                add_special_tokens=False
+            ).to(inputs_embeds[i].device)
+            eos_token = torch.ones((1, 1), dtype=output_tokens.input_ids.dtype, device=output_tokens.input_ids.device)
+            output_tokens.input_ids = torch.cat([output_tokens.input_ids, eos_token * self.llm_tokenizer.eos_token_id], dim=1)
+            output_tokens.attention_mask = torch.cat([output_tokens.attention_mask, eos_token], dim=1)
+            output_embeds = self.llm.get_input_embeddings()(output_tokens.input_ids)
+            wrapped_embeds.append(torch.cat([inputs_embeds[i], output_embeds], dim=1))
+            wrapped_attention_mask.append(torch.cat([inputs_attention_mask[i], output_tokens.attention_mask], dim=1))
+            # do not apply loss to the padding
+            targets = output_tokens.input_ids.masked_fill(
+                output_tokens.input_ids == self.llm_tokenizer.pad_token_id, -100
+            )
+            # do not apply loss to the text input (i.e., instruction)
+            empty_targets = torch.ones(inputs_attention_mask[i].shape, dtype=torch.long).to(inputs_embeds[i].device).fill_(-100)
+            wrapped_targets.append(torch.cat([empty_targets, targets], dim=1))
+            
+        inputs_embeds, inputs_attention_mask, targets = self.add_padding(wrapped_embeds, wrapped_attention_mask, wrapped_targets)
+        with self.maybe_autocast():
+            outputs = self.llm(
+                inputs_embeds=inputs_embeds,
+                attention_mask=inputs_attention_mask,
+                labels=targets,
+                return_dict=True
+            )
+
+        return outputs.loss
+
+    @torch.no_grad()
+    def generate(
+        self,
+        samples,
+        use_nucleus_sampling=False,
+        num_beams=5,
+        max_length=256,
+        min_length=1,
+        top_p=0.9,
+        repetition_penalty=1.5,
+        length_penalty=1,
+        num_captions=1,
+        temperature=1,
+    ):
+        with self.maybe_autocast():
+            text_inputs_kformer = self.mol_kformer.tokenizer(
+                samples["text_inputs"],
+                return_tensors='pt',
+                add_special_tokens=True,
+                padding='max_length',
+                max_length=self.mol_kformer.max_seq_len
+            ).to(samples["mol"].x.device)
+            mol_feats = self.mol_kformer(samples["mol"], text_inputs_kformer)
+            mol_feats = self.proj(mol_feats)
+
+            wrapped_embeds, wrapped_attention_mask = self.prompt_wrap(mol_feats, samples["text_inputs"], samples["prompt"])
+            inputs_embeds, attention_mask = self.add_padding(wrapped_embeds, wrapped_attention_mask)
+            outputs = self.llm.generate(
+                inputs_embeds=inputs_embeds,
+                attention_mask=attention_mask,
+                do_sample=use_nucleus_sampling,
+                top_p=top_p,
+                temperature=temperature,
+                num_beams=num_beams,
+                max_length=max_length,
+                min_length=min_length,
+                repetition_penalty=repetition_penalty,
+                length_penalty=length_penalty,
+                num_return_sequences=num_captions,
+            )
+        
+        outputs[outputs == 0] = 2 # convert output id 0 to 2 (eos_token_id)
+        output_text = self.llm_tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        output_text = [text.strip() for text in output_text]
+
+        return output_text
+
+    def encode_mol(self, mol, text=None):
+        if text is None:
+            text = "No description for the molecule."
+        return self.mol_kformer(mol, text)
+
+"""

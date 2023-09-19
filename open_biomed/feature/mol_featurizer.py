@@ -164,9 +164,10 @@ class MolTransformerTokFeaturizer(BaseFeaturizer):
         super(MolTransformerTokFeaturizer, self).__init__()
         self.max_length = config["max_length"]
         self.tokenizer = self.name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"], model_max_length=self.max_length)
+        self.prompt = "" if "prompt" not in config else config["prompt"]
 
     def __call__(self, data):
-        result = self.tokenizer(data, max_length=self.max_length, padding=True, truncation=True)
+        result = self.tokenizer(data + self.prompt, max_length=self.max_length, padding=True, truncation=True)
         return result
 
 class MolBPEFeaturizer(BaseFeaturizer):

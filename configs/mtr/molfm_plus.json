@@ -1,0 +1,42 @@
+{
+    "model": "molfm_plus",
+    "data": {
+        "mol": {
+            "modality": ["structure", "text"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["smiles", "graph"],
+                    "smiles": {
+                        "name": "transformer",
+                        "transformer_type": "t5",
+                        "max_length": 256,
+                        "model_name_or_path": "./ckpts/text_ckpts/t5-base"
+                    },
+                    "graph": {
+                        "name": "BaseGNN"
+                    }
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "t5",
+                    "max_length": 256,
+                    "model_name_or_path": "./ckpts/text_ckpts/t5-base"
+                }
+            }
+        }
+    },
+    "network": {
+        "structure": {
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0
+        },
+        "text": {
+            "config_file": "./configs/encoders/multimodal/molfm_t5_config.json"
+        },
+        "tokenizer": "./ckpts/text_ckpts/t5-base",
+        "max_n_atoms": 256,
+        "projection_dim": 256
+    }
+}

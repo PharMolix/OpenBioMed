@@ -136,6 +136,15 @@ class DPCollator(TaskCollator):
         mols, labels = map(list, zip(*data))
         return self.mol_collator(mols), torch.stack(labels)
 
+class DDICollator(TaskCollator):
+    def __init__(self, config):
+        super(DDICollator, self).__init__(config)
+        self.mol_collator = MolCollator(config['mol'])
+
+    def __call__(self, data):
+        molA, molB, labels = map(list, zip(*data))
+        return self.mol_collator(molA), self.mol_collator(molB), torch.tensor(labels)
+
 class DTICollator(TaskCollator):
     def __init__(self, config):
         super(DTICollator, self).__init__(config)
