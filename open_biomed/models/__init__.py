@@ -4,6 +4,7 @@ from models.cell import *
 from models.knowledge import *
 from models.text import *
 from models.multimodal import *
+from models.multimodal.molkformer import *
 
 SUPPORTED_MOL_ENCODER = {
     "cnn": MolCNN,
@@ -18,7 +19,8 @@ SUPPORTED_MOL_ENCODER = {
     "biomedgpt-10b": BioMedGPTV,
     "kv-plm": KVPLM,
     "momu": MoMu,
-    "molfm": MolFM
+    "molfm": MolFM,
+    "molkformer":MolKFormer
 }
 
 SUPPORTED_MOL_DECODER = {

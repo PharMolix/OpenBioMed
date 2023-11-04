@@ -1,0 +1,24 @@
+{
+    "model": "molstm-MegaMolBART",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES", "graph"],
+                    "SMILES": {
+                        "name": "moleculeSTM",
+                        "transformer_type": "molbart",
+                        "model_name_or_path": "./open_biomed/models/MoleculeSTM/bart_vocab.txt",
+                        "max_length": 512
+                    },
+                    "graph": {
+                        "name": "BaseGNN"
+                    }
+                }
+            }
+        }
+    }
+
+}

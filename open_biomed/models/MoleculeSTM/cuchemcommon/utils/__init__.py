@@ -1,0 +1,1 @@
+from cuchemcommon.utils.singleton import Singleton

@@ -1,0 +1,1 @@
+from models.MoleculeSTM.models.mega_molbart.megatron_bart import MegatronBART
