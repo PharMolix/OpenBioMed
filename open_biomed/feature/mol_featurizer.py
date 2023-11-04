@@ -23,6 +23,7 @@ RDLogger.DisableLog("rdApp.*")
 from sklearn.preprocessing import OneHotEncoder
 from torch_geometric.data import Data
 from transformers import BertTokenizer, T5Tokenizer
+from models.MoleculeSTM.models.mega_molbart.tokenizer import MolEncTokenizer
 
 from feature.base_featurizer import BaseFeaturizer
 from feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
@@ -167,6 +168,21 @@ class MolTransformerTokFeaturizer(BaseFeaturizer):
 
     def __call__(self, data):
         result = self.tokenizer(data, max_length=self.max_length, padding=True, truncation=True)
+        return result
+
+class MolSTMFeaturizer(BaseFeaturizer):
+    name2tokenizer = {
+        "molbart": MolEncTokenizer,
+    }
+
+    def __init__(self, config):
+        super(MolSTMFeaturizer, self).__init__()
+        self.tokenizer = self.name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"])
+
+    def __call__(self, data):
+        result = self.tokenizer.tokenize(data, pad=False)
+        result = self.tokenizer.convert_tokens_to_ids(result['original_tokens'])
+
         return result
 
 class MolBPEFeaturizer(BaseFeaturizer):
@@ -783,6 +799,7 @@ SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER = {
     "OneHot": MolOneHotFeaturizer,
     "KV-PLM*": MolBPEFeaturizer,
     "transformer": MolTransformerTokFeaturizer,
+    "moleculeSTM": MolSTMFeaturizer,
     "fp": MolFPFeaturizer,
     "TGSA": MolTGSAFeaturizer,
     "ogb": MolGraphFeaturizer,

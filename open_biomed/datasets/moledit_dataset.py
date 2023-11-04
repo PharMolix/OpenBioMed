@@ -59,7 +59,7 @@ class ZINC250K(MoleditDataset):
         self.split = split
         super(ZINC250K, self).__init__(path, config)
 
-    def _load_data(self, subset_size=1000):
+    def _load_data(self, subset_size=None):
 
         SMILES_file = os.path.join(self.path, "raw/250k_rndm_zinc_drugs_clean_3.csv")
         df = pd.read_csv(SMILES_file)
