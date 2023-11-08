@@ -1,0 +1,40 @@
+{
+    "model": "molstm-MegaMolBART",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES"],
+                    "SMILES": {
+                        "name": "moleculeSTM",
+                        "transformer_type": "molbart",
+                        "model_name_or_path": "./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt",
+                        "max_length": 512
+                    }
+                }
+            }
+        }
+    },
+    "network": {
+        "smiles": {
+            "name": "molstm",
+            "structure": {
+                "name": "magamolbart",
+                "output_dim": 256,
+                "MegaMolBART_generation_model_dir" : "./ckpts/fusion_ckpts/pretrained_MegaMolBART/checkpoints",
+                "vocab_path": "./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt"
+            },
+            "text": {
+                "output_dim": 768,
+                "ckpt": "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_SMILES/text_model.pth",
+                "bert_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+            },
+            "structure_proj_ckpt": "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_SMILES/mol2latent_model.pth",
+            "text_proj_ckpt": "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_SMILES/text2latent_model.pth",
+            "projection_dim": 256
+        }
+
+        }
+}

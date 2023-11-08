@@ -6,6 +6,7 @@ from models.text import *
 from models.multimodal import *
 from models.multimodal.molkformer import *
 
+
 SUPPORTED_MOL_ENCODER = {
     "cnn": MolCNN,
     "tgsa": GINTGSA,
@@ -20,7 +21,8 @@ SUPPORTED_MOL_ENCODER = {
     "kv-plm": KVPLM,
     "momu": MoMu,
     "molfm": MolFM,
-    "molkformer":MolKFormer
+    "molkformer": MolKFormer,
+    "molstm": MoleculeSTM
 }
 
 SUPPORTED_MOL_DECODER = {

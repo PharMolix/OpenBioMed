@@ -10,7 +10,7 @@
                     "SMILES": {
                         "name": "moleculeSTM",
                         "transformer_type": "molbart",
-                        "model_name_or_path": "./open_biomed/models/MoleculeSTM/bart_vocab.txt",
+                        "model_name_or_path": "./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt",
                         "max_length": 512
                     },
                     "graph": {

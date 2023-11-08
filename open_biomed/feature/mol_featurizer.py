@@ -23,7 +23,7 @@ RDLogger.DisableLog("rdApp.*")
 from sklearn.preprocessing import OneHotEncoder
 from torch_geometric.data import Data
 from transformers import BertTokenizer, T5Tokenizer
-from models.MoleculeSTM.models.mega_molbart.tokenizer import MolEncTokenizer
+from models.multimodal.mega_molbart.tokenizer import MolEncTokenizer
 
 from feature.base_featurizer import BaseFeaturizer
 from feature.kg_featurizer import SUPPORTED_KG_FEATURIZER

@@ -1,16 +1,69 @@
 import os
 import copy
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import AutoModel, AutoTokenizer
-from models.MoleculeSTM.models.mega_molbart.mega_mol_bart import MegaMolBART
-from models.MoleculeSTM.models import GNN, GNN_graphpred, MLP
+from models.multimodal.mega_molbart.mega_mol_bart import MegaMolBART
+from models.multimodal.moleculestm import MLP
+from models.multimodal.moleculestm import GNN, GNN_graphpred
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, Descriptors
 from rdkit import DataStructs
 lg = RDLogger.logger()
 lg.setLevel(RDLogger.CRITICAL)
+
+
+
+
+# This is for BERT
+def padarray(A, size, value=0):
+    t = size - len(A)
+    return np.pad(A, pad_width=(0, t), mode='constant', constant_values = value)
+
+
+# This is for BERT
+def preprocess_each_sentence(sentence, tokenizer, max_seq_len):
+    text_input = tokenizer(
+        sentence, truncation=True, max_length=max_seq_len,
+        padding='max_length', return_tensors='np')
+    
+    input_ids = text_input['input_ids'].squeeze()
+    attention_mask = text_input['attention_mask'].squeeze()
+
+    sentence_tokens_ids = padarray(input_ids, max_seq_len)
+    sentence_masks = padarray(attention_mask, max_seq_len)
+    return [sentence_tokens_ids, sentence_masks]
+
+
+# This is for BERT
+def prepare_text_tokens(device, description, tokenizer, max_seq_len):
+    B = len(description)
+    tokens_outputs = [preprocess_each_sentence(description[idx], tokenizer, max_seq_len) for idx in range(B)]
+    tokens_ids = [o[0] for o in tokens_outputs]
+    masks = [o[1] for o in tokens_outputs]
+    tokens_ids = torch.Tensor(tokens_ids).long().to(device)
+    masks = torch.Tensor(masks).bool().to(device)
+    return tokens_ids, masks
+
+    
+def get_molecule_repr_MoleculeSTM(molecule_data, mol2latent=None, molecule_type="SMILES", MegaMolBART_wrapper=None, molecule_model=None):
+    if molecule_type == "SMILES":
+        embedding, pad_mask = MegaMolBART_wrapper.smileslist2embedding(molecule_data)  # [pad, B, d], [pad, B]
+        molecule_repr = embedding[0, :, :]  # [B, d]
+    else:
+        molecule_repr = molecule_model(molecule_data)
+    
+    if mol2latent is not None:
+        molecule_repr = mol2latent(molecule_repr)
+    return molecule_repr
+
+
+def freeze_network(model):
+    for param in model.parameters():
+        param.requires_grad = False
+    return
 
 
 def get_SMILES_list(args):

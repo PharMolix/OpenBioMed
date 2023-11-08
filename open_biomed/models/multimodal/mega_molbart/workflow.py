@@ -4,7 +4,6 @@ from functools import singledispatch
 from typing import List
 
 import numpy as np
-from models.MoleculeSTM.cuchemcommon.data import GenerativeWfDao
 from rdkit.Chem import PandasTools, CanonSmiles
 
 logger = logging.getLogger(__name__)
@@ -25,6 +24,16 @@ def _(embedding, radius, cnt, shape):
         distorteds.append(distorted)
 
     return distorteds
+
+class GenerativeWfDao(object):
+
+    def fetch_id_from_chembl(self, id: List):
+        """
+        Fetch molecular details for a list of molecules. The values in the list
+        of molecules depends on database/service used. For e.g. it could be
+        ChemblId or molreg_id for Chemble database.
+        """
+        return NotImplemented
 
 
 class BaseGenerativeWorkflow:

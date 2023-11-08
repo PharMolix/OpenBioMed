@@ -1,14 +1,56 @@
+import logging
+logger = logging.getLogger(__name__)
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from collections.abc import Sequence
+
 from torch_geometric.nn import (MessagePassing, global_add_pool,
                                 global_max_pool, global_mean_pool)
-from torch_geometric.nn.inits import glorot, zeros
 from torch_geometric.utils import add_self_loops, softmax, degree
-from torch_scatter import scatter_add
-from ogb.graphproppred.mol_encoder import AtomEncoder, BondEncoder
-from collections import OrderedDict
 
+from models.base_models import MolEncoder, TextEncoder
+from transformers import BertModel
+from models.multimodal.mega_molbart.mega_mol_bart import MegaMolBART
+
+class AtomEncoder(torch.nn.Module):
+    def __init__(self, emb_dim):
+        super(AtomEncoder, self).__init__()
+        
+        self.atom_embedding_list = torch.nn.ModuleList()
+
+        for i, dim in enumerate([119, 4, 12, 12, 10, 6, 6, 2, 2]):
+            emb = torch.nn.Embedding(dim, emb_dim)
+            torch.nn.init.xavier_uniform_(emb.weight.data)
+            self.atom_embedding_list.append(emb)
+
+    def forward(self, x):
+        x_embedding = 0
+        for i in range(x.shape[1]):
+            x_embedding += self.atom_embedding_list[i](x[:,i])
+
+        return x_embedding
+
+
+class BondEncoder(torch.nn.Module):
+    def __init__(self, emb_dim):
+        super(BondEncoder, self).__init__()
+        
+        self.bond_embedding_list = torch.nn.ModuleList()
+
+        for i, dim in enumerate([5, 6, 2]):
+            emb = torch.nn.Embedding(dim, emb_dim)
+            torch.nn.init.xavier_uniform_(emb.weight.data)
+            self.bond_embedding_list.append(emb)
+
+    def forward(self, edge_attr):
+        bond_embedding = 0
+        for i in range(edge_attr.shape[1]):
+            bond_embedding += self.bond_embedding_list[i](edge_attr[:,i])
+
+        return bond_embedding   
 
 class GINConv(MessagePassing):
     def __init__(self, emb_dim, aggr="add"):
@@ -195,3 +237,127 @@ class GNN_graphpred(nn.Module):
         graph_representation = self.pool(node_representation, batch)
         output = self.graph_pred_linear(graph_representation)
         return graph_representation, output
+
+class MoleculeSTM(MolEncoder, TextEncoder):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+        if config["structure"]["name"] == "magamolbart":
+            self.MegaMolBART_wrapper = MegaMolBART(
+                vocab_path=config["structure"]["vocab_path"],
+                input_dir=config["structure"]["MegaMolBART_generation_model_dir"], 
+                output_dir=None
+            )
+            self.structure_encoder = self.MegaMolBART_wrapper.model
+        elif config["structure"]["name"] == "gnn":
+            self.MegaMolBART_wrapper = MegaMolBART(
+                vocab_path=config["structure"]["vocab_path"],
+                input_dir=config["structure"]["MegaMolBART_generation_model_dir"], 
+                output_dir=None
+            )
+            molecule_node_model = GNN(
+                num_layer=config["structure"]["gin_num_layers"],
+                emb_dim=config["structure"]["gin_hidden_dim"],
+                gnn_type="gin",
+                drop_ratio=config["structure"]["drop_ratio"],
+                JK="last",
+            )
+            self.structure_encoder = GNN_graphpred(
+                num_layer=config["structure"]["gin_num_layers"],
+                emb_dim=config["structure"]["gin_hidden_dim"],
+                graph_pooling="mean",
+                JK="last",
+                num_tasks=1,
+                molecule_node_model=molecule_node_model
+            )
+        else:
+            raise AttributeError
+        if "ckpt" in config["structure"]:
+            logger.info("Loading structure encoder from %s" % (config["structure"]["ckpt"]))
+            state_dict = torch.load(config["structure"]["ckpt"], map_location="cpu")
+            self.structure_encoder.load_state_dict(state_dict)
+
+        self.text_encoder = BertModel.from_pretrained(config["text"]["bert_path"])
+        if "ckpt" in config["text"]:
+            logger.info("Loading text encoder from %s" % (config["text"]["ckpt"]))
+            state_dict = torch.load(config["text"]["ckpt"], map_location="cpu")
+            missing_keys, unexpected_keys = self.text_encoder.load_state_dict(state_dict, strict=False)
+            logger.info("missing keys: " + str(missing_keys))
+            logger.info("unexpected keys: " + str(unexpected_keys))
+
+        self.structure_proj_head = nn.Linear(config["structure"]["output_dim"], config["projection_dim"])
+        self.text_proj_head = nn.Linear(config["text"]["output_dim"], config["projection_dim"])
+        if "structure_proj_ckpt" in config:
+            logger.info("Loading structure projection head from %s" % (config["structure_proj_ckpt"]))
+            state_dict = torch.load(config["structure_proj_ckpt"], map_location="cpu")
+            self.structure_proj_head.load_state_dict(state_dict)
+        if "text_proj_ckpt" in config:
+            logger.info("Loading text projection head from %s" % (config["text_proj_ckpt"]))
+            state_dict = torch.load(config["text_proj_ckpt"], map_location="cpu")
+            self.text_proj_head.load_state_dict(state_dict)
+        self.norm = False
+
+    def encode_mol(self, structure, proj=False, return_node_feats=False):
+        mol_embeds, node_embeds = self.structure_encoder(structure)
+        if proj:
+            mol_embeds = self.structure_proj_head(mol_embeds)
+        if not return_node_feats:
+            return mol_embeds
+        else:
+            return mol_embeds, node_embeds
+
+    def encode_text(self, text, proj=False):
+        text_embeds = self.text_encoder(text["input_ids"], attention_mask=text["attention_mask"])["pooler_output"]
+        if proj:
+            return self.text_proj_head(text_embeds)
+        else:
+            return text_embeds
+
+
+
+
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dims, batch_norm=False, activation="relu", dropout=0):
+        super(MLP, self).__init__()
+
+        if not isinstance(hidden_dims, Sequence):
+            hidden_dims = [hidden_dims]
+        self.dims = [input_dim] + hidden_dims
+
+        if isinstance(activation, str):
+            self.activation = getattr(F, activation)
+        else:
+            self.activation = activation
+        if dropout:
+            self.dropout = nn.Dropout(dropout)
+        else:
+            self.dropout = None
+
+        self.layers = nn.ModuleList()
+        for i in range(len(self.dims) - 1):
+            self.layers.append(nn.Linear(self.dims[i], self.dims[i + 1]))
+        if batch_norm:
+            self.batch_norms = nn.ModuleList()
+            for i in range(len(self.dims) - 2):
+                self.batch_norms.append(nn.BatchNorm1d(self.dims[i + 1]))
+        else:
+            self.batch_norms = None
+
+    def forward(self, input):
+        layer_input = input
+
+        for i, layer in enumerate(self.layers):
+            hidden = layer(layer_input)
+            if i < len(self.layers) - 1:
+                if self.batch_norms:
+                    x = hidden.flatten(0, -2)
+                    hidden = self.batch_norms[i](x).view_as(hidden)
+                hidden = self.activation(hidden)
+                if self.dropout:
+                    hidden = self.dropout(hidden)
+            if hidden.shape == layer_input.shape:
+                hidden = hidden + layer_input
+            layer_input = hidden
+
+        return hidden

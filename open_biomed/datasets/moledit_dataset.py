@@ -13,7 +13,7 @@ import pandas as pd
 from feature.mol_featurizer import MolMultiModalFeaturizer
 from feature.text_featurizer import TextTransformerTokFeaturizer
 from utils.mol_utils import valid_smiles
-from models.MoleculeSTM.models.mega_molbart.tokenizer import MolEncTokenizer
+from models.multimodal.mega_molbart.tokenizer import MolEncTokenizer
 
 class MoleditDataset(Dataset, ABC):
     def __init__(self, path, config):

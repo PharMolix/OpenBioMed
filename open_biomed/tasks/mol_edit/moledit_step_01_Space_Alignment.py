@@ -18,14 +18,13 @@ from torch.utils.data import DataLoader as torch_DataLoader
 from torch_geometric.loader import DataLoader as pyg_DataLoader
 
 
-from models.MoleculeSTM.utils import get_molecule_repr_MoleculeSTM
-from models.MoleculeSTM.models import MLP
-from models.MoleculeSTM.downstream_molecule_edit_utils import load_molecule_models
-from models.MoleculeSTM.utils import freeze_network
-from models.MoleculeSTM.datasets import ZINC250K_Dataset_SMILES, ZINC250K_Dataset_Graph
+from utils.molstm_utils import get_molecule_repr_MoleculeSTM
+from models.multimodal.moleculestm import MLP
+from utils.molstm_utils import load_molecule_models
+from utils.molstm_utils import freeze_network
 from datasets.moledit_dataset import SUPPORTED_MOLEDIT_DATASET
 from models.task_model.moledit_model import MoleditModel
-from models.MoleculeSTM.models.mega_molbart.mega_mol_bart import MegaMolBART
+from models.multimodal.mega_molbart.mega_mol_bart import MegaMolBART
 
 def cycle_index(num, shift):
     arr = torch.arange(num) + shift
@@ -181,7 +180,7 @@ def train(epoch):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--device", type=str, default="cuda:0")
+    parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--verbose", type=int, default=1)
     parser.add_argument("--dataset_path", type=str, default=None)
     parser.add_argument("--dataset", type=str, default="ZINC250K")
@@ -220,46 +219,17 @@ if __name__ == "__main__":
     parser.add_argument('--use_normalize', dest='normalize', action='store_true')
     parser.add_argument('--no_normalize', dest='normalize', action='store_false')
     parser.set_defaults(normalize=True)
-    parser.add_argument("--MASTER_PORT", type=str, default='6001')
+    parser.add_argument("--MASTER_PORT", type=str, default='6000')
 
     args = parser.parse_args()
     print(args)
     
     config = json.load(open(args.config_path)) 
     os.environ['MASTER_PORT'] = args.MASTER_PORT
+
     # load dataset
-    if args.generation_model == "MegaMolBART":
-        if args.MoleculeSTM_molecule_type == "SMILES":
-            if args.dataset == "ZINC250K":
-                dataset = SUPPORTED_MOLEDIT_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
-                # dataset_root = os.path.join(args.dataset_path, "ZINC250K_data")
-                # dataset = ZINC250K_Dataset_SMILES(dataset_root)
-            elif args.dataset == "ZINC250K1K":
-                dataset_root = os.path.join(args.dataset_path, "ZINC250K_data")
-                dataset = ZINC250K_Dataset_SMILES(dataset_root, 1000)
-            elif args.dataset == "ZINC250K10K":
-                dataset_root = os.path.join(args.dataset_path, "ZINC250K_data")
-                dataset = ZINC250K_Dataset_SMILES(dataset_root, 10000)
-            else:
-                raise Exception
-            dataloader_class = pyg_DataLoader
-        else:
-            if args.dataset == "ZINC250K":
-                dataset = SUPPORTED_MOLEDIT_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
-                # dataset_root = os.path.join(args.dataset_path, "ZINC250K_data")
-                # dataset = ZINC250K_Dataset_Graph(dataset_root)
-            elif args.dataset == "ZINC250K1K":
-                dataset_root = os.path.join(args.dataset_path, "ZINC250K_data")
-                dataset = ZINC250K_Dataset_Graph(dataset_root, 1000)
-            elif args.dataset == "ZINC250K10K":
-                dataset_root = os.path.join(args.dataset_path, "ZINC250K_data")
-                dataset = ZINC250K_Dataset_Graph(dataset_root, 10000)
-            else:
-                raise Exception
-            dataloader_class = pyg_DataLoader
-    else:
-        raise NotImplementedError
-    
+    dataset = SUPPORTED_MOLEDIT_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
+    dataloader_class = pyg_DataLoader
 
     device = torch.device(args.device) \
         if torch.cuda.is_available() else torch.device("cpu")
@@ -268,21 +238,15 @@ if __name__ == "__main__":
     torch.random.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-
     # load model
-    if config["model"]=="molstm-MegaMolBART":
-        MegaMolBART_wrapper, molecule_model_generation, molecule_dim_generation, \
-            molecule_model_MoleculeSTM, mol2latent_MoleculeSTM, molecule_dim_MoleculeSTM = load_molecule_models(args)
-        mol2latent_MoleculeSTM = mol2latent_MoleculeSTM.to(device)
-        freeze_network(mol2latent_MoleculeSTM)
-        mol2latent_MoleculeSTM.eval()
-    else:
+    molecule_model_MoleculeSTM = MoleditModel(config["network"])
+    mol2latent_MoleculeSTM = None
+    if config["model"]== "molstm-MegaMolBART":
+        MegaMolBART_wrapper = molecule_model_MoleculeSTM.model.MegaMolBART_wrapper
+        molecule_model_generation = copy.deepcopy(MegaMolBART_wrapper.model)
+    else: 
         MegaMolBART_wrapper = MegaMolBART(vocab_path=args.vocab_path, input_dir=args.MegaMolBART_generation_model_dir, output_dir=None)
         molecule_model_generation = copy.deepcopy(MegaMolBART_wrapper.model)
-        molecule_dim_generation = 256
-        molecule_dim_MoleculeSTM = args.SSL_emb_dim
-        molecule_model_MoleculeSTM = MoleditModel(config["network"])
-        mol2latent_MoleculeSTM = None
 
     torch.cuda.set_device(int(re.search(r'\d+', args.device).group()))
 
@@ -296,6 +260,9 @@ if __name__ == "__main__":
 
     dataloader = dataloader_class(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
+
+    molecule_dim_generation = 256
+    molecule_dim_MoleculeSTM = args.SSL_emb_dim
     generation2MoleculeSTM = MLP(molecule_dim_generation, [molecule_dim_MoleculeSTM, molecule_dim_MoleculeSTM]).to(device)
     MoleculeSTM2generation = MLP(molecule_dim_MoleculeSTM, [molecule_dim_generation, molecule_dim_generation]).to(device)
 
@@ -305,7 +272,8 @@ if __name__ == "__main__":
     ]
     optimizer = optim.Adam(model_param_group, weight_decay=args.decay)
     optimal_loss = 1e10
-    
+
+
     for e in range(1, args.epochs+1):
         print("Epoch {}".format(e))
         train(e)

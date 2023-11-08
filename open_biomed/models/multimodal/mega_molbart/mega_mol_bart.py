@@ -15,7 +15,7 @@ import pandas as pd
 from megatron.checkpointing import load_checkpoint
 import megatron.checkpointing as megatron_checkpointing
 from megatron.global_vars import set_global_variables
-from models.MoleculeSTM.cuchemcommon.workflow import BaseGenerativeWorkflow, add_jitter
+from models.multimodal.mega_molbart.workflow import BaseGenerativeWorkflow, add_jitter
 from .decoder import DecodeSampler
 from megatron import get_args, mpu
 from megatron.initialize import initialize_megatron
@@ -257,9 +257,7 @@ class MegaMolBART(BaseGenerativeWorkflow):
            tokens = self.tokenizer.tokenize(smiles_list, pad=True)
            token_ids = torch.tensor(self.tokenizer.convert_tokens_to_ids(tokens['original_tokens'])).cuda().T
            pad_mask = torch.tensor(tokens['masked_pad_masks']).bool().cuda().T
-        # use collater
-        # token_ids = torch.tensor(smiles_list['original_tokens']).cuda().T
-        # pad_mask = torch.tensor(smiles_list['masked_pad_masks']).bool().cuda().T
+
         token_ids = token_ids[:self.max_model_position_embeddings]
         pad_mask = pad_mask[:self.max_model_position_embeddings]
         encode_input = {"encoder_input": token_ids, "encoder_pad_mask": pad_mask}
@@ -279,8 +277,7 @@ class MegaMolBART(BaseGenerativeWorkflow):
            tokens = self.tokenizer.tokenize(smiles_list, pad=True)
            token_ids = torch.tensor(self.tokenizer.convert_tokens_to_ids(tokens['original_tokens'])).cuda().T
            pad_mask = torch.tensor(tokens['masked_pad_masks']).bool().cuda().T
-        # token_ids = torch.tensor(smiles_list['original_tokens']).cuda().T
-        # pad_mask = torch.tensor(smiles_list['masked_pad_masks']).bool().cuda().T
+
         token_ids = token_ids[:self.max_model_position_embeddings]
         pad_mask = pad_mask[:self.max_model_position_embeddings]
         encode_input = {"encoder_input": token_ids, "encoder_pad_mask": pad_mask}
