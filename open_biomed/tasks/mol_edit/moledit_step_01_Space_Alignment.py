@@ -121,11 +121,7 @@ def train(epoch):
     
     start_time = time.time()
     accum_loss, accum_acc = 0, 0
-
-    if args.use_molecule_repr_MoleculeSTM_list_molkformer==True and config["model"]=="molkformer-MegaMolBART":#use the processed molkformer data
-        with open('./datasets/mol_edit/ZINC250K_data/molecule_repr_MoleculeSTM_list.pkl', 'rb') as f:  
-            molecule_repr_MoleculeSTM_list = pickle.load(f) 
-        num_i=0
+    batch_num=0
 
     for batch in L:
         if args.MoleculeSTM_molecule_type == "SMILES":
@@ -135,35 +131,30 @@ def train(epoch):
             graph = batch["structure"]["graph"]
             graph = graph.to(device)
 
-        if args.use_molecule_repr_MoleculeSTM_list_molkformer==True and config["model"]=="molkformer-MegaMolBART":#use the processed molkformer data
-            molecule_repr_MoleculeSTM = molecule_repr_MoleculeSTM_list[num_i].to(device)
+        if args.use_static_files==1:
+            molecule_repr_MoleculeSTM = molecule_repr_MoleculeSTM_list[batch_num].to(device)
             molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
-            num_i+=1
+            molecule_repr_generation = molecule_repr_generation_list[batch_num].to(device)
+            molecule_repr_generation2MoleculeSTM = generation2MoleculeSTM(molecule_repr_generation)
+            batch_num+=1
         else:
             if args.MoleculeSTM_molecule_type == "SMILES":
                 molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
                     SMILES_list, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
                     molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
                 )
-                molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
-
             else:
                 molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
                     graph, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
                     molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
                 )
-                # molecule_repr_MoleculeSTM_list.append(molecule_repr_MoleculeSTM)   #To generate the set of molecule_repr_MoleculeSTM to speed up training with molkformer
-                molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
-
-        if args.generation_model == "MegaMolBART":
-            molecule_repr_generation = get_molecule_repr_generation(
-                SMILES_list, molecule_model=molecule_model_generation,
-                molecule_type="MegaMolBART", MegaMolBART_wrapper=MegaMolBART_wrapper
-            )
-        else:  # for HierVAE
-            hiervae_data_list = MolGraph.tensorize(SMILES_list, vocab, avocab)
-            molecule_repr_generation = molecule_model_generation.forward_MoleculeSTM(hiervae_data_list)
-        molecule_repr_generation2MoleculeSTM = generation2MoleculeSTM(molecule_repr_generation)
+            if args.generation_model == "MegaMolBART":
+                molecule_repr_generation = get_molecule_repr_generation(
+                    SMILES_list, molecule_model=molecule_model_generation,
+                    molecule_type="MegaMolBART", MegaMolBART_wrapper=MegaMolBART_wrapper
+                )
+            molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
+            molecule_repr_generation2MoleculeSTM = generation2MoleculeSTM(molecule_repr_generation)
 
         loss_01, acc_01 = do_CL(molecule_repr_generation, molecule_repr_MoleculeSTM2generation, args)
         loss_02, acc_02 = do_CL(molecule_repr_MoleculeSTM, molecule_repr_generation2MoleculeSTM, args)
@@ -188,7 +179,44 @@ def train(epoch):
     print("SSL Loss: {:.5f}\tSSL Acc: {:.5f}\tTime: {:.5f}".format(accum_loss, accum_acc, time.time() - start_time))
     return
 
-
+def generate_static_files():
+    if args.verbose:
+        L = tqdm(dataloader)
+    else:
+        L = dataloader
+    molecule_repr_MoleculeSTM_list = [] 
+    molecule_repr_generation_list = []
+    for batch in L:
+        if args.MoleculeSTM_molecule_type == "SMILES":
+            SMILES_list = batch["structure"]["SMILES"]
+        else:
+            SMILES_list = batch["structure"]["SMILES"]
+            graph = batch["structure"]["graph"]
+            graph = graph.to(device)
+        if args.MoleculeSTM_molecule_type == "SMILES":
+            molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
+                SMILES_list, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
+                molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
+            )
+        else:
+            molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
+                graph, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
+                molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
+            )
+            molecule_repr_MoleculeSTM_list.append(molecule_repr_MoleculeSTM)   
+        if args.generation_model == "MegaMolBART":
+            molecule_repr_generation = get_molecule_repr_generation(
+                SMILES_list, molecule_model=molecule_model_generation,
+                molecule_type="MegaMolBART", MegaMolBART_wrapper=MegaMolBART_wrapper
+            )
+        molecule_repr_generation_list.append(molecule_repr_generation)   
+    saved_file_path = os.path.join(args.static_files_path, "molecule_repr_MoleculeSTM_list.pkl")
+    with open(saved_file_path, 'wb') as f:  
+        pickle.dump(molecule_repr_MoleculeSTM_list, f) 
+    saved_file_path = os.path.join(args.static_files_path, "molecule_repr_generation_list.pkl")
+    with open(saved_file_path, 'wb') as f:  
+        pickle.dump(molecule_repr_generation_list, f) 
+    return
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -196,6 +224,7 @@ if __name__ == "__main__":
     parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--verbose", type=int, default=1)
     parser.add_argument("--dataset_path", type=str, default="./datasets/mol_edit/ZINC250K_data")
+    parser.add_argument("--static_files_path", type=str, default="./datasets/mol_edit/ZINC250K_data/static_files/molkformer-Graph")
     parser.add_argument("--dataset", type=str, default="ZINC250K")
     parser.add_argument("--MoleculeSTM_molecule_type", type=str, default="Graph", choices=["SMILES", "Graph"])
     parser.add_argument("--output_path", type=str, default="./ckpts/finetune_ckpts/moledit/molkformer/Graph")
@@ -222,7 +251,7 @@ if __name__ == "__main__":
     ########## for optimization ##########
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--num_workers", type=int, default=8)
-    parser.add_argument("--epochs", type=int, default=1)
+    parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--decay", type=float, default=0)
     parser.add_argument("--generation_lr", type=float, default=1e-2)
     parser.add_argument("--MoleculeSTM_lr", type=float, default=1e-2)
@@ -233,9 +262,10 @@ if __name__ == "__main__":
     parser.add_argument('--no_normalize', dest='normalize', action='store_false')
     parser.set_defaults(normalize=True)
     parser.add_argument("--MASTER_PORT", type=str, default='6000')
-    parser.add_argument("--use_processed_dataset", type=bool, default=False)
-    parser.add_argument("--use_molecule_repr_MoleculeSTM_list_molkformer", type=bool, default=False)
-
+    parser.add_argument("--use_processed_dataset_250K", type=int, default=0)
+    parser.add_argument("--generate_static_files", type=int, default=0)
+    parser.add_argument("--use_static_files", type=int, default=0)
+    
     args = parser.parse_args()
     print(args)
     
@@ -243,7 +273,7 @@ if __name__ == "__main__":
     os.environ['MASTER_PORT'] = args.MASTER_PORT
 
     # load dataset
-    if args.use_processed_dataset==True: # skip SUPPORTED_MOLEDIT_DATASET
+    if args.use_processed_dataset_250K==1: # skip SUPPORTED_MOLEDIT_DATASET
         with open("./datasets/mol_edit/ZINC250K_data/dataset_zinc250K.pkl", "rb") as f:  
              dataset = pickle.load(f)
     else:     
@@ -278,7 +308,7 @@ if __name__ == "__main__":
     molecule_model_MoleculeSTM.eval()
 
 
-    dataloader = dataloader_class(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+    dataloader = dataloader_class(dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
 
     molecule_dim_generation = 256
@@ -293,9 +323,18 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model_param_group, weight_decay=args.decay)
     optimal_loss = 1e10
 
-    # molecule_repr_MoleculeSTM_list = [] 
+    if args.generate_static_files==1: 
+        generate_static_files()
+
+    if args.use_static_files==1:
+        saved_file_path = os.path.join(args.static_files_path, "molecule_repr_MoleculeSTM_list.pkl")
+        with open(saved_file_path, 'rb') as f:  
+            molecule_repr_MoleculeSTM_list = pickle.load(f) 
+        saved_file_path = os.path.join(args.static_files_path, "molecule_repr_generation_list.pkl")
+        with open(saved_file_path, 'rb') as f:  
+            molecule_repr_generation_list = pickle.load(f) 
+        
+
     for e in range(1, args.epochs+1):
         print("Epoch {}".format(e))
         train(e)
-        # with open('./datasets/mol_edit/ZINC250K_data/molecule_repr_MoleculeSTM_list.pkl', 'wb') as f:  #To generate the set of molecule_repr_MoleculeSTM to speed up training with molkformer
-        #     pickle.dump(molecule_repr_MoleculeSTM_list, f) ##for molecule_repr_MoleculeSTM_list

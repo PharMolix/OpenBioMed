@@ -14,6 +14,7 @@ python   open_biomed/tasks/mol_edit/moledit_step_01_Space_Alignment.py \
 --dataset ZINC250K \
 --dataset_path ./datasets/mol_edit/ZINC250K_data \
 --output_path ./ckpts/finetune_ckpts/moledit/${MODEL}/${TYPE} \
+--static_files_path ./datasets/mol_edit/ZINC250K_data/static_files/${MODEL}-${TYPE} \
 --mode ${MODE} \
 --epochs ${EPOCHS} \
 --num_workers 8 \
@@ -21,5 +22,6 @@ python   open_biomed/tasks/mol_edit/moledit_step_01_Space_Alignment.py \
 --vocab_path ./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt \
 --MegaMolBART_generation_model_dir ./ckpts/fusion_ckpts/pretrained_MegaMolBART/checkpoints \
 --MASTER_PORT '6000' \
---use_processed_dataset True \
---use_molecule_repr_MoleculeSTM_list_molkformer True
+--use_processed_dataset_250K 0 \
+--generate_static_files 0 \
+--use_static_files 0
