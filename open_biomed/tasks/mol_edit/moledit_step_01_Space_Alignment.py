@@ -9,6 +9,7 @@ import time
 import json
 import re
 import copy
+import pickle
 
 import torch
 import torch.nn as nn
@@ -120,6 +121,12 @@ def train(epoch):
     
     start_time = time.time()
     accum_loss, accum_acc = 0, 0
+
+    if args.use_molecule_repr_MoleculeSTM_list_molkformer==True and config["model"]=="molkformer-MegaMolBART":#use the processed molkformer data
+        with open('./datasets/mol_edit/ZINC250K_data/molecule_repr_MoleculeSTM_list.pkl', 'rb') as f:  
+            molecule_repr_MoleculeSTM_list = pickle.load(f) 
+        num_i=0
+
     for batch in L:
         if args.MoleculeSTM_molecule_type == "SMILES":
             SMILES_list = batch["structure"]["SMILES"]
@@ -128,20 +135,25 @@ def train(epoch):
             graph = batch["structure"]["graph"]
             graph = graph.to(device)
 
-
-        if args.MoleculeSTM_molecule_type == "SMILES":
-            molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
-                SMILES_list, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
-                molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
-            )
+        if args.use_molecule_repr_MoleculeSTM_list_molkformer==True and config["model"]=="molkformer-MegaMolBART":#use the processed molkformer data
+            molecule_repr_MoleculeSTM = molecule_repr_MoleculeSTM_list[num_i].to(device)
             molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
-
+            num_i+=1
         else:
-            molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
-                graph, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
-                molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
-            )
-            molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
+            if args.MoleculeSTM_molecule_type == "SMILES":
+                molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
+                    SMILES_list, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
+                    molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
+                )
+                molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
+
+            else:
+                molecule_repr_MoleculeSTM = get_molecule_repr_MoleculeSTM(
+                    graph, molecule_model=molecule_model_MoleculeSTM, mol2latent=mol2latent_MoleculeSTM,
+                    molecule_type=args.MoleculeSTM_molecule_type, MegaMolBART_wrapper=MegaMolBART_wrapper
+                )
+                # molecule_repr_MoleculeSTM_list.append(molecule_repr_MoleculeSTM)   #To generate the set of molecule_repr_MoleculeSTM to speed up training with molkformer
+                molecule_repr_MoleculeSTM2generation = MoleculeSTM2generation(molecule_repr_MoleculeSTM)
 
         if args.generation_model == "MegaMolBART":
             molecule_repr_generation = get_molecule_repr_generation(
@@ -177,16 +189,17 @@ def train(epoch):
     return
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--device", type=str, default=None)
+    parser.add_argument("--device", type=str, default="cuda:3")
     parser.add_argument("--verbose", type=int, default=1)
-    parser.add_argument("--dataset_path", type=str, default=None)
+    parser.add_argument("--dataset_path", type=str, default="./datasets/mol_edit/ZINC250K_data")
     parser.add_argument("--dataset", type=str, default="ZINC250K")
-    parser.add_argument("--MoleculeSTM_molecule_type", type=str, default=None, choices=["SMILES", "Graph"])
-    parser.add_argument("--output_path", type=str, default=None)
-    parser.add_argument("--config_path", type=str, default=None)
+    parser.add_argument("--MoleculeSTM_molecule_type", type=str, default="Graph", choices=["SMILES", "Graph"])
+    parser.add_argument("--output_path", type=str, default="./ckpts/finetune_ckpts/moledit/molkformer/Graph")
+    parser.add_argument("--config_path", type=str, default="./configs/moledit/molkformer-Graph-MegaMolBART.json")
     parser.add_argument("--mode", type=str, default="train")
     ########## for MoleculeSTM ##########
     parser.add_argument("--MoleculeSTM_model_dir", type=str, default=None)
@@ -203,8 +216,8 @@ if __name__ == "__main__":
     parser.add_argument('--generation_model', type=str, default="MegaMolBART", choices=["MegaMolBART"])
 
     ######### for MegaMolBART ##########
-    parser.add_argument("--MegaMolBART_generation_model_dir", type=str, default=None)
-    parser.add_argument("--vocab_path", type=str, default=None)
+    parser.add_argument("--MegaMolBART_generation_model_dir", type=str, default="./ckpts/fusion_ckpts/pretrained_MegaMolBART/checkpoints")
+    parser.add_argument("--vocab_path", type=str, default="./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt")
 
     ########## for optimization ##########
     parser.add_argument("--batch_size", type=int, default=256)
@@ -220,6 +233,8 @@ if __name__ == "__main__":
     parser.add_argument('--no_normalize', dest='normalize', action='store_false')
     parser.set_defaults(normalize=True)
     parser.add_argument("--MASTER_PORT", type=str, default='6000')
+    parser.add_argument("--use_processed_dataset", type=bool, default=False)
+    parser.add_argument("--use_molecule_repr_MoleculeSTM_list_molkformer", type=bool, default=False)
 
     args = parser.parse_args()
     print(args)
@@ -228,7 +243,12 @@ if __name__ == "__main__":
     os.environ['MASTER_PORT'] = args.MASTER_PORT
 
     # load dataset
-    dataset = SUPPORTED_MOLEDIT_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
+    if args.use_processed_dataset==True: # skip SUPPORTED_MOLEDIT_DATASET
+        with open("./datasets/mol_edit/ZINC250K_data/dataset_zinc250K.pkl", "rb") as f:  
+             dataset = pickle.load(f)
+    else:     
+        dataset = SUPPORTED_MOLEDIT_DATASET[args.dataset](args.dataset_path, config["data"]["mol"], split="train")
+
     dataloader_class = pyg_DataLoader
 
     device = torch.device(args.device) \
@@ -273,7 +293,9 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model_param_group, weight_decay=args.decay)
     optimal_loss = 1e10
 
-
+    # molecule_repr_MoleculeSTM_list = [] 
     for e in range(1, args.epochs+1):
         print("Epoch {}".format(e))
         train(e)
+        # with open('./datasets/mol_edit/ZINC250K_data/molecule_repr_MoleculeSTM_list.pkl', 'wb') as f:  #To generate the set of molecule_repr_MoleculeSTM to speed up training with molkformer
+        #     pickle.dump(molecule_repr_MoleculeSTM_list, f) ##for molecule_repr_MoleculeSTM_list

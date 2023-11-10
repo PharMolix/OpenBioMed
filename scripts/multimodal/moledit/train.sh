@@ -20,4 +20,6 @@ python   open_biomed/tasks/mol_edit/moledit_step_01_Space_Alignment.py \
 --batch_size 256 \
 --vocab_path ./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt \
 --MegaMolBART_generation_model_dir ./ckpts/fusion_ckpts/pretrained_MegaMolBART/checkpoints \
---MASTER_PORT '6000'
+--MASTER_PORT '6000' \
+--use_processed_dataset True \
+--use_molecule_repr_MoleculeSTM_list_molkformer True
