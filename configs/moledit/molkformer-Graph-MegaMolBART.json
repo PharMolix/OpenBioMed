@@ -45,7 +45,7 @@
         "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
         "max_n_atoms": 256,
         "projection_dim": 256,
-        "init_checkpoint": "./ckpts/fusion_ckpts/mol_kformer_biot5.pth"
+        "init_checkpoint": "./ckpts/fusion_ckpts/molkformer/checkpoint_49.pth"
     }
     }
 }
