@@ -433,3 +433,28 @@ class SmilesTokenizer(PreTrainedTokenizer):
                 writer.write(token + "\n")
                 index += 1
         return (vocab_file,)
+
+def get_biot5_tokenizer(path_t5, path_selfies):
+    from transformers import T5Tokenizer
+    tokenizer = T5Tokenizer.from_pretrained(path_t5)
+    tokenizer.model_max_length = int(1e9)
+
+    amino_acids = [
+        "A", "C", "D", "E", "F",
+        "G", "H", "I", "K", "L",
+        "M", "N", "P", "Q", "R",
+        "S", "T", "V", "W", "Y"
+    ]
+    prefixed_amino_acids = [f"<p>{aa}" for aa in amino_acids]
+    tokenizer.add_tokens(prefixed_amino_acids)
+
+    selfies_dict_list = [line.strip() for line in open(path_selfies, "r")]
+    tokenizer.add_tokens(selfies_dict_list)
+
+    special_tokens_dict = {'additional_special_tokens': 
+                           ['<bom>', '<eom>',
+                           '<bop>', '<eop>',
+                           'MOLECULE NAME', 'DESCRIPTION',
+                           'PROTEIN NAME', 'FUNCTION', 'SUBCELLULAR LOCATION', 'PROTEIN FAMILIES']}
+    tokenizer.add_special_tokens(special_tokens_dict, replace_additional_special_tokens=False)
+    return tokenizer
