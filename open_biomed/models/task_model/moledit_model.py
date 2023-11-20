@@ -15,10 +15,13 @@ class MoleditModel(nn.Module):
             if config["graph"]["name"] == "molkformer":
                     self.ckpt = torch.load(config["graph"]["init_checkpoint"], map_location="cpu")
                     self.ckpt = self.ckpt["model"]
-                    self.model.load_state_dict(self.ckpt, strict=False)
+                    self.model.load_state_dict(self.ckpt)
+
             if config["graph"]["name"] == "momu":
-                    self.ckpt = torch.load(config["graph"]["init_checkpoint"], map_location="cpu")
-                    self.model.load_state_dict(self.ckpt, strict=False)
+                    self.ckpt = torch.load(config["graph"]["init_checkpoint"])
+                    if "param_key" in config["graph"]:
+                        self.ckpt = self.ckpt[config["graph"]["param_key"]]
+                    self.model.load_state_dict(self.ckpt)
 
             self.use_molkformer = True if config["graph"]["name"] == "molkformer" else False
             self.use_momu = True if config["graph"]["name"] == "momu" else False
