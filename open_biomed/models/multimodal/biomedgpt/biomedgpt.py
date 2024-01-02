@@ -9,11 +9,11 @@ import re
 import os
 from transformers import LlamaTokenizer, EsmModel, EsmConfig
 
-from models.base_models import MolEncoder, ProteinEncoder, TextEncoder
-from models.molecule.gnn_graphmvp import GNNGraphMVP
+from open_biomed.models.base_models import MolEncoder, ProteinEncoder, TextEncoder
+from open_biomed.models.molecule.gnn_graphmvp import GNNGraphMVP
 #from models.multimodal.molkformer.mol_kformer import MolKFormer
-from models.multimodal.biomedgpt.modeling_llama import LlamaForCausalLM, LlamaConfig
-from utils.mol_utils import convert_pyg_batch
+from open_biomed.models.multimodal.biomedgpt.modeling_llama import LlamaForCausalLM, LlamaConfig
+from open_biomed.utils.mol_utils import convert_pyg_batch
 
 class BioMedGPTBase(MolEncoder, ProteinEncoder, TextEncoder):
     def __init__(self):

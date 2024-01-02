@@ -8,9 +8,9 @@ import torch.distributed as dist
 from transformers import T5Tokenizer
 from transformers.modeling_outputs import BaseModelOutput
 
-from models.base_models import MolEncoder, TextEncoder
-from models.molecule.gnn_graphmvp import GNNGraphMVP
-from models.multimodal.molfm.modeling_t5 import T5Config, T5ForConditionalGeneration
+from open_biomed.models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.molecule.gnn_graphmvp import GNNGraphMVP
+from open_biomed.models.multimodal.molfm.modeling_t5 import T5Config, T5ForConditionalGeneration
 
 class MolFMPlus(MolEncoder, TextEncoder):
     def __init__(self, config):

@@ -37,6 +37,11 @@ then
     CKPT="./ckpts/fusion_ckpts/biomedgpt/epoch199.pth"
     PARAM_KEY="None"
     RERANK="no_rerank"
+elif [ $MODEL = "molkformer" ];
+then
+    CKPT="./ckpts/fusion_ckpts/mol_kformer_new/checkpoint_59.pth"
+    PARAM_KEY="model"
+    RERANK="rerank"
 fi
 
 if [ $MODE = "train" ];

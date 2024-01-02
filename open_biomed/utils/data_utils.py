@@ -1,8 +1,8 @@
-from feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
-from feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
-from feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
-from feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
-from utils.collators import MolCollator, ProteinCollator, CellCollator, TextCollator
+from open_biomed.feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from open_biomed.feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
+from open_biomed.feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
+from open_biomed.feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
+from open_biomed.utils.collators import MolCollator, ProteinCollator, CellCollator, TextCollator
 
 entity_featurizer_map = {
     "molecule": (SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer),

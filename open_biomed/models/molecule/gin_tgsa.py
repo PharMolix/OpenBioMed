@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GINConv, JumpingKnowledge, global_max_pool
 
-from models.base_models import MolEncoder
+from open_biomed.models.base_models import MolEncoder
 
 class GINTGSA(MolEncoder):
     def __init__(self, layer_drug, dim_drug):

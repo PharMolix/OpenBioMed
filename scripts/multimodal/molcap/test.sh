@@ -1,16 +1,25 @@
 #!/bin/bash
 MODE="test"
-MODEL="molfm"
-DEVICE=$1
+MODEL=$1
+DEVICE=$2
 EPOCHS=300
+CKPT="None"
+PARAM_KEY="None"
+
+if [ ${MODEL} = "molkformer" ]; 
+then
+    CKPT="./ckpts/fusion_ckpts/mol_kformer_stage2/checkpoint_99.pth"
+    PARAM_KEY="model"
+fi
 
 python open_biomed/tasks/multi_modal_task/molcap.py \
 --device ${DEVICE} \
---config_path ./configs/molcap/${MODEL}-molt5-multnodes.json \
+--config_path ./configs/molcap/${MODEL}.json \
 --dataset chebi-20 \
---dataset_path ../datasets/molcap/chebi-20 \
---output_path ../ckpts/finetune_ckpts/molcap-multnodes/checkpoints_${i}.pth \
---caption_save_path ../assets/molcap/${MODEL}-captions.txt \
+--dataset_path ./datasets/moltextgen/chebi-20 \
+--init_checkpoint ${CKPT} \
+--param_key ${PARAM_KEY} \
+--caption_save_path ./assets/molcap/${MODEL}-captions.txt \
 --mode ${MODE} \
 --epochs ${EPOCHS} \
 --num_workers 1 \

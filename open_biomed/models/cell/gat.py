@@ -4,8 +4,9 @@ import torch.nn.functional as F
 import numpy as np
 from torch_geometric.nn import GATConv, max_pool
 
+from open_biomed.models.base_models import CellEncoder
 
-class CellGAT(torch.nn.Module):
+class CellGAT(CellEncoder):
     def __init__(self, num_feature, layer_cell, dim_cell, cluster_predefine):
         super().__init__()
         self.num_feature = num_feature
@@ -55,3 +56,6 @@ class CellGAT(torch.nn.Module):
         node_representation = cell.x.reshape(-1, self.final_node * self.dim_cell)
 
         return cell_node, node_representation
+
+    def encode_cell(self, cell):
+        return self.forward(cell)

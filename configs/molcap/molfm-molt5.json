@@ -1,8 +1,8 @@
 {
-    "model": "MolFM-MolT5",
+    "model": "graph-enhanced",
     "data": {
         "mol": {
-            "modality": ["structure", "text"],
+            "modality": ["structure"],
             "featurizer": {
                 "structure": {
                     "name": "MultiScale",
@@ -16,14 +16,14 @@
                     "graph": {
                         "name": "BaseGNN"
                     }
-                },
-                "text": {
-                    "name": "TransformerTokenizer",
-                    "transformer_type": "t5",
-                    "max_length": 512,
-                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-base"
                 }
             }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "t5",
+            "max_length": 512,
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-base"
         }
     },
     "network": {
@@ -43,7 +43,7 @@
                 "margin": 1.0
             },
             "output_dim": 300,
-            "init_checkpoint": "./ckpts/fusion_ckpts/molfm.pth",
+            "init_checkpoint": "./ckpts/fusion_ckpts/molfm-hn/checkpoint_199.pth",
             "param_key": "model",
             "stop_grad": false
         },

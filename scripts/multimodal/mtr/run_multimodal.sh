@@ -8,6 +8,7 @@ EPOCHS=100
 CKPT="None"
 PARAM_KEY="None"
 RERANK="no_rerank"
+VIEW_OPER="ignore"
 MAX_SEED=42
 
 FILTER_FILE="./datasets/mtr/momu_pretrain/pair.txt"
@@ -27,6 +28,11 @@ then
     CKPT="./ckpts/fusion_ckpts/molfm-unimap/checkpoint_209.pth"
     PARAM_KEY="model"
     RERANK="rerank"
+elif [ $MODEL = "clamp" ];
+then
+    CKPT="./ckpts/fusion_ckpts/clamp/checkpoint.pt"
+    PARAM_KEY="model_state_dict"
+    RERANK="no_rerank"
 elif [ $MODEL = "momu" ]; 
 then
     CKPT="./ckpts/fusion_ckpts/momu/MoMu-S.ckpt"
@@ -37,6 +43,12 @@ then
     CKPT="./ckpts/fusion_ckpts/biomedgpt/epoch199.pth"
     PARAM_KEY="None"
     RERANK="no_rerank"
+elif [ $MODEL = "molkformer" ];
+then
+    CKPT="./ckpts/fusion_ckpts/mol_kformer_stage2/checkpoint_49.pth"
+    PARAM_KEY="model"
+    RERANK="rerank"
+    VIEW_OPER="hybrid"
 fi
 
 if [ $MODE = "train" ];
@@ -52,6 +64,7 @@ python open_biomed/tasks/multi_modal_task/mtr.py \
 --dataset PCdes \
 --dataset_path ./datasets/mtr/PCdes \
 --dataset_mode ${TASK_MODE} \
+--view_operation ${VIEW_OPER} \
 --filter \
 --filter_path ${FILTER_FILE} \
 --config_path ./configs/mtr/${MODEL}.json \
@@ -64,6 +77,6 @@ python open_biomed/tasks/multi_modal_task/mtr.py \
 --epochs ${EPOCHS} \
 --${RERANK} \
 --rerank_num 32 \
---alpha_m2t 0.95 \
---alpha_t2m 0.95
+--alpha_m2t 0.8 \
+--alpha_t2m 0.8
 done

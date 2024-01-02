@@ -1,3 +1,3 @@
-from models.protein.cnn import ProtCNN, CNNGRU, CNNPIPR
-from models.protein.mcnn import MCNN
-from models.protein.prottrans import ProtTrans
+from open_biomed.models.protein.cnn import ProtCNN, CNNGRU, CNNPIPR
+from open_biomed.models.protein.mcnn import MCNN
+from open_biomed.models.protein.prottrans import ProtTrans

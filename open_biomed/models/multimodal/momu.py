@@ -4,8 +4,8 @@ import torch.nn.functional as F
 
 from transformers import BertConfig, BertModel
 
-from models.base_models import MolEncoder, TextEncoder
-from models.molecule.gnn_graphcl import GNNGraphCL
+from open_biomed.models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.molecule.gnn_graphcl import GNNGraphCL
 
 class MoMuTextEncoder(nn.Module):
     def __init__(self, pretrained=True, model_name_or_path=None, use_num_layers=-1, dropout=0.0):
@@ -62,6 +62,7 @@ class MoMu(MolEncoder, TextEncoder):
             nn.ReLU(inplace=True),
             nn.Linear(self.gin_hidden_dim, self.projection_dim)
         )
+        #self.structure_proj_head = self.graph_proj_head
         self.text_proj_head = nn.Sequential(
             nn.Linear(self.bert_hidden_dim, self.bert_hidden_dim),
             nn.ReLU(inplace=True),
@@ -69,6 +70,7 @@ class MoMu(MolEncoder, TextEncoder):
         )
         self.output_dim = self.projection_dim
         # self.output_dim = self.gin_hidden_dim
+        self.norm = True
 
     def forward(self, features_graph, features_text):
         batch_size = features_graph.size(0)
@@ -98,12 +100,11 @@ class MoMu(MolEncoder, TextEncoder):
         else:
             return mol_feats
         
-
     def encode_structure_with_prob(self, structure, x, atomic_num_list, device):
         h, _ = self.graph_encoder(structure, x, atomic_num_list, device)
         return self.graph_proj_head(h) 
 
-    def encode_text(self, text, return_cls=True, proj=True):
+    def encode_text(self, text, return_cls=True, proj=False):
         h = self.text_encoder(text, return_cls)
         if proj:
             h = self.text_proj_head(h)

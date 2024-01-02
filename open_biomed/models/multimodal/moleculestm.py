@@ -9,7 +9,7 @@ from torch_geometric.nn import (MessagePassing, global_add_pool,
                                 global_max_pool, global_mean_pool)
 from torch_geometric.utils import add_self_loops, softmax, degree
 
-from models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.base_models import MolEncoder, TextEncoder
 from transformers import BertModel
 
 class AtomEncoder(torch.nn.Module):
@@ -284,6 +284,7 @@ class MoleculeSTM(MolEncoder, TextEncoder):
             logger.info("Loading text projection head from %s" % (config["text_proj_ckpt"]))
             state_dict = torch.load(config["text_proj_ckpt"], map_location="cpu")
             self.text_proj_head.load_state_dict(state_dict)
+        self.norm = False
 
     def encode_mol(self, structure, proj=False, return_node_feats=False):
         mol_embeds, node_embeds = self.structure_encoder(structure)
@@ -294,7 +295,7 @@ class MoleculeSTM(MolEncoder, TextEncoder):
         else:
             return mol_embeds, node_embeds
 
-    def encode_text(self, text, proj=True):
+    def encode_text(self, text, proj=False):
         text_embeds = self.text_encoder(text["input_ids"], attention_mask=text["attention_mask"])["pooler_output"]
         if proj:
             return self.text_proj_head(text_embeds)

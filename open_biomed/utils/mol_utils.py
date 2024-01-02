@@ -121,24 +121,6 @@ def convert_pyg_batch(output, batch_idx, max_n_nodes):
     batch_attention_mask = torch.stack(batch_attention_mask, dim=0)
     return batch_output, batch_attention_mask
 
-def add_argument(parser):
-    parser.add_argument("--mode", type=str, choices=["write_sdf", "unittest"])
-
-def add_sdf_argument(parser):
-    parser.add_argument("--cid2smiles_file", type=str, default="")
-    parser.add_argument("--output_file", type=str, default="")
-    parser.add_argument("--sdf_file", type=str, default="")
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    add_argument(parser)
-    args, _ = parser.parse_known_args()
-
-    if args.mode == "write_sdf":
-        add_sdf_argument(parser)
-        args = parser.parse_args()
-        write_sdf(args.cid2smiles_file, args.output_file, args.sdf_file)
-
 VOCAB_FILES_NAMES = {"vocab_file": "vocab.json"}
 
 def smiles_tokenizer(smi):
@@ -433,3 +415,46 @@ class SmilesTokenizer(PreTrainedTokenizer):
                 writer.write(token + "\n")
                 index += 1
         return (vocab_file,)
+
+def get_biot5_tokenizer(config):
+    from transformers import T5Tokenizer
+    tokenizer = T5Tokenizer.from_pretrained(config["model_name_or_path"])
+    tokenizer.model_max_length = int(config["max_length"]) if "max_length" in config else int(1e9)
+
+    amino_acids = [
+        "A", "C", "D", "E", "F",
+        "G", "H", "I", "K", "L",
+        "M", "N", "P", "Q", "R",
+        "S", "T", "V", "W", "Y"
+    ]
+    prefixed_amino_acids = [f"<p>{aa}" for aa in amino_acids]
+    tokenizer.add_tokens(prefixed_amino_acids)
+
+    selfies_dict_list = [line.strip() for line in open(config["path_selfies"], "r")]
+    tokenizer.add_tokens(selfies_dict_list)
+
+    special_tokens_dict = {'additional_special_tokens': 
+                           ['<bom>', '<eom>',
+                           '<bop>', '<eop>',
+                           'MOLECULE NAME', 'DESCRIPTION',
+                           'PROTEIN NAME', 'FUNCTION', 'SUBCELLULAR LOCATION', 'PROTEIN FAMILIES']}
+    tokenizer.add_special_tokens(special_tokens_dict, replace_additional_special_tokens=False)
+    return tokenizer
+
+def add_argument(parser):
+    parser.add_argument("--mode", type=str, choices=["write_sdf", "unittest"])
+
+def add_sdf_argument(parser):
+    parser.add_argument("--cid2smiles_file", type=str, default="")
+    parser.add_argument("--output_file", type=str, default="")
+    parser.add_argument("--sdf_file", type=str, default="")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    add_argument(parser)
+    args, _ = parser.parse_known_args()
+
+    if args.mode == "write_sdf":
+        add_sdf_argument(parser)
+        args = parser.parse_args()
+        write_sdf(args.cid2smiles_file, args.output_file, args.sdf_file)

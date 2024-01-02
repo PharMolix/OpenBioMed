@@ -1,6 +1,6 @@
 #!/bin/bash
 MODE="train"
-MODEL="deepdta"
+MODEL="graphdta"
 SPLIT="warm cold_drug cold_protein cold_cluster"
 DEVICE=$1
 EPOCHS=300

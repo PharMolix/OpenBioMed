@@ -6,8 +6,8 @@ import random
 
 from torch_geometric.nn import GINConv, JumpingKnowledge
 
-from models.base_models import KnowledgeEncoder
-from models.protein.cnn import CNNGRU
+from open_biomed.models.base_models import KnowledgeEncoder
+from open_biomed.models.protein.cnn import CNNGRU
 
 SUPPORTED_FEATURE_NETWORK = {
     "cnn_gru": CNNGRU,

@@ -15,10 +15,10 @@ import torch
 from torch.utils.data import Dataset
 from rdkit.Chem import AllChem, Descriptors
 
-from feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
-from utils.kg_utils import SUPPORTED_KG, embed
-from utils.split_utils import random_split, scaffold_split
-from utils import Normalizer
+from open_biomed.feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from open_biomed.utils.kg_utils import SUPPORTED_KG, embed
+from open_biomed.utils.split_utils import random_split, scaffold_split
+from open_biomed.utils import Normalizer
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -33,7 +33,7 @@ def _load_bbbp_dataset(input_path):
                                 for m in preprocessed_rdkit_mol_objs_list]
     labels = input_df['p_np']
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # there are no nans
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
@@ -54,7 +54,7 @@ def _load_clintox_dataset(input_path):
     tasks = ['FDA_APPROVED', 'CT_TOX']
     labels = input_df[tasks]
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # there are no nans
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
     assert len(smiles_list) == len(preprocessed_smiles_list)
@@ -134,7 +134,7 @@ def _load_muv_dataset(input_path):
              'MUV-832', 'MUV-846', 'MUV-852', 'MUV-858', 'MUV-859']
     labels = input_df[tasks]
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # convert nan to 0
     labels = labels.fillna(0)
     assert len(smiles_list) == len(rdkit_mol_objs_list)
@@ -206,7 +206,7 @@ def _load_pcba_dataset(input_path):
 
     input_df.dropna(subset=tasks, how='all', inplace=True)
     # convert 0 to -1
-    input_df = input_df.replace(0, -1)
+    # input_df = input_df.replace(0, -1)
     # convert nan to 0
     input_df = input_df.fillna(0)
     labels = input_df[tasks].values
@@ -247,7 +247,7 @@ def _load_sider_dataset(input_path):
              'Injury, poisoning and procedural complications']
     labels = input_df[tasks]
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
     return smiles_list, rdkit_mol_objs_list, labels.values
@@ -268,7 +268,7 @@ def _load_toxcast_dataset(input_path):
     tasks = list(input_df.columns)[1:]
     labels = input_df[tasks]
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # convert nan to 0
     labels = labels.fillna(0)
     assert len(smiles_list) == len(preprocessed_rdkit_mol_objs_list)
@@ -320,7 +320,7 @@ def _load_tox21_dataset(input_path):
              'NR-PPAR-gamma', 'SR-ARE', 'SR-ATAD5', 'SR-HSE', 'SR-MMP', 'SR-p53']
     labels = input_df[tasks]
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # convert nan to 0
     labels = labels.fillna(0)
     assert len(smiles_list) == len(rdkit_mol_objs_list)
@@ -334,7 +334,7 @@ def _load_hiv_dataset(input_path):
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
     labels = input_df['HIV_active']
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # there are no nans
     assert len(smiles_list) == len(rdkit_mol_objs_list)
     assert len(smiles_list) == len(labels)
@@ -342,11 +342,11 @@ def _load_hiv_dataset(input_path):
 
 def _load_bace_dataset(input_path):
     input_df = pd.read_csv(input_path, sep=',')
-    smiles_list = input_df['mol']
+    smiles_list = input_df['smiles']
     rdkit_mol_objs_list = [AllChem.MolFromSmiles(s) for s in smiles_list]
     labels = input_df['Class']
     # convert 0 to -1
-    labels = labels.replace(0, -1)
+    # labels = labels.replace(0, -1)
     # there are no nans
     folds = input_df['Model']
     folds = folds.replace('Train', 0)  # 0 -> train
@@ -392,7 +392,7 @@ class DPDataset(Dataset, ABC):
     def _featurize(self):
         logger.info("Featurizing...")
         # self.featurized_drugs: 如果是多模态就是一个dict, 如果是structure单模态就是list[Data()]
-        self.featurized_drugs = [self.drug_featurizer(drug) for drug in self.drugs]
+        self.drugs = [self.drug_featurizer(drug) for drug in self.drugs]
         self.labels = [torch.tensor(label) for label in self.labels]
 
     def _build(self, save_path=""):
@@ -511,7 +511,7 @@ class MoleculeNetDataset(DPDataset):
         self._normalize()
         
     
-    def _load_data(self):       
+    def _load_data(self):
         smiles_list, rdkit_mol_objs, labels = datasetname2function[self.name.lower()](self.path)
         if labels.ndim == 1:
             labels = np.expand_dims(labels, axis=1)

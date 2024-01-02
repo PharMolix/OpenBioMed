@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 import argparse
 import json
@@ -12,13 +12,16 @@ from tqdm import tqdm
 import numpy as np
 
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
-from transformers import BertTokenizerFast
 
-from datasets.molqa_dataset import SUPPORTED_MOLQA_DATASET
-from models.task_model.molqa_model import SUPPORTED_MOLQA_MODELS
+from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.meteor_score import meteor_score
+from rouge_score import rouge_scorer
 
-from utils import AverageMeter, ToDevice, MolQACollator
+from open_biomed.datasets.molqa_dataset import SUPPORTED_MOLQA_DATASET
+from open_biomed.models.task_model.molqa_model import SUPPORTED_MOLQA_MODELS
+from open_biomed.utils import AverageMeter, ToDevice, MolQACollator
 
 def normalize_text(s, rm_punc=True):
     """Removing articles and punctuation, and standardizing whitespace are all typical text processing steps."""
@@ -44,34 +47,36 @@ def normalize_text(s, rm_punc=True):
         s = lower(s)
     return white_space_fix(remove_articles(s))
 
-def train_molqa(train_loader, test_loader, test_dataset, model, args, device):
-    optimizer_grouped_parameters = [p for n, p in list(model.named_parameters()) if not "mol_encoder" in n and not "mol_proj" in n]
+def train_molqa(train_loader, val_loader, test_loader, model, args, device):
     optimizer = torch.optim.Adam([p for p in model.parameters()], lr=args.lr, weight_decay=args.weight_decay)
-    #optimizer1 = torch.optim.Adam(optimizer_grouped_parameters, lr=args.lr, weight_decay=args.weight_decay)
-    #optimizer2 = torch.optim.Adam([p for p in model.mol_encoder.parameters()] + [p for p in model.mol_proj.parameters()], lr=args.lr*10, weight_decay=args.weight_decay)
 
     running_loss = AverageMeter()
-    step = 0
+    all_steps = 0
     for epoch in range(args.epochs):
         logger.info("========Epoch %d========" % (epoch + 1))
         logger.info("Training...")
         model.train()
+        steps_per_epoch = len(train_loader)
 
-        for mol, question, answer in train_loader:
+        for step, (mol, batch, question, answer) in enumerate(train_loader):
+            batch = ToDevice(batch, device)
             mol = ToDevice(mol, device)
             question = ToDevice(question, device)
             answer = ToDevice(answer, device)
-            loss = model(mol, question, answer)
-            optimizer.zero_grad()
+            loss = model(mol, batch, question, answer)
             loss.backward()
-            optimizer.step()
+
+            if (step + 1) % args.gradient_accumulation_steps == 0 or step == steps_per_epoch - 1:
+                nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+                optimizer.zero_grad()
 
             running_loss.update(loss.detach().cpu().item())
-            step += 1
-            if step % args.logging_steps == 0:
-                logger.info("Steps=%d Training Loss=%.4lf" % (step, running_loss.get_average()))
+            all_steps += 1
+            if all_steps % (args.logging_steps * args.gradient_accumulation_steps) == 0:
+                logger.info("Steps=%d Training Loss=%.4lf" % (all_steps // args.gradient_accumulation_steps, running_loss.get_average()))
                 running_loss.reset()
-        if (epoch + 1) % 10 == 0:
+        if (epoch + 1) % args.eval_epochs == 0:
             torch.save({'model_state_dict': model.state_dict()}, os.path.join(args.output_path, "checkpoint_" + str(epoch) + ".pth"))
             print(test_molqa(test_loader, model, args, device))
     return model
@@ -79,35 +84,36 @@ def train_molqa(train_loader, test_loader, test_dataset, model, args, device):
 def test_molqa(test_loader, model, args, device):
     model.eval()
 
-    exact, f1 = [], []
     logger.info("Testing...")
+    output_tokens, gt_tokens = [], []
+    meteor_scores, rouge_scores = [], []
+    scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'])
     with torch.no_grad():
-        for i, (mol, question, answer) in enumerate(tqdm(test_loader)):
+        for i, (mol, batch, question, answer) in enumerate(tqdm(test_loader)):
             mol = ToDevice(mol, device)
+            batch = ToDevice(batch, device)
             question = ToDevice(question, device)
-            output = model.generate(mol, question, num_beams=5, max_length=512)
+            output = model.generate(mol, batch, question, num_beams=1, max_length=512)
+            output = model.decoder_tokenizer.batch_decode(output, skip_special_tokens=True)
             if i <= 3:
                 logger.info("Outputs: %s" % output)
                 logger.info("Ground truth: %s" % answer)
                 logger.info("------------------------------------------------------")
             for j in range(len(output)):
-                y_true = normalize_text(answer[j], rm_punc=True)
-                y_pred = normalize_text(output[j], rm_punc=True)
-                exact.append(int(y_true == y_pred))
+                output_tokens.append(output[j].split(" "))
+                gt_tokens.append([answer[j].split(" ")])
+                meteor_scores.append(meteor_score(gt_tokens[-1], output_tokens[-1]))
+                rouge_scores.append(scorer.score(output[j], answer[j]))
 
-                y_true = y_true.split()
-                y_pred = y_pred.split()
-                common_tokens = set(y_true) & set(y_pred)
-                if len(common_tokens) == 0:
-                    f1.append(0)
-                else:
-                    precision = len(common_tokens) / len(y_pred)
-                    recall = len(common_tokens) / len(y_true)
-                    f1.append(2 * precision * recall / (precision + recall))
-
+    bleu2 = corpus_bleu(gt_tokens, output_tokens, weights=(0.5, 0.5))
+    bleu4 = corpus_bleu(gt_tokens, output_tokens, weights=(0.25, 0.25, 0.25, 0.25))
     return {
-        "exact": np.mean(exact),
-        "f1": np.mean(f1),
+        "BLEU-2": bleu2,
+        "BLEU-4": bleu4,
+        "Meteor": np.mean(meteor_scores),
+        "ROUGE-1": np.mean([rs['rouge1'].fmeasure for rs in rouge_scores]),
+        "ROUGE-2": np.mean([rs['rouge2'].fmeasure for rs in rouge_scores]),
+        "ROUGE-L": np.mean([rs['rougeL'].fmeasure for rs in rouge_scores]),
     }
 
 def add_arguments(parser):
@@ -120,6 +126,8 @@ def add_arguments(parser):
     parser.add_argument("--output_path", type=str, default='./ckpts/finetune_ckpts/molqa/molt5')
     parser.add_argument("--mode", type=str, default="train")
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--eval_epochs", type=int, default=1)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=16)
     parser.add_argument("--num_workers", type=int, default=1)
     parser.add_argument("--patience", type=int, default=3)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -143,10 +151,12 @@ if __name__ == "__main__":
 
     # load dataset
     train_dataset = SUPPORTED_MOLQA_DATASET[args.dataset](args.dataset_path, config["data"], split="train")
+    val_dataset = SUPPORTED_MOLQA_DATASET[args.dataset](args.dataset_path, config["data"], split="valid")
     test_dataset = SUPPORTED_MOLQA_DATASET[args.dataset](args.dataset_path, config["data"], split="test")
     train_collator = MolQACollator(config["data"], collate_outputs=True)
     test_collator = MolQACollator(config["data"], collate_outputs=False)
     train_dataloader = DataLoader(train_dataset, args.batch_size, shuffle=True, collate_fn=train_collator, num_workers=args.num_workers)
+    val_dataloader = DataLoader(val_dataset, args.batch_size, shuffle=False, collate_fn=train_collator, num_workers=args.num_workers)
     test_dataloader = DataLoader(test_dataset, args.batch_size, shuffle=False, collate_fn=test_collator, num_workers=args.num_workers)
 
     # load model
@@ -159,7 +169,7 @@ if __name__ == "__main__":
     model = model.to(device)
 
     if args.mode == "train":
-        train_molqa(train_dataloader, test_dataloader, test_dataset, model, args, device)
+        train_molqa(train_dataloader, val_dataloader, test_dataloader, model, args, device)
     elif args.mode == "test":
         if os.path.exists(args.output_path):
             state_dict = torch.load(args.output_path, map_location=device)["model_state_dict"]

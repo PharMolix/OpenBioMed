@@ -3,7 +3,7 @@ logger = logging.getLogger(__name__)
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 import argparse
 import json
@@ -17,9 +17,9 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from sklearn.metrics import mean_absolute_error, mean_squared_error, roc_auc_score
 
-from datasets.dp_dataset import SUPPORTED_DP_DATASETS, Task
-from utils import DPCollator, roc_auc, EarlyStopping, AverageMeter, ToDevice
-from models.task_model.dp_model import DPModel, DeepEIK4DP
+from open_biomed.datasets.dp_dataset import SUPPORTED_DP_DATASETS, Task
+from open_biomed.utils import DPCollator, roc_auc, EarlyStopping, AverageMeter, ToDevice
+from open_biomed.models.task_model.dp_model import DPModel, DeepEIK4DP
 
 def add_arguments(parser):
     parser.add_argument("--device", type=str, default="cuda:0")

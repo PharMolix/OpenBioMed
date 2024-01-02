@@ -2,18 +2,18 @@
     "model": "moleculestm",
     "data": {
         "mol": {
-            "modality": ["structure", "text"],
+            "modality": ["structure"],
             "featurizer": {
                 "structure": {
                     "name": "BaseGNN"
-                },
-                "text": {
-                    "name": "TransformerTokenizer",
-                    "transformer_type": "bert",
-                    "max_length": 256,
-                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
                 }
             }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "bert",
+            "max_length": 512,
+            "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
         }
     },
     "network": {

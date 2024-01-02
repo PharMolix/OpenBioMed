@@ -3,8 +3,8 @@ import random
 import torch
 import torch.nn as nn
 
-from models import SUPPORTED_MOL_ENCODER
-from models.predictor import MLP
+from open_biomed.models import SUPPORTED_MOL_ENCODER
+from open_biomed.models.predictor import MLP
 
 class SparseAttention(nn.Module):
     def __init__(self, config, kge, mlp_dim):

@@ -4,10 +4,10 @@ from sklearn.preprocessing import OneHotEncoder
 
 import torch
 
-from feature.base_featurizer import BaseFeaturizer
-from feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
-from feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
-from utils import ToDevice
+from open_biomed.feature.base_featurizer import BaseFeaturizer
+from open_biomed.feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
+from open_biomed.feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
+from open_biomed.utils import ToDevice, get_biot5_tokenizer
 
 from transformers import AutoTokenizer, AutoModel
 
@@ -128,12 +128,31 @@ class ProteinTransformerEncFeaturizer(BaseFeaturizer):
             h = h[1:-1].mean(dim=0)
             return h
 
+class ProteinBioT5Featurizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(ProteinBioT5Featurizer, self).__init__()
+        self.max_length = config["max_length"]
+        self.tokenizer = get_biot5_tokenizer(config)
+        self.add_special_tokens = False if "no_special_tokens" in config else True
+        if "prompt" in config:
+            prompt = config["prompt"].split("<proteinHere>")
+            self.prompt = prompt[0] + "{content}" + prompt[1]
+        else:
+            self.prompt = "{content}"
+
+    def __call__(self, data):
+        data = "<bop>" + "".join(["<p>" + residue for residue in data[:self.max_length - 2]]) + "<eop>"
+        #print(data)
+        #print(self.tokenizer(self.prompt.format(content=data), max_length=self.max_length, padding=True, truncation=True, add_special_tokens=self.add_special_tokens))
+        return self.tokenizer(self.prompt.format(content=data), max_length=self.max_length, padding=True, truncation=True, add_special_tokens=self.add_special_tokens)
+
 SUPPORTED_SINGLE_MODAL_PROTEIN_FEATURIZER = {
     "index": ProteinIndexFeaturizer,
     "OneHot": ProteinOneHotFeaturizer,
     "protein2vec": Protein2VecFeaturizer,
     "transformertok": ProteinTransformerTokFeaturizer,
-    "transformerenc": ProteinTransformerEncFeaturizer
+    "transformerenc": ProteinTransformerEncFeaturizer,
+    "biot5": ProteinBioT5Featurizer,
 }
 
 class ProteinMultiModalFeaturizer(BaseFeaturizer):

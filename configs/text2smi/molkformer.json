@@ -1,0 +1,41 @@
+{
+    "model": "molkformer",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "selfies",
+                    "transformer_type": "biot5",
+                    "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                    "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+                    "max_length": 512
+                }
+            }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "biot5",
+            "max_length": 512,
+            "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+            "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt"
+        }
+    },
+    "network": {
+        "use_selfies": true,
+        "structure": {
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0
+        },
+        "decoder": {
+            "config_file": "./ckpts/text_ckpts/t5-v1.1-base/config.json"
+        },
+        "kformer_config_file": "./configs/encoders/multimodal/kformer_config.json",
+        "encoder_tokenizer": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+        "decoder_tokenizer": "./ckpts/text_ckpts/t5-v1.1-base",
+        "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+        "max_n_atoms": 256,
+        "projection_dim": 256
+    }
+}

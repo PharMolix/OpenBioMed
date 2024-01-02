@@ -1,0 +1,33 @@
+{
+    "model": "clamp",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "fingerprint",
+                    "which": "morganc+rdkc",
+                    "fp_size": 8192,
+                    "radius": 2,
+                    "return_type": "pt"
+                }
+            }
+        },
+        "text": {
+            "name": "CLIP"
+        }
+    },
+    "network": {
+        "assay_features_size": 512, 
+        "compound_features_size": 8192, 
+        "embedding_size": 768,
+        "hidden_layers": [4096, 2048], 
+        "assay_layer_sizes": [4096, 2048],  
+        "compound_layer_sizes": [4096, 2048],
+        "nonlinearity": "ReLU",
+        "norm": true,
+        "dropout_input": 0.1,
+        "dropout_hidden": 0.2,
+        "clip_path": "./ckpts/fusion_ckpts/clip/"
+    }
+}

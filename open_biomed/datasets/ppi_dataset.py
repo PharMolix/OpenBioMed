@@ -12,8 +12,8 @@ import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
 
-from feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
-from utils.kg_utils import subgraph_sample
+from open_biomed.feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
+from open_biomed.utils.kg_utils import subgraph_sample
 
 class PPIDataset(Dataset, ABC):
     def __init__(self, path, config, directed=False, make_network=False, split='random'):

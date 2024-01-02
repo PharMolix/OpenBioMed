@@ -3,12 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.base_models import MolEncoder, TextEncoder
-from models.molecule.gnn_graphmvp import GNNGraphMVP
-from models.multimodal.molfm.xbert import BertConfig, BertForMaskedLM
-from models.knowledge.transe import TransE
+from open_biomed.models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.molecule.gnn_graphmvp import GNNGraphMVP
+from open_biomed.models.multimodal.molfm.xbert import BertConfig, BertForMaskedLM
+from open_biomed.models.knowledge.transe import TransE
 
-from utils.mol_utils import convert_pyg_batch
+from open_biomed.utils.mol_utils import convert_pyg_batch
 
 class MolFM(MolEncoder, TextEncoder):
     def __init__(self, config):
@@ -126,8 +126,8 @@ class MolFM(MolEncoder, TextEncoder):
     def encode_knowledge(self, kg):
         return self.predict(kg)
 
-    def predict_similarity_score(self, data):
-        preds = self.forward(data["structure"], data["text"])["last_hidden_state"][:, 0, :]
+    def predict_similarity_score(self, mol, text):
+        preds = self.forward(mol, text)["last_hidden_state"][:, 0, :]
         return F.softmax(self.mtm_head(preds), dim=-1)[:, 1]
 
     def calculate_matching_loss(self, drug, text):

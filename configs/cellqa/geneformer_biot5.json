@@ -1,0 +1,47 @@
+{
+    "name": "geneformer_biot5",
+    "data": {
+        "cell": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "GeneFormer",
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+                    "transformer_type": "geneformer"
+                } 
+            }
+        },
+        "text": {
+            "question": {
+                "name": "TransformerTokenizer",
+                "transformer_type": "biot5",
+                "max_length": 512,
+                "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt"
+            },
+            "answer": {
+                "name": "TransformerTokenizer",
+                "transformer_type": "biot5",
+                "max_length": 512,
+                "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt"
+            }
+        }
+    },
+    "network": {
+        "type": "composed",
+        "cell": {
+            "name": "geneformer",
+            "model_name_or_path": "./ckpts/cell_ckpts/geneformer",
+            "freeze": true
+        },
+        "text": {
+            "name": "biot5",
+            "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+            "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+            "ckpt": "./ckpts/fusion_ckpts/biot5/pytorch_model.bin",
+            "transformer_type": "t5"
+        },
+        "num_query_tokens": 32
+    }
+}

@@ -4,10 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import RobertaConfig
 
-from models.base_models import MolEncoder, TextEncoder
-from models.molecule.unimap import UniMAP
-from models.multimodal.molfm.xbert import BertConfig, BertForMaskedLM
-from models.knowledge.transe import TransE
+from open_biomed.models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.molecule.unimap import UniMAP
+from open_biomed.models.multimodal.molfm.xbert import BertConfig, BertForMaskedLM
+from open_biomed.models.knowledge.transe import TransE
 
 class DrugFM(MolEncoder, TextEncoder):
     def __init__(self, config):

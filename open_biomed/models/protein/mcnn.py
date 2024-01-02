@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.base_models import ProteinEncoder
+from open_biomed.models.base_models import ProteinEncoder
 
 class Conv1dReLU(nn.Module):
     '''

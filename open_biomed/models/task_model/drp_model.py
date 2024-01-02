@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from models.molecule.gin_tgsa import GINTGSA
-from models.cell import CellGAT
-from models.cell import SUPPORTED_CELL_ENCODER
+from open_biomed.models.molecule.gin_tgsa import GINTGSA
+from open_biomed.models.cell import CellGAT
+from open_biomed.models.cell import SUPPORTED_CELL_ENCODER
 
 class ConvPooler(nn.Module):
     def __init__(self, dim, full_seq_len):

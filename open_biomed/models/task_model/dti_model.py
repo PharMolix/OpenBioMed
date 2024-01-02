@@ -6,8 +6,8 @@ import torch.nn as nn
 import json
 
 from transformers import AutoModel
-from models import SUPPORTED_MOL_ENCODER, SUPPORTED_PROTEIN_ENCODER
-from models.predictor import MLP
+from open_biomed.models import SUPPORTED_MOL_ENCODER, SUPPORTED_PROTEIN_ENCODER
+from open_biomed.models.predictor import MLP
 
 class DTIModel(nn.Module):
     def __init__(self, config, pred_dim):

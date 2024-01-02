@@ -16,11 +16,11 @@ import torch
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
-from feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
-from feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
-from utils.mol_utils import can_smiles
-from utils.kg_utils import SUPPORTED_KG, embed
-from utils.split_utils import kfold_split, cold_drug_split, cold_protein_split, cold_cluster_split, cold_mssl2drug_split, random_split
+from open_biomed.feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from open_biomed.feature.protein_featurizer import SUPPORTED_PROTEIN_FEATURIZER, ProteinMultiModalFeaturizer
+from open_biomed.utils.mol_utils import can_smiles
+from open_biomed.utils.kg_utils import SUPPORTED_KG, embed
+from open_biomed.utils.split_utils import kfold_split, cold_drug_split, cold_protein_split, cold_cluster_split, cold_mssl2drug_split, random_split
 
 
 class DDIDataset(Dataset, ABC):

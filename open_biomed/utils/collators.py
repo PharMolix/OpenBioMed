@@ -3,10 +3,12 @@ from abc import ABC, abstractmethod
 import torch
 from torch_geometric.data import Data, Batch
 from transformers import BatchEncoding, DataCollatorWithPadding, BertTokenizer, T5Tokenizer, GPT2Tokenizer, EsmTokenizer
-from utils.mol_utils import SmilesTokenizer
+from open_biomed.utils.mol_utils import SmilesTokenizer
 
 name2tokenizer = {
     "bert": BertTokenizer,
+    "geneformer": BertTokenizer,
+    "biot5": T5Tokenizer,
     "t5": T5Tokenizer,
     "gpt2": GPT2Tokenizer,
     "esm": EsmTokenizer,
@@ -61,7 +63,7 @@ class BaseCollator(ABC):
     def _build(self, config):
         if not isinstance(config, dict):
             return
-        if "model_name_or_path" in config:
+        if "transformer_type" in config:
             tokenizer = name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"])
             if config["transformer_type"] == "gpt2":
                 tokenizer.pad_token = tokenizer.eos_token
@@ -86,6 +88,19 @@ class MolCollator(BaseCollator):
             batch = self._collate_single(mols, self.config["featurizer"]["structure"])
         return batch
 
+class MultiMolCollator(BaseCollator):
+    def __init__(self, config):
+        super(MultiMolCollator, self).__init__(config)
+        self.mol_collator = MolCollator(config)
+
+    def __call__(self, mols):
+        batch_idx = []
+        mols_flatten = []
+        for i, mol_list in enumerate(mols):
+            mols_flatten += mol_list
+            batch_idx += [i] * len(mol_list)
+        return self.mol_collator(mols_flatten), torch.LongTensor(batch_idx)
+
 class ProteinCollator(BaseCollator):
     def __init__(self, config):
         super(ProteinCollator, self).__init__(config)
@@ -102,12 +117,30 @@ class ProteinCollator(BaseCollator):
             batch = self._collate_single(proteins, self.config["featurizer"]["structure"])
         return batch
 
+class MultiProteinCollator(BaseCollator):
+    def __init__(self, config):
+        super(MultiProteinCollator, self).__init__(config)
+        self.protein_collator = ProteinCollator(config)
+
+    def __call__(self, prots):
+        batch_idx = []
+        prots_flatten = []
+        for i, prot_list in enumerate(prots):
+            prots_flatten += prot_list
+            batch_idx += [i] * len(prot_list)
+        return self.protein_collator(prots_flatten), torch.LongTensor(batch_idx)
+
 class CellCollator(BaseCollator):
     def __init__(self, config):
         super(CellCollator, self).__init__(config)
 
     def __call__(self, cells):
-        batch = self._collate_single(cells, self.config["featurizer"])
+        if len(self.config["modality"]) > 1:
+            batch = {}
+            for modality in self.config["modality"]:
+                batch[modality] = self._collate_single([cell[modality] for cell in cells], self.config["featurizer"][modality])
+        else:
+            batch = self._collate_single(cells, self.config["featurizer"]["structure"])
         return batch
 
 class TextCollator(BaseCollator):
@@ -178,10 +211,20 @@ class PPICollator(TaskCollator):
         else:
             return self.protein_collator(prots1), self.protein_collator(prots2), torch.stack(labels)
 
+class MTCollator(TaskCollator):
+    def __init__(self, config):
+        super(MTCollator, self).__init__(config)
+        self.mol_collator = MolCollator(config["mol"])
+        self.text_collator = TextCollator(config["text"])
+
+    def __call__(self, data):
+        mols, texts = map(list, zip(*data))
+        return self.mol_collator(mols), self.text_collator(texts)
+
 class MolQACollator(TaskCollator):
     def __init__(self, config, collate_outputs=True):
         super(MolQACollator, self).__init__(config)
-        self.mol_collator = MolCollator(config["mol"])
+        self.mol_collator = MultiMolCollator(config["mol"])
         self.question_collator = TextCollator(config["text"]["question"])
         self.collate_outputs = collate_outputs
         if self.collate_outputs:
@@ -189,7 +232,41 @@ class MolQACollator(TaskCollator):
 
     def  __call__(self, data):
         mols, questions, answers = map(list, zip(*data))
+        mols, batch = self.mol_collator(mols)
         if self.collate_outputs:
-            return self.mol_collator(mols), self.question_collator(questions), self.answer_collator(answers)
+            return mols, batch, self.question_collator(questions), self.answer_collator(answers)
         else:
-            return self.mol_collator(mols), self.question_collator(questions), answers
+            return mols, batch, self.question_collator(questions), answers
+
+class ProteinQACollator(TaskCollator):
+    def __init__(self, config, collate_outputs=True):
+        super(ProteinQACollator, self).__init__(config)
+        self.mol_collator = MultiProteinCollator(config["protein"])
+        self.question_collator = TextCollator(config["text"]["question"])
+        self.collate_outputs = collate_outputs
+        if self.collate_outputs:
+            self.answer_collator = TextCollator(config["text"]["answer"])
+
+    def  __call__(self, data):
+        proteins, questions, answers = map(list, zip(*data))
+        proteins, batch = self.mol_collator(proteins)
+        if self.collate_outputs:
+            return proteins, batch, self.question_collator(questions), self.answer_collator(answers)
+        else:
+            return proteins, batch, self.question_collator(questions), answers
+
+class CellQACollator(TaskCollator):
+    def __init__(self, config, collate_outputs=True):
+        super(CellQACollator, self).__init__(config)
+        self.cell_collator = CellCollator(config["cell"])
+        self.question_collator = TextCollator(config["text"]["question"])
+        self.collate_outputs = collate_outputs
+        if self.collate_outputs:
+            self.answer_collator = TextCollator(config["text"]["answer"])
+
+    def  __call__(self, data):
+        cells, questions, answers = map(list, zip(*data))
+        if self.collate_outputs:
+            return self.cell_collator(cells), self.question_collator(questions), self.answer_collator(answers)
+        else:
+            return self.cell_collator(cells), self.question_collator(questions), answers

@@ -1,0 +1,50 @@
+{
+    "name": "biot5",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "selfies",
+                    "transformer_type": "biot5",
+                    "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                    "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+                    "max_length": 184
+                }
+            }
+        },
+        "text": {
+            "question": {
+                "name": "TransformerTokenizer",
+                "transformer_type": "biot5",
+                "max_length": 256,
+                "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt"
+            },
+            "answer": {
+                "name": "TransformerTokenizer",
+                "transformer_type": "biot5",
+                "max_length": 256,
+                "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt"
+            }
+        }
+    },
+    "network": {
+        "type": "joint_rep",
+        "encoder": {
+            "name": "biot5",
+            "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+            "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+            "ckpt": "./ckpts/fusion_ckpts/biot5/pytorch_model.bin",
+            "transformer_type": "t5"
+        },
+        "text_decoder": {
+            "name": "biot5",
+            "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+            "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+            "ckpt": "./ckpts/fusion_ckpts/biot5/pytorch_model.bin",
+            "transformer_type": "t5"
+        }
+    }
+}

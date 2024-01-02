@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from models.base_models import MolEncoder, TextEncoder
-from models.molecule.gnn_graphcl import GNNGraphCL
-from models.text.base_transformers import BaseTransformers
+from open_biomed.models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.molecule.gnn_graphcl import GNNGraphCL
+from open_biomed.models.text.base_transformers import BaseTransformers
 
 class BioMedGPTCLIP(MolEncoder, TextEncoder):
     def __init__(self, config):

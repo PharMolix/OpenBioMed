@@ -13,9 +13,9 @@ from transformers import RobertaTokenizer
 from transformers.models.roberta.modeling_roberta import RobertaPreTrainedModel
 from transformers.activations import gelu
 
-from models.base_models import MolEncoder
-from models.molecule.unimap.gcn import DeeperGCN, AtomHead
-from models.molecule.unimap.modeling_roberta import RobertaLayer, RobertaModel
+from open_biomed.models.base_models import MolEncoder
+from open_biomed.models.molecule.unimap.gcn import DeeperGCN, AtomHead
+from open_biomed.models.molecule.unimap.modeling_roberta import RobertaLayer, RobertaModel
 
 def collate_tokens(
     values,

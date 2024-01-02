@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from transformers import AutoModel, AutoConfig
 
-from models.base_models import TextEncoder
+from open_biomed.models.base_models import TextEncoder
 
 class BaseTransformers(TextEncoder):
     def __init__(self, config):

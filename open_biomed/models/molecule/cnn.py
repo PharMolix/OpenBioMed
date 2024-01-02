@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from models.base_models import MolEncoder
+from open_biomed.models.base_models import MolEncoder
 
 class MolCNN(MolEncoder):
     def __init__(self, config):
