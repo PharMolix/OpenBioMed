@@ -1,0 +1,21 @@
+{
+    "encoder_layers": 15,
+    "encoder_embed_dim": 512,
+    "encoder_ffn_embed_dim": 2048,
+    "encoder_attention_heads": 64,
+    "dropout": 0.1,
+    "emb_dropout": 0.1,
+    "attention_dropout": 0.1,
+    "activation_dropout": 0.0,
+    "pooler_dropout": 0.0,
+    "max_seq_len": 512,
+    "activation_fn": "gelu",
+    "pooler_activation_fn": "tanh",
+    "post_ln": false,
+    "masked_token_loss": -1.0,
+    "masked_coord_loss": -1.0,
+    "masked_dist_loss": -1.0,
+    "x_norm_loss": -1.0,
+    "delta_pair_repr_norm_loss": -1.0,
+    "dict_path": "./assets/tokenizers/unimol/unimol_dict.txt"
+}

@@ -18,7 +18,7 @@ name2model = {
 
 class TextFeaturizer(BaseFeaturizer, ABC):
     def __init__(self):
-        super(TextFeaturizer).__init__()
+        super(TextFeaturizer, self).__init__()
         self.transform = None
 
     def set_transform(self, transform):
@@ -47,7 +47,13 @@ class TextTransformerTokFeaturizer(TextFeaturizer):
 
     def __call__(self, data):
         if self.transform is not None:
+            orig_data = data
             data = self.transform[data]
+            if isinstance(data, list):
+                if orig_data not in self.transform_count:
+                    self.transform_count[orig_data] = 0
+                data = data[self.transform_count[orig_data]]
+                self.transform_count[orig_data] += 1
         return self.tokenizer(self.prompt.format(content=data), truncation=True, padding=True, add_special_tokens=self.add_special_tokens)
 
 class TextTransformerSentFeaturizer(TextFeaturizer):

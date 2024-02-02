@@ -1,16 +1,21 @@
 {
-    "model": "molkformer",
+    "model": "mvmol",
     "data": {
         "mol": {
             "modality": ["structure", "text"],
             "featurizer": {
                 "structure": {
-                    "name": "BaseGNN"
+                    "name": "unimol",
+                    "dictionary_path": "./assets/tokenizers/unimol/unimol_dict.txt",
+                    "max_n_atoms": 256,
+                    "remove_hydrogen": false,
+                    "allow_cache": true,
+                    "cache_file": "./assets/data_mtr_mvmol_mvst.pkl"
                 },
                 "text": {
                     "name": "TransformerTokenizer",
                     "transformer_type": "bert",
-                    "max_length": 8,
+                    "max_length": 16,
                     "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
                     "no_special_tokens": true
                 }
@@ -25,16 +30,15 @@
     },
     "network": {
         "structure": {
-            "gin_hidden_dim": 300,
-            "gin_num_layers": 5,
-            "drop_ratio": 0.0
+            "config_path": "./configs/encoders/mol/unimol.json",
+            "dict_path": "./assets/tokenizers/unimol/unimol_dict.txt"
         },
         "decoder": {
-            "config_file": "./ckpts/text_ckpts/t5-base/config.json"
+            "config_file": "./ckpts/text_ckpts/t5-v1.1-base/config.json"
         },
-        "kformer_config_file": "./configs/encoders/multimodal/kformer_config.json",
+        "qformer_config_file": "./configs/encoders/multimodal/kformer_config.json",
         "encoder_tokenizer": "./ckpts/text_ckpts/scibert_scivocab_uncased",
-        "decoder_tokenizer": "./ckpts/text_ckpts/t5-base",
+        "decoder_tokenizer": "./ckpts/text_ckpts/t5-v1.1-base",
         "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
         "max_n_atoms": 256,
         "projection_dim": 256

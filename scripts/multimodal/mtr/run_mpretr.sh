@@ -5,9 +5,9 @@ MODEL=$1
 DEVICE=$2
 EPOCHS=100
 #PERSPS=("chemical_properties_and_functions" "physical_properties" "indications" "dynamics" "actions" "metabolism" "protein-binding" "absorption" "half-life" "distribution" "elimination" "clearance" "toxicity")
-#PERSPS=("mix")
+PERSPS=("mix")
 #PERSPS=("physical_properties")
-PERSPS=("physical_properties" "pharmacokinetic_properties" "chemical_properties_and_functions")
+#PERSPS=("physical_properties" "pharmacokinetic_properties" "chemical_properties_and_functions")
 
 CKPT="None"
 PARAM_KEY="None"
@@ -47,9 +47,15 @@ then
     RERANK="no_rerank"
 elif [ $MODEL = "molkformer" ];
 then
-    CKPT="./ckpts/fusion_ckpts/mol_kformer_stage2/checkpoint_49.pth"
+    CKPT="./ckpts/fusion_ckpts/mol_kformer_stage2/checkpoint_99.pth"
     PARAM_KEY="model"
     RERANK="rerank"
+    VIEW_OPER="hybrid"
+elif [ $MODEL = "mvmol" ];
+then
+    CKPT="./ckpts/fusion_ckpts/mvmol-stage3/checkpoint_9.pth"
+    PARAM_KEY="model"
+    RERANK="no_rerank"
     VIEW_OPER="hybrid"
 fi
 
@@ -70,7 +76,7 @@ echo "seed is "${SEED}
 python open_biomed/tasks/multi_modal_task/mtr.py \
 --device ${DEVICE} \
 --dataset MPRetr \
---dataset_path ./datasets/mtr/molretrieve \
+--dataset_path ./datasets/mtr/mvst_mix \
 --dataset_mode ${TASK_MODE} \
 --perspective ${PERSP} \
 --view_operation ${VIEW_OPER} \

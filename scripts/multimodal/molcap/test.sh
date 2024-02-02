@@ -11,6 +11,11 @@ then
     CKPT="./ckpts/fusion_ckpts/mol_kformer_stage2/checkpoint_99.pth"
     PARAM_KEY="model"
 fi
+if [ ${MODEL} = "mvmol" ]; 
+then
+    CKPT="./ckpts/finetune_ckpts/molcap/mvmol/checkpoint_9.pth"
+    PARAM_KEY="model_state_dict"
+fi
 
 python open_biomed/tasks/multi_modal_task/molcap.py \
 --device ${DEVICE} \

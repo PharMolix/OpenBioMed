@@ -12,3 +12,4 @@ from open_biomed.models.multimodal.molkformer.mol_kformer import MolKFormer
 from open_biomed.models.multimodal.chatmol import ChatMol
 from open_biomed.models.multimodal.clamp import CLAMP
 from open_biomed.models.multimodal.biot5 import BioT5
+from open_biomed.models.multimodal.mvmol import MVMol

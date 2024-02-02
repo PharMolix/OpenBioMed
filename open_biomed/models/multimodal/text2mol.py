@@ -8,10 +8,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from transformers import BertModel, BertTokenizer
-from utils import ToDevice
-from utils.mol_utils import load_mol2vec
 
 from open_biomed.models.base_models import MolEncoder, TextEncoder
+from open_biomed.utils import ToDevice
+from open_biomed.utils.mol_utils import load_mol2vec
 
 class Text2MolMLP(MolEncoder, TextEncoder):
     def __init__(self, ninp, nout, nhid, model_name_or_path, cid2smiles_path, cid2vec_path, mol2vec_output_path=None):

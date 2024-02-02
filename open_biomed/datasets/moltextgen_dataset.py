@@ -8,6 +8,7 @@ import copy
 import csv
 import json
 from rdkit import Chem
+from tqdm import tqdm
 
 import torch
 from torch.utils.data import Dataset
@@ -36,11 +37,14 @@ class MolTextGenDataset(Dataset):
 
     def _featurize(self):
         if len(self.config["mol"]["modality"]) > 1:
+            if "conformation" in self.config["mol"]["featurizer"]["structure"]:
+                self.config["mol"]["featurizer"]["structure"]["conformation"]["cache_file"] = "_".join(self.config["mol"]["featurizer"]["structure"]["conformation"]["cache_file"].split("_")[:-1]) + "_" + self.split + ".pkl"
+                logger.info("Cache to %s" % self.config["mol"]["featurizer"]["structure"]["conformation"]["cache_file"])
             featurizer = MolMultiModalFeaturizer(self.config["mol"])
             featurizer.set_mol2text_dict(self.smi2text)
         else:
             featurizer = SUPPORTED_MOL_FEATURIZER[self.config["mol"]["featurizer"]["structure"]["name"]](self.config["mol"]["featurizer"]["structure"])
-        self.mols = [featurizer(smi) for smi in self.smiles]
+        self.mols = [featurizer(smi) for smi in tqdm(self.smiles)]
         featurizer = SUPPORTED_TEXT_FEATURIZER[self.config["text"]["name"]](self.config["text"])
         self.texts_raw = copy.deepcopy(self.texts)
         self.texts = [featurizer(text) for text in self.texts]

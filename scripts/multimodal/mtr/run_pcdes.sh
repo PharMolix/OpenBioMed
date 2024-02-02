@@ -13,12 +13,7 @@ MAX_SEED=42
 
 FILTER_FILE="./datasets/mtr/momu_pretrain/pair.txt"
 
-if [ $MODEL = "molfm_plus" ];
-then
-    CKPT="./ckpts/fusion_ckpts/molfm-plus/checkpoint_39.pth"
-    PARAM_KEY="model"
-    RERANK="no_rerank"
-elif [ $MODEL = "molfm" ]; 
+if [ $MODEL = "molfm" ]; 
 then
     CKPT="./ckpts/fusion_ckpts/molfm-hn/checkpoint_59.pth"
     PARAM_KEY="model"
@@ -46,6 +41,12 @@ then
 elif [ $MODEL = "molkformer" ];
 then
     CKPT="./ckpts/fusion_ckpts/mol_kformer_stage2/checkpoint_49.pth"
+    PARAM_KEY="model"
+    RERANK="rerank"
+    VIEW_OPER="hybrid"
+elif [ $MODEL = "mvmol" ];
+then
+    CKPT="./ckpts/fusion_ckpts/mvmol-stage3/checkpoint_7.pth"
     PARAM_KEY="model"
     RERANK="rerank"
     VIEW_OPER="hybrid"

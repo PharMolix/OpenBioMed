@@ -6,3 +6,4 @@ from open_biomed.models.molecule.gnn_molclr import MolCLR
 from open_biomed.models.molecule.mgnn import MGNN
 from open_biomed.models.molecule.unimap import UniMAP
 from open_biomed.models.molecule.moflow import MoFlow
+from open_biomed.models.molecule.unimol import UniMol

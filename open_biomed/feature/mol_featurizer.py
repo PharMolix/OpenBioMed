@@ -28,6 +28,7 @@ from transformers import BertTokenizer, T5Tokenizer
 from open_biomed.feature.base_featurizer import BaseFeaturizer
 from open_biomed.feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
 from open_biomed.feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
+from open_biomed.utils.mol_utils import get_unimol_dictionary
 from open_biomed.utils import to_clu_sparse, SmilesTokenizer, get_biot5_tokenizer
 
 def one_hot_encoding(x, allowable_set, encode_unknown=False):
@@ -844,6 +845,101 @@ class MolGraphFeaturizerV2(BaseFeaturizer):
 
         return data
 
+def smi2_2Dcoords(smi):
+    mol = Chem.MolFromSmiles(smi)
+    mol = AllChem.AddHs(mol)
+    AllChem.Compute2DCoords(mol)
+    coordinates = mol.GetConformer().GetPositions().astype(np.float32)
+    assert len(mol.GetAtoms()) == len(coordinates), "2D coordinates shape is not align with {}".format(smi)
+    return coordinates
+
+def smi2_3Dcoords(smi, cnt=1, max_attempts=1000):
+    mol = Chem.MolFromSmiles(smi)
+    mol = AllChem.AddHs(mol)
+    coordinate_list = []
+    for seed in range(cnt):
+        try:
+            res = AllChem.EmbedMolecule(mol, maxAttempts=max_attempts, randomSeed=seed)  # will random generate conformer with seed equal to -1. else fixed random seed.
+            if res == 0:
+                try:
+                    AllChem.MMFFOptimizeMolecule(mol)       # some conformer can not use MMFF optimize
+                    coordinates = mol.GetConformer().GetPositions()
+                except:
+                    logger.info("Failed to generate 3D, replace with 2D")
+                    coordinates = smi2_2Dcoords(smi)            
+            elif res == -1:
+                mol_tmp = Chem.MolFromSmiles(smi)
+                AllChem.EmbedMolecule(mol_tmp, maxAttempts=max_attempts, randomSeed=seed)
+                mol_tmp = AllChem.AddHs(mol_tmp, addCoords=True)
+                try:
+                    AllChem.MMFFOptimizeMolecule(mol_tmp)       # some conformer can not use MMFF optimize
+                    coordinates = mol_tmp.GetConformer().GetPositions()
+                except:
+                    logger.info("Failed to generate 3D, replace with 2D")
+                    coordinates = smi2_2Dcoords(smi) 
+        except:
+            logger.info("Failed to generate 3D, replace with 2D")
+            coordinates = smi2_2Dcoords(smi) 
+
+        assert len(mol.GetAtoms()) == len(coordinates), "3D coordinates shape is not align with {}".format(smi)
+        coordinate_list.append(coordinates.astype(np.float32))
+    return coordinate_list
+
+class MolConformationFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolConformationFeaturizer, self).__init__(config)
+        assert config["allow_cache"], "Caching is recommended to speed up data processing"
+        self.config = config
+
+    def __call__(self, data):
+        if data not in self.cached_data:
+            self.cached_data[data] = smi2_3Dcoords(data, self.config["num_conformations"])
+        return self.cached_data[data]
+
+class MolUniMolFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolUniMolFeaturizer, self).__init__(config)
+        assert config["allow_cache"], "Caching is recommended to speed up data processing"
+        self.config = config
+        self.dictionary = get_unimol_dictionary(config["dictionary_path"])
+
+    def __call__(self, data):
+        if data not in self.cached_data:
+            smi = data
+            mol = Chem.MolFromSmiles(smi)
+            mol = AllChem.AddHs(mol)
+            if len(mol.GetAtoms()) > 400 or len(mol.GetRingInfo().AtomRings()) > 20:
+                coordinate_list = [smi2_2Dcoords(smi)]
+                logger.info("atom num > 400 or Ring num > 20, use 2D coords for: %s" % smi)
+            else:
+                coordinate_list = smi2_3Dcoords(smi)
+            atoms = np.array([atom.GetSymbol() for atom in mol.GetAtoms()])  # after add H 
+            if self.config["remove_hydrogen"]:
+                mask_hydrogen = atoms != 'H'
+                if sum(mask_hydrogen) > 0:
+                    atoms = atoms[mask_hydrogen]
+                    coordinate_list = coordinate_list[mask_hydrogen]
+
+            # cropping
+            if len(atoms) > self.config["max_n_atoms"] - 2:
+                index = np.random.choice(len(atoms), self.config["max_n_atoms"] - 2, replace=False)
+                atoms = np.array(atoms)[index]
+                for i in range(len(coordinate_list)):
+                    coordinate_list[i] = coordinate_list[i][index]
+
+            # tokenize atoms
+            atoms = torch.from_numpy(np.concatenate([np.array([self.dictionary.bos()]), self.dictionary.vec_index(atoms), np.array([self.dictionary.eos()])])).long()
+            for i in range(len(coordinate_list)):
+                coordinate_list[i] -= coordinate_list[i].mean(axis=0)
+                coordinate_list[i] = np.concatenate([np.zeros((1, 3)), coordinate_list[i], np.zeros((1, 3))], axis=0)
+
+            self.cached_data[data] = {
+                'atoms': atoms, 
+                'coordinates': coordinate_list
+            }
+        
+        return self.cached_data[data]
+
 class MolMultiModalFeaturizer(BaseFeaturizer):
     def __init__(self, config):
         super(MolMultiModalFeaturizer, self).__init__()
@@ -864,6 +960,7 @@ class MolMultiModalFeaturizer(BaseFeaturizer):
 
     def set_mol2text_dict(self, mol2text):
         self.featurizers["text"].set_transform(mol2text)
+        self.featurizers["text"].transform_count = {}
 
     def __call__(self, data, skip=[]):
         feat = {}
@@ -890,6 +987,8 @@ SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER = {
     "unimap": MolGraphFeaturizer,
     "MGNN": MolMGNNFeaturizer,
     "BaseGNN": MolGraphFeaturizer,
+    "conformation": MolConformationFeaturizer,
+    "unimol": MolUniMolFeaturizer,
 }
 
 SUPPORTED_SINGLE_MODAL_MOL_FEATURIZER = copy.deepcopy(SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER)

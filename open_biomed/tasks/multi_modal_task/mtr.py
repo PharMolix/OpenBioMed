@@ -9,6 +9,8 @@ import argparse
 import json
 import math
 from tqdm import tqdm
+from transformers import BertTokenizer
+import pickle
 
 import torch
 import torch.nn.functional as F
@@ -18,7 +20,7 @@ from torch.utils.data import DataLoader
 from open_biomed.utils import EarlyStopping, AverageMeter, MTCollator, ToDevice, recall_at_k
 from open_biomed.utils.optimizers import BertAdam
 from open_biomed.datasets.mtr_dataset import SUPPORTED_MTR_DATASETS
-from open_biomed.models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM, MolFMPlus, MoleculeSTM, MolKFormer, CLAMP
+from open_biomed.models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM, MolFMPlus, MoleculeSTM, MolKFormer, CLAMP, MVMol
 from open_biomed.models.task_model.mtr_model import MTRModel
 
 SUPPORTED_MTR_MODEL = {
@@ -33,6 +35,7 @@ SUPPORTED_MTR_MODEL = {
     "molkformer": MolKFormer,
     "moleculestm": MoleculeSTM,
     "clamp": CLAMP,
+    "mvmol": MVMol,
     "combined": MTRModel
 }
 
@@ -182,14 +185,22 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
     val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collator)
     model.eval()
     mol_rep_total, text_rep_total = [], []
+    mol_rep_noview, views = [], []
+    tokenizer = BertTokenizer.from_pretrained("./ckpts/text_ckpts/scibert_scivocab_uncased")
     n_samples = 0
     with torch.no_grad():
         for mol, text in tqdm(val_loader):
+            if "text" in mol:
+                for view in tokenizer.batch_decode(mol["text"]["input_ids"]):
+                    views.append(view)
+
             mol = ToDevice(mol, args.device)
             text = ToDevice(text, args.device)
-
+            
             mol_rep = mtr_encode_mol(model, mol, args.view_operation)
             text_rep = mtr_encode_text(model, text)
+            mol.pop("text")
+            mol_rep_noview.append(mtr_encode_mol(model, mol, args.view_operation))
             mol_rep_total.append(mol_rep)
             text_rep_total.append(text_rep)
             
@@ -197,6 +208,12 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
 
         mol_rep = torch.cat(mol_rep_total, dim=0)
         text_rep = torch.cat(text_rep_total, dim=0)
+        pickle.dump({
+            "mol_rep_noview": torch.cat(mol_rep_noview, dim=0).cpu(),
+            "mol_rep": mol_rep.cpu(),
+            "text_rep": text_rep.cpu(),
+            "view": views
+        }, open("./assets/mvmol_intermediate.pkl", "wb"))
         score = torch.zeros(n_samples, n_samples)
         mrr_m2t, mrr_t2m = 0, 0
         rec_m2t, rec_t2m = [0, 0, 0], [0, 0, 0]

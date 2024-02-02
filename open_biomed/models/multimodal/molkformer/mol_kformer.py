@@ -52,13 +52,11 @@ class MolKFormer(MolEncoder, TextEncoder):
 
         decoder_config = T5Config.from_json_file(config["decoder"]["config_file"])
         self.text_decoder = T5ForConditionalGeneration(decoder_config)
-        state_dict = torch.load("./ckpts/fusion_ckpts/biot5/pytorch_model.bin", map_location="cpu")
-        self.text_decoder.load_state_dict(state_dict, strict=True)
-        self.text_decoder.resize_token_embeddings(35073)
+        # state_dict = torch.load("./ckpts/fusion_ckpts/biot5/pytorch_model.bin", map_location="cpu")
+        # self.text_decoder.load_state_dict(state_dict, strict=True)
+        # self.text_decoder.resize_token_embeddings(35073)
         self.enc2dec = nn.Linear(self.kformer_config.hidden_size, self.text_decoder.config.hidden_size)
         
-        #self.h_proj = nn.Linear(self.kformer_config.hidden_size, self.projection_dim)
-        #self.t_proj = nn.Linear(self.kformer_config.hidden_size, self.projection_dim)
         self.norm = True
 
     def forward(self, mol, text=None, prompt=None, cal_loss=False):
@@ -198,6 +196,8 @@ class MolKFormer(MolEncoder, TextEncoder):
             mol_embeds = self.forward(s, prompt=mol["text"])
         else:
             mol = mol["structure"]
+            if "graph" in mol:
+                mol = mol["graph"]
             batch_size = torch.max(mol.batch).item() + 1
             _, node_embeds, node_attention_mask = self.get_graph_feats(mol, batch_size)
             query_embeds = self.query_tokens.expand(batch_size, -1, -1)
@@ -265,7 +265,7 @@ class MolKFormer(MolEncoder, TextEncoder):
         )
 
     def predict_similarity_score(self, mol, text):
-        if "text" in mol:
+        if "text" not in mol:
             prompt = mol["text"]
             mol = mol["structure"]
         else:

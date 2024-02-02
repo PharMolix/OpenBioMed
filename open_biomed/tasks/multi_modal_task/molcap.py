@@ -26,6 +26,7 @@ from open_biomed.datasets.moltextgen_dataset import SUPPORTED_MOLCAP_DATASET
 from open_biomed.models.multimodal.text2mol import Text2MolMLP
 from open_biomed.models.task_model.molcap_model import MolCapModel, GraphEnhancedMolCapModel
 from open_biomed.models.multimodal.molkformer.mol_kformer import MolKFormer
+from open_biomed.models.multimodal.mvmol import MVMol
 
 from utils.distributed_utils import init_distributed_mode, add_ddp_arguments, concat_gather, is_main_process
 from utils import AverageMeter, ToDevice, MTCollator
@@ -36,6 +37,7 @@ SUPPORTED_MOLCAP_MODEL = {
     "biot5": MolCapModel,
     "graph-enhanced": GraphEnhancedMolCapModel,
     "molkformer": MolKFormer,
+    "mvmol": MVMol,
 }
 
 def train_molcap(train_loader, val_loader, test_loader, test_dataset, model, model_without_ddp, decode_tokenizer, args, device):
@@ -100,11 +102,11 @@ def train_molcap(train_loader, val_loader, test_loader, test_dataset, model, mod
                 logger.info("Steps=%d Training Loss=%.4lf, lr=%.6lf" % (step, running_loss.get_average(), optimizer.param_groups[0]["lr"]))
                 running_loss.reset()
         val_molcap(val_loader, model, model_without_ddp, device)
-        if (epoch + 1) % args.eval_epochs == 0 and epoch / args.epochs > 0.4:
+        if (epoch + 1) % args.eval_epochs == 0 and epoch / args.epochs > 0:
             if is_main_process():
                 torch.save({'model_state_dict': model_without_ddp.state_dict()}, os.path.join(args.output_path, "checkpoint_" + str(epoch) + ".pth"))
             #print(test_molcap(val_dataset, val_loader, model, args, device, report_text2mol=False))
-            print(test_molcap(test_dataset, test_loader, model, model_without_ddp, decode_tokenizer, args, device))
+            print(test_molcap(test_dataset, test_loader, model, model_without_ddp, decode_tokenizer, args, device, report_text2mol=False))
         if args.distributed:
             dist.barrier()
     return model
@@ -129,6 +131,18 @@ def test_molcap(test_dataset, test_loader, model, model_without_ddp, decode_toke
     gts = test_dataset.texts_raw
 
     logger.info("Testing...")
+    if report_text2mol:
+        text2mol = Text2MolMLP(
+            ninp=768, 
+            nhid=600, 
+            nout=300, 
+            model_name_or_path=args.text2mol_bert_path, 
+            cid2smiles_path=os.path.join(args.text2mol_data_path, "cid_to_smiles.pkl"),
+            cid2vec_path=os.path.join(args.text2mol_data_path, "test.txt")
+        )
+        text2mol.load_state_dict(torch.load(args.text2mol_ckpt_path), strict=False)
+        device = torch.device(args.device)
+        text2mol.to(device)
     with torch.no_grad():
         for i, (mol, text) in enumerate(tqdm(test_loader)):
             mol = ToDevice(mol, device)
@@ -141,6 +155,7 @@ def test_molcap(test_dataset, test_loader, model, model_without_ddp, decode_toke
                     logger.info("------------------------------------------------------")
             output = torch.cat([output, torch.ones(output.shape[0], 512 - output.shape[1]).long().to(device) * decode_tokenizer.eos_token_id], dim=1)
             outputs.append(output)
+            
     outputs = torch.cat(outputs, dim=0)
     if args.distributed:
         outputs = concat_gather(outputs)
@@ -155,18 +170,7 @@ def test_molcap(test_dataset, test_loader, model, model_without_ddp, decode_toke
     rouge_scores = []
     text2mol_scores = []
     scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'])
-    if report_text2mol:
-        text2mol = Text2MolMLP(
-            ninp=768, 
-            nhid=600, 
-            nout=300, 
-            model_name_or_path=args.text2mol_bert_path, 
-            cid2smiles_path=os.path.join(args.text2mol_data_path, "cid_to_smiles.pkl"),
-            cid2vec_path=os.path.join(args.text2mol_data_path, "test.txt")
-        )
-        text2mol.load_state_dict(torch.load(args.text2mol_ckpt_path), strict=False)
-        device = torch.device(args.device)
-        text2mol.to(device)
+
     with open(args.caption_save_path, "w", encoding='utf-8') as f:
         f.write("SMILES\tground truth\toutput\n")
         for i in range(len(outputs)):
@@ -322,6 +326,9 @@ if __name__ == "__main__":
 
     # load model
     model = SUPPORTED_MOLCAP_MODEL[config["model"]](config["network"])
+    print("structure encoder Params", sum(p.numel() for p in model.structure_encoder.parameters()))
+    print("QFormer Params", sum(p.numel() for p in model.qformer.parameters()))
+    print("Decoder Params", sum(p.numel() for p in model.text_decoder.decoder.parameters()))
     if args.init_checkpoint != "None":
         logger.info("load checkpoint from %s" % args.init_checkpoint)
         ckpt = torch.load(args.init_checkpoint, map_location="cpu")

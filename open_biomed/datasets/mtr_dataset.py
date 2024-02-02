@@ -113,7 +113,7 @@ class PCdes(MTRDataset):
                     self.texts.append(texts[i].strip("\n"))
             except:
                 logger.debug("fail to generate 2D graph, data removed")
-        self.mol2text = dict(zip(self.mols, ["chemical properties and functions" for i in range(len(self.mols))]))
+        self.mol2text = dict(zip(self.mols, ["View: chemical properties and functions" for i in range(len(self.mols))]))
         self.smiles = self.mols
         logger.info("Num Samples: %d" % len(self))
 
@@ -178,6 +178,7 @@ class MPRetr(MTRDataset):
         for split in ["train", "val", "test"]:
             data = json.load(open(os.path.join(self.path, split + ".json"), "r"))
             for perspective in self.perspective:
+                print(perspective, len(data[perspective]))
                 for sample in data[perspective]:
                     try:
                         mol = Chem.MolFromSmiles(sample[0].strip("\n"))
@@ -185,7 +186,8 @@ class MPRetr(MTRDataset):
                         if mol is not None:
                             self.mols.append(smi)
                             self.texts.append(sample[1].strip("\n"))
-                            self.prompts.append(perspective)
+                            self.prompts.append("View: " + perspective)
+                            #self.prompts.append("Not Available")
                             if split == "train":
                                 self.train_index.append(cnt)
                             if split == "val":
@@ -196,7 +198,14 @@ class MPRetr(MTRDataset):
                     except:
                         logger.debug("fail to generate 2D graph, data removed")
         #print(len(self.train_index), len(self.val_index), len(self.test_index))
-        self.mol2text = dict(zip(self.mols, self.prompts))
+        #print(len(self.mols), len(self.prompts))
+        self.mol2text = {}
+        for i in range(len(self.mols)):
+            if self.mols[i] not in self.mol2text:
+                self.mol2text[self.mols[i]] = [self.prompts[i]]
+            else:
+                self.mol2text[self.mols[i]].append(self.prompts[i])
+        # print(self.mol2text)
 
 SUPPORTED_MTR_DATASETS = {
     "PCdes": PCdes,
