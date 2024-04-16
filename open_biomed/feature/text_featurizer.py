@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from transformers import BertModel, BertTokenizer, T5Model, T5Tokenizer, GPT2Model, GPT2Tokenizer
+from transformers import BertModel, BertTokenizer, T5Model, T5Tokenizer, GPT2Model, GPT2Tokenizer, LlamaModel, LlamaTokenizer
 
 from open_biomed.feature.base_featurizer import BaseFeaturizer
 from open_biomed.utils import ToDevice, get_biot5_tokenizer
@@ -8,12 +8,14 @@ from open_biomed.utils import ToDevice, get_biot5_tokenizer
 name2tokenizer = {
     "bert": BertTokenizer,
     "t5": T5Tokenizer,
-    "gpt2": GPT2Tokenizer
+    "gpt2": GPT2Tokenizer,
+    "llama": LlamaTokenizer,
 }
 name2model = {
     "bert": BertModel,
     "t5": T5Model,
-    "gpt2": GPT2Model
+    "gpt2": GPT2Model,
+    "llama": LlamaModel,
 }
 
 class TextFeaturizer(BaseFeaturizer, ABC):
@@ -44,6 +46,11 @@ class TextTransformerTokFeaturizer(TextFeaturizer):
             self.tokenizer = name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"], model_max_length=self.max_length)
         if config["transformer_type"] in ["gpt2"]:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        if config["transformer_type"] == "llama":
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+            self.tokenizer.add_special_tokens({'bos_token': '</s>'})
+            self.tokenizer.add_special_tokens({'eos_token': '</s>'})
+            self.tokenizer.add_special_tokens({'unk_token': '</s>'})
 
     def __call__(self, data):
         if self.transform is not None:

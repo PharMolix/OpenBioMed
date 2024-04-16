@@ -20,6 +20,11 @@ then
     #CKPT="./ckpts/finetune_ckpts/molcap/mvmol/checkpoint_49.pth"
     #PARAM_KEY="model_state_dict"
 fi
+if [ ${MODEL} = "drugfm" ];
+then
+    CKPT="./ckpts/fusion_ckpts/drugfm/checkpoint_99.pth"
+    PARAM_KEY="model"
+fi
 
 python open_biomed/tasks/multi_modal_task/molcap.py \
 --device ${DEVICE} \
@@ -36,8 +41,8 @@ python open_biomed/tasks/multi_modal_task/molcap.py \
 --eval_epochs 10 \
 --weight_decay 0 \
 --num_workers 1 \
---batch_size 15 \
---gradient_accumulation_steps 1 \
+--batch_size 4 \
+--gradient_accumulation_steps 4 \
 --lr 5e-4 \
 --logging_steps 300 \
 --patience 200 \

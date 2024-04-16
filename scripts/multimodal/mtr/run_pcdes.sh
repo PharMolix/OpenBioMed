@@ -20,7 +20,7 @@ then
     RERANK="rerank"
 elif [ $MODEL = "drugfm" ];
 then
-    CKPT="./ckpts/fusion_ckpts/molfm-unimap/checkpoint_209.pth"
+    CKPT="./ckpts/fusion_ckpts/drugfm/checkpoint_99.pth"
     PARAM_KEY="model"
     RERANK="rerank"
 elif [ $MODEL = "clamp" ];
@@ -31,6 +31,16 @@ then
 elif [ $MODEL = "momu" ]; 
 then
     CKPT="./ckpts/fusion_ckpts/momu/MoMu-S.ckpt"
+    PARAM_KEY="state_dict"
+    RERANK="no_rerank"
+elif [ $MODEL = "molca" ];
+then
+    CKPT="./ckpts/fusion_ckpts/molca/stage1.ckpt"
+    PARAM_KEY="state_dict"
+    RERANK="no_rerank"
+elif [ $MODEL = "3d-molm" ];
+then
+    CKPT="./ckpts/fusion_ckpts/3d_molm/stage1.ckpt"
     PARAM_KEY="state_dict"
     RERANK="no_rerank"
 elif [ $MODEL = "biomedgpt" ];
@@ -46,9 +56,9 @@ then
     VIEW_OPER="hybrid"
 elif [ $MODEL = "mvmol" ];
 then
-    CKPT="./ckpts/fusion_ckpts/mvmol-stage3/checkpoint_7.pth"
+    CKPT="./ckpts/fusion_ckpts/mvmol-stage2-kgc/checkpoint_5.pth"
     PARAM_KEY="model"
-    RERANK="rerank"
+    RERANK="no_rerank"
     VIEW_OPER="hybrid"
 fi
 

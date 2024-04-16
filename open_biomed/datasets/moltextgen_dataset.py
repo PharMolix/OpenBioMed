@@ -37,14 +37,24 @@ class MolTextGenDataset(Dataset):
 
     def _featurize(self):
         if len(self.config["mol"]["modality"]) > 1:
+            flag = None
             if "conformation" in self.config["mol"]["featurizer"]["structure"]:
-                self.config["mol"]["featurizer"]["structure"]["conformation"]["cache_file"] = "_".join(self.config["mol"]["featurizer"]["structure"]["conformation"]["cache_file"].split("_")[:-1]) + "_" + self.split + ".pkl"
-                logger.info("Cache to %s" % self.config["mol"]["featurizer"]["structure"]["conformation"]["cache_file"])
+                flag = "conformation"
+            if "unimol" in self.config["mol"]["featurizer"]["structure"]:
+                flag = "unimol"
+            if flag is not None:
+                self.config["mol"]["featurizer"]["structure"][flag]["cache_file"] = "_".join(self.config["mol"]["featurizer"]["structure"][flag]["cache_file"].split("_")[:-1]) + "_" + self.split + ".pkl"
+                logger.info("Cache to %s" % self.config["mol"]["featurizer"]["structure"][flag]["cache_file"])
             featurizer = MolMultiModalFeaturizer(self.config["mol"])
             featurizer.set_mol2text_dict(self.smi2text)
         else:
             featurizer = SUPPORTED_MOL_FEATURIZER[self.config["mol"]["featurizer"]["structure"]["name"]](self.config["mol"]["featurizer"]["structure"])
         self.mols = [featurizer(smi) for smi in tqdm(self.smiles)]
+        """
+        import pickle
+        print(len(featurizer.featurizers["conformation"].cached_data), featurizer.featurizers["conformation"].cache_file)
+        pickle.dump(featurizer.featurizers["conformation"].cached_data, open(featurizer.featurizers["conformation"].cache_file, "wb"))
+        """
         featurizer = SUPPORTED_TEXT_FEATURIZER[self.config["text"]["name"]](self.config["text"])
         self.texts_raw = copy.deepcopy(self.texts)
         self.texts = [featurizer(text) for text in self.texts]

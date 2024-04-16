@@ -23,7 +23,7 @@ from Levenshtein import distance as lev
 
 from open_biomed.datasets.moltextgen_dataset import SUPPORTED_TEXT2MOLGEN_DATASET
 from open_biomed.models.multimodal.text2mol import Text2MolMLP
-from open_biomed.models.multimodal import MolKFormer
+from open_biomed.models.multimodal import MolKFormer, DrugFM
 from open_biomed.models.task_model.text2smi_model import Text2SMILESModel
 
 from utils import AverageMeter, ToDevice, MTCollator
@@ -32,6 +32,7 @@ SUPPORTED_TEXT2SMI_MODEL = {
     "molt5": Text2SMILESModel,
     "chatmol": Text2SMILESModel,
     "biot5": Text2SMILESModel,
+    "drugfm": DrugFM,
     "molkformer": MolKFormer,
 }
 

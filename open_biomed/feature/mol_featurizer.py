@@ -23,7 +23,7 @@ RDLogger.DisableLog("rdApp.*")
 
 from sklearn.preprocessing import OneHotEncoder
 from torch_geometric.data import Data
-from transformers import BertTokenizer, T5Tokenizer
+from transformers import BertTokenizer, T5Tokenizer, LlamaTokenizer
 
 from open_biomed.feature.base_featurizer import BaseFeaturizer
 from open_biomed.feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
@@ -159,17 +159,35 @@ class MolTransformerTokFeaturizer(BaseFeaturizer):
     name2tokenizer = {
         "bert": BertTokenizer,
         "t5": T5Tokenizer,
-        "unimap": SmilesTokenizer
+        "unimap": SmilesTokenizer,
+        "3d-molm": LlamaTokenizer,
     }
 
     def __init__(self, config):
         super(MolTransformerTokFeaturizer, self).__init__()
         self.max_length = config["max_length"]
         self.tokenizer = self.name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"], model_max_length=self.max_length)
-        self.prompt = "" if "prompt" not in config else config["prompt"]
+        if config["transformer_type"] == "3d-molm":
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+            self.tokenizer.add_special_tokens({'bos_token': '</s>'})
+            self.tokenizer.add_special_tokens({'eos_token': '</s>'})
+            self.tokenizer.add_special_tokens({'unk_token': '</s>'})
+            self.tokenizer.add_special_tokens({'additional_special_tokens': ['<mol>']})
+        if "prompt" in config:
+            prompt = config["prompt"].split("<moleculeHere>")
+            self.prompt = prompt[0] + "{content}"
+            if len(prompt) > 1:
+                self.prompt += prompt[1]
+            self.len_prompt = len(self.tokenizer(self.prompt.format(content=""), max_length=self.max_length, padding=True, truncation=True).input_ids)
+        else:
+            self.prompt = "{content}"
+            self.len_prompt = 0
 
     def __call__(self, data):
-        result = self.tokenizer(data + self.prompt, max_length=self.max_length, padding=True, truncation=True)
+        result = self.tokenizer(self.prompt.format(content=data), max_length=self.max_length, padding=True, truncation=True)
+        if len(result.input_ids) >= self.max_length:
+            smi = self.tokenizer(data, max_length=self.max_length, truncation=True, add_special_tokens=False).input_ids[:self.max_length - self.len_prompt]
+            result = self.tokenizer(self.prompt.format(content=self.tokenizer.decode(smi)), max_length=self.max_length, padding=True, truncation=True)
         return result
 
 class MolSELFIESFeaturizer(BaseFeaturizer):
@@ -918,7 +936,8 @@ class MolUniMolFeaturizer(BaseFeaturizer):
                 mask_hydrogen = atoms != 'H'
                 if sum(mask_hydrogen) > 0:
                     atoms = atoms[mask_hydrogen]
-                    coordinate_list = coordinate_list[mask_hydrogen]
+                    for i in range(len(coordinate_list)):
+                        coordinate_list[i] = coordinate_list[i][mask_hydrogen]
 
             # cropping
             if len(atoms) > self.config["max_n_atoms"] - 2:
@@ -975,6 +994,18 @@ class MolMultiModalFeaturizer(BaseFeaturizer):
             return None
         return self.featurizers[index]
 
+class MolEnsembleFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolEnsembleFeaturizer, self).__init__()
+        self.featurizers = {}
+        for model in config["models"]:
+            self.featurizers[model] = SUPPORTED_MOL_FEATURIZER[config[model]["name"]](config[model])
+    
+    def __call__(self, data):
+        feat = {}
+        for model in self.featurizers:
+            feat[model] = self.featurizers[model](data)
+        return feat
 
 SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER = {
     "OneHot": MolOneHotFeaturizer,
@@ -989,6 +1020,7 @@ SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER = {
     "BaseGNN": MolGraphFeaturizer,
     "conformation": MolConformationFeaturizer,
     "unimol": MolUniMolFeaturizer,
+    "Ensemble": MolEnsembleFeaturizer,
 }
 
 SUPPORTED_SINGLE_MODAL_MOL_FEATURIZER = copy.deepcopy(SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER)

@@ -25,8 +25,7 @@ from rouge_score import rouge_scorer
 from open_biomed.datasets.moltextgen_dataset import SUPPORTED_MOLCAP_DATASET
 from open_biomed.models.multimodal.text2mol import Text2MolMLP
 from open_biomed.models.task_model.molcap_model import MolCapModel, GraphEnhancedMolCapModel
-from open_biomed.models.multimodal.molkformer.mol_kformer import MolKFormer
-from open_biomed.models.multimodal.mvmol import MVMol
+from open_biomed.models.multimodal import MolKFormer, MVMol, TDMoLMStage2, DrugFM
 
 from utils.distributed_utils import init_distributed_mode, add_ddp_arguments, concat_gather, is_main_process
 from utils import AverageMeter, ToDevice, MTCollator
@@ -35,8 +34,10 @@ SUPPORTED_MOLCAP_MODEL = {
     "molt5": MolCapModel,
     "chatmol": MolCapModel,
     "biot5": MolCapModel,
+    "drugfm": DrugFM,
     "graph-enhanced": GraphEnhancedMolCapModel,
     "molkformer": MolKFormer,
+    "3d-molm": TDMoLMStage2,
     "mvmol": MVMol,
 }
 
@@ -75,20 +76,10 @@ def train_molcap(train_loader, val_loader, test_loader, test_dataset, model, mod
             
             loss.backward()
             #print(nn.utils.clip_grad_norm_(model_without_ddp.parameters(), max_norm=1.0))
-            nn.utils.clip_grad_norm_(model_without_ddp.parameters(), max_norm=1.0)
+            nn.utils.clip_grad_norm_(model_without_ddp.parameters(), max_norm=0.1)
             cur_loss = loss.detach().cpu().item()
-            if cur_loss - pre_loss > 1.5:
-            #if True:
-                """
-                print(cur_loss, pre_loss)
-                print(mol)
-                for i in range(args.batch_size):
-                    print(text.input_ids[i])
-                for name, param in model_without_ddp.named_parameters():
-                    print(name, param.grad)
-                exit(0)
-                """
-                print("collapse")
+            #if cur_loss - pre_loss > 1.5:
+            #    print("collapse")
             pre_loss = cur_loss
             #print(cur_loss)
 
@@ -146,7 +137,7 @@ def test_molcap(test_dataset, test_loader, model, model_without_ddp, decode_toke
     with torch.no_grad():
         for i, (mol, text) in enumerate(tqdm(test_loader)):
             mol = ToDevice(mol, device)
-            output = model_without_ddp.decode(mol, num_beams=5, max_length=512)
+            output = model_without_ddp.decode(mol, num_beams=1, max_length=512)
             if i <= 3:
                 decoded = decode_tokenizer.batch_decode(output, skip_special_tokens=True)
                 for j in range(5):
@@ -308,27 +299,28 @@ if __name__ == "__main__":
     )
 
     # load dataset
-    train_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"], split="train")
-    val_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"], split="validation")
+    if args.mode == "train":
+        train_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"], split="train")
+        val_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"], split="validation")
     test_dataset = SUPPORTED_MOLCAP_DATASET[args.dataset](args.dataset_path, config["data"], split="test")
     collator = MTCollator(config["data"])
     if args.distributed:
-        train_sampler = DistributedSampler(train_dataset, num_replicas=args.world_size, rank=args.local_rank, shuffle=True)
-        val_sampler = DistributedSampler(val_dataset, num_replicas=args.world_size, rank=args.local_rank, shuffle=False)
+        if args.mode == "train":
+            train_sampler = DistributedSampler(train_dataset, num_replicas=args.world_size, rank=args.local_rank, shuffle=True)
+            val_sampler = DistributedSampler(val_dataset, num_replicas=args.world_size, rank=args.local_rank, shuffle=False)
         test_sampler = DistributedSampler(test_dataset, num_replicas=args.world_size, rank=args.local_rank, shuffle=False)
     else:
-        train_sampler = RandomSampler(train_dataset)
-        val_sampler = SequentialSampler(val_dataset)
+        if args.mode == "train":
+            train_sampler = RandomSampler(train_dataset)
+            val_sampler = SequentialSampler(val_dataset)
         test_sampler = SequentialSampler(test_dataset)
-    train_dataloader = DataLoader(train_dataset, args.batch_size, sampler=train_sampler, collate_fn=collator, num_workers=args.num_workers)
-    val_dataloader = DataLoader(val_dataset, args.batch_size, sampler=val_sampler, collate_fn=collator, num_workers=args.num_workers)
+    if args.mode == "train":
+        train_dataloader = DataLoader(train_dataset, args.batch_size, sampler=train_sampler, collate_fn=collator, num_workers=args.num_workers)
+        val_dataloader = DataLoader(val_dataset, args.batch_size, sampler=val_sampler, collate_fn=collator, num_workers=args.num_workers)
     test_dataloader = DataLoader(test_dataset, args.batch_size, sampler=test_sampler, collate_fn=collator, num_workers=args.num_workers)
 
     # load model
     model = SUPPORTED_MOLCAP_MODEL[config["model"]](config["network"])
-    print("structure encoder Params", sum(p.numel() for p in model.structure_encoder.parameters()))
-    print("QFormer Params", sum(p.numel() for p in model.qformer.parameters()))
-    print("Decoder Params", sum(p.numel() for p in model.text_decoder.decoder.parameters()))
     if args.init_checkpoint != "None":
         logger.info("load checkpoint from %s" % args.init_checkpoint)
         ckpt = torch.load(args.init_checkpoint, map_location="cpu")

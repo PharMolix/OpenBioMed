@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from scipy.spatial import distance_matrix
 import torch
 from torch_geometric.data import Data, Batch
-from transformers import BatchEncoding, DataCollatorWithPadding, BertTokenizer, T5Tokenizer, GPT2Tokenizer, EsmTokenizer
+from transformers import BatchEncoding, DataCollatorWithPadding, BertTokenizer, T5Tokenizer, GPT2Tokenizer, EsmTokenizer, LlamaTokenizer
 from open_biomed.utils.mol_utils import SmilesTokenizer, get_unimol_dictionary
 
 name2tokenizer = {
@@ -14,6 +14,8 @@ name2tokenizer = {
     "gpt2": GPT2Tokenizer,
     "esm": EsmTokenizer,
     "unimap": SmilesTokenizer,
+    "llama": LlamaTokenizer,
+    "3d-molm": LlamaTokenizer,
 }
 
 def ToDevice(obj, device):
@@ -71,6 +73,13 @@ class BaseCollator(ABC):
             tokenizer = name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"])
             if config["transformer_type"] == "gpt2":
                 tokenizer.pad_token = tokenizer.eos_token
+            if config["transformer_type"] in ["3d-molm", "llama"]:
+                tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+                tokenizer.add_special_tokens({'bos_token': '</s>'})
+                tokenizer.add_special_tokens({'eos_token': '</s>'})
+                tokenizer.add_special_tokens({'unk_token': '</s>'})
+            if config["transformer_type"] == "3d-molm":
+                tokenizer.add_special_tokens({'additional_special_tokens': ['<mol>']})
             config["collator"] = DataCollatorWithPadding(
                 tokenizer=tokenizer,
                 padding=True
@@ -155,9 +164,9 @@ class UniMolCollator(BaseCollator):
 
     def __call__(self, mols):
         return (
-            self._pad_1d_tokens([m['atoms'] for m in mols], self.dictionary.pad()),
-            self._pad_2d([torch.tensor(distance_matrix(m['coordinates'][0], m['coordinates'][0])).float() for m in mols], 0.0),
-            self._pad_2d([m['atoms'].view(-1, 1) * len(self.dictionary) + m['atoms'].view(1, -1) for m in mols], self.dictionary.pad())
+            self._pad_1d_tokens([m['atoms'] for m in mols], self.dictionary.pad(), pad_to_length=256),
+            self._pad_2d([torch.tensor(distance_matrix(m['coordinates'][0], m['coordinates'][0])).float() for m in mols], 0.0, pad_to_length=256),
+            self._pad_2d([m['atoms'].view(-1, 1) * len(self.dictionary) + m['atoms'].view(1, -1) for m in mols], self.dictionary.pad(), pad_to_length=256)
         )
 
 class MolCollator(BaseCollator):
@@ -167,6 +176,8 @@ class MolCollator(BaseCollator):
             self.structure_collator = UniMolCollator(config["featurizer"]["structure"])
         elif self.config["featurizer"]["structure"]["name"] == "MultiScale" and "conformation" in self.config["featurizer"]["structure"]["scales"]:
             self.structure_collator = UniMolCollator(config["featurizer"]["structure"]["conformation"])
+        elif self.config["featurizer"]["structure"]["name"] == "Ensemble" and "unimol" in self.config["featurizer"]["structure"]["models"]:
+            self.structure_collator = UniMolCollator(config["featurizer"]["structure"]["unimol"])
         else:
             self.structure_collator = None
 
@@ -175,9 +186,7 @@ class MolCollator(BaseCollator):
             batch = {}
             for modality in self.config["modality"]:
                 if modality == "structure" and self.structure_collator is not None:
-                    if self.config["featurizer"]["structure"]["name"] != "MultiScale":
-                        batch[modality] = self.structure_collator([mol[modality] for mol in mols])
-                    else:
+                    if self.config["featurizer"]["structure"]["name"] == "MultiScale":
                         processed = {}
                         for scale in self.config["featurizer"]["structure"]["scales"]:
                             if scale != "conformation":
@@ -185,8 +194,25 @@ class MolCollator(BaseCollator):
                             else:
                                 processed[scale] = self.structure_collator([mol[modality][scale] for mol in mols])
                         batch[modality] = processed
+                    elif self.config["featurizer"]["structure"]["name"] == "Ensemble":
+                        processed = {}
+                        for model in self.config["featurizer"]["structure"]["models"]:
+                            if model != "unimol":
+                                processed[model] = self._collate_single([mol[modality][model] for mol in mols], self.config["featurizer"][modality][model])
+                            else:
+                                processed[model] = self.structure_collator([mol[modality][model] for mol in mols])
+                        batch[modality] = processed
+                    else:
+                        batch[modality] = self.structure_collator([mol[modality] for mol in mols])
                 else:
                     batch[modality] = self._collate_single([mol[modality] for mol in mols], self.config["featurizer"][modality])
+        elif self.config["featurizer"]["structure"]["name"] == "MultiScale":
+            batch = {}
+            for scale in self.config["featurizer"]["structure"]["scales"]:
+                if scale != "conformation":
+                    batch[scale] = self._collate_single([mol[scale] for mol in mols], self.config["featurizer"]["structure"][scale])
+                else:
+                    batch[scale] = self.structure_collator([mol[scale] for mol in mols])
         else:
             if self.structure_collator is None:
                 batch = self._collate_single(mols, self.config["featurizer"]["structure"])

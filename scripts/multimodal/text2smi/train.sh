@@ -12,6 +12,11 @@ then
     CKPT="./ckpts/fusion_ckpts/mol_kformer_biot5.pth"
     PARAM_KEY="model"
 fi
+if [ $MODEL = "drugfm" ];
+then
+    CKPT="./ckpts/fusion_ckpts/drugfm/checkpoint_99.pth"
+    PARAM_KEY="model"
+fi
 
 python open_biomed/tasks/multi_modal_task/text2smigen.py \
 --device ${DEVICE} \
@@ -28,7 +33,7 @@ python open_biomed/tasks/multi_modal_task/text2smigen.py \
 --warmup_epochs 5 \
 --weight_decay 0 \
 --num_workers 1 \
---batch_size 16 \
+--batch_size 4 \
 --logging_steps 300 \
 --lr 5e-4 \
 --patience 20

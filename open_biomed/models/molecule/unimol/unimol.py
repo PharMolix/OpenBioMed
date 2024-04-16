@@ -56,8 +56,6 @@ class UniMol(nn.Module):
         src_edge_type,
     ):
         padding_mask = src_tokens.eq(self.padding_idx)
-        if not padding_mask.any():
-            padding_mask = None
         x = self.embed_tokens(src_tokens)
 
         def get_dist_features(dist, et):

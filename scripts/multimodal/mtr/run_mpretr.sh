@@ -40,6 +40,16 @@ then
     CKPT="./ckpts/fusion_ckpts/momu/MoMu-S.ckpt"
     PARAM_KEY="state_dict"
     RERANK="no_rerank"
+elif [ $MODEL = "molca" ];
+then
+    CKPT="./ckpts/fusion_ckpts/molca/stage1.ckpt"
+    PARAM_KEY="state_dict"
+    RERANK="rerank"
+elif [ $MODEL = "3d-molm1" ];
+then
+    CKPT="./ckpts/fusion_ckpts/3d_molm/stage1.ckpt"
+    PARAM_KEY="state_dict"
+    RERANK="no_rerank"
 elif [ $MODEL = "biomedgpt" ];
 then
     CKPT="./ckpts/fusion_ckpts/biomedgpt/epoch199.pth"
@@ -53,7 +63,8 @@ then
     VIEW_OPER="hybrid"
 elif [ $MODEL = "mvmol" ];
 then
-    CKPT="./ckpts/fusion_ckpts/mvmol-stage3/checkpoint_9.pth"
+    #CKPT="./ckpts/fusion_ckpts/mvmol-stage3-nostage1/checkpoint_9.pth"
+    CKPT="./ckpts/fusion_ckpts/mvmol-stage3-nokgc/checkpoint_5.pth"
     PARAM_KEY="model"
     RERANK="no_rerank"
     VIEW_OPER="hybrid"

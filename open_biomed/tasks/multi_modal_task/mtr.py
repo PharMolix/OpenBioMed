@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from open_biomed.utils import EarlyStopping, AverageMeter, MTCollator, ToDevice, recall_at_k
 from open_biomed.utils.optimizers import BertAdam
 from open_biomed.datasets.mtr_dataset import SUPPORTED_MTR_DATASETS
-from open_biomed.models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM, MolFMPlus, MoleculeSTM, MolKFormer, CLAMP, MVMol
+from open_biomed.models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM, MoleculeSTM, MolKFormer, MolCAStage1, TDMoLMStage1, CLAMP, MVMol
 from open_biomed.models.task_model.mtr_model import MTRModel
 
 SUPPORTED_MTR_MODEL = {
@@ -29,21 +29,22 @@ SUPPORTED_MTR_MODEL = {
     "kv-plm*": KVPLM,
     "momu": MoMu, 
     "molfm": MolFM,
-    "molfm_plus": MolFMPlus,
     "drugfm": DrugFM,
     "biomedgpt": BioMedGPTCLIP,
     "molkformer": MolKFormer,
     "moleculestm": MoleculeSTM,
     "clamp": CLAMP,
+    "molca": MolCAStage1,
+    "3d-molm": TDMoLMStage1,
     "mvmol": MVMol,
     "combined": MTRModel
 }
 
 def mtr_encode_mol(model, mol, view_oper="add"):
-    if isinstance(mol, dict) and view_oper != "hybrid":
-        mol_rep = model.encode_mol(mol["structure"])
-        if hasattr(model, "structure_proj_head"):
-            mol_rep = model.structure_proj_head(mol_rep)
+    if isinstance(mol, dict) and "text" in mol and view_oper != "hybrid":
+        mol_rep = model.encode_mol(mol)
+        #if hasattr(model, "structure_proj_head"):
+        #    mol_rep = model.structure_proj_head(mol_rep)
         if view_oper == "add":
             text_rep = model.encode_text(mol["text"])
             if hasattr(model, "text_proj_head"):
@@ -59,8 +60,8 @@ def mtr_encode_mol(model, mol, view_oper="add"):
 
 def mtr_encode_text(model, text):
     text_rep = model.encode_text(text)
-    if hasattr(model, "text_proj_head"):
-        text_rep = model.text_proj_head(text_rep)
+    #if hasattr(model, "text_proj_head"):
+    #    text_rep = model.text_proj_head(text_rep)
     if model.norm:
         text_rep = F.normalize(text_rep, dim=-1)
     return text_rep
@@ -197,10 +198,12 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
             mol = ToDevice(mol, args.device)
             text = ToDevice(text, args.device)
             
+            #print(mol)
+            #print(text)
             mol_rep = mtr_encode_mol(model, mol, args.view_operation)
             text_rep = mtr_encode_text(model, text)
-            mol.pop("text")
-            mol_rep_noview.append(mtr_encode_mol(model, mol, args.view_operation))
+            # mol.pop("text")
+            # mol_rep_noview.append(mtr_encode_mol(model, mol, args.view_operation))
             mol_rep_total.append(mol_rep)
             text_rep_total.append(text_rep)
             
@@ -209,11 +212,11 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
         mol_rep = torch.cat(mol_rep_total, dim=0)
         text_rep = torch.cat(text_rep_total, dim=0)
         pickle.dump({
-            "mol_rep_noview": torch.cat(mol_rep_noview, dim=0).cpu(),
+            # "mol_rep_noview": torch.cat(mol_rep_noview, dim=0).cpu(),
             "mol_rep": mol_rep.cpu(),
             "text_rep": text_rep.cpu(),
             "view": views
-        }, open("./assets/mvmol_intermediate.pkl", "wb"))
+        }, open("./assets/moleculestm_intermediate.pkl", "wb"))
         score = torch.zeros(n_samples, n_samples)
         mrr_m2t, mrr_t2m = 0, 0
         rec_m2t, rec_t2m = [0, 0, 0], [0, 0, 0]

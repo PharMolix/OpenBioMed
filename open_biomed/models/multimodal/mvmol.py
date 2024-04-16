@@ -103,8 +103,28 @@ class MVMol(MolEncoder, TextEncoder):
             ], dim=0))
         return torch.stack(wrapped_inputs, dim=0), torch.stack(wrapped_attention_mask, dim=0)
 
+    def feat_wrap(self, seq1_feats, seq1_attn, seq2_feats, seq2_attn):
+        batch_size = seq1_feats.shape[0]
+        wrapped_feats, wrapped_attention_mask = [], []
+        for i in range(batch_size):
+            cur_len = seq1_attn[i].sum()
+            wrapped_feats.append(torch.cat([
+                seq1_feats[i, :cur_len],
+                seq2_feats[i],
+                seq1_feats[i, cur_len:]
+            ], dim=0))
+            wrapped_attention_mask.append(torch.cat([
+                seq1_attn[i, :cur_len],
+                seq2_attn[i],
+                seq1_attn[i, cur_len:]
+            ], dim=0))
+        return torch.stack(wrapped_feats, dim=0), torch.stack(wrapped_attention_mask, dim=0)
+
     def encode_mol(self, mol, proj=False):
-        s_inp = mol["structure"]
+        if "structure" in mol:
+            s_inp = mol["structure"]
+        else:
+            s_inp = mol
         if "conformation" in s_inp:
             s_inp = s_inp["conformation"]
         # print(mol["text"])
@@ -129,10 +149,17 @@ class MVMol(MolEncoder, TextEncoder):
     def decode(self, mol, num_beams, max_length):
         h_graph = self.encode_mol(mol)
         h_graph = self.enc2dec(h_graph)
-        h_smi = self.text_decoder.encoder(**mol["structure"]["SMILES"]).last_hidden_state
-        h = torch.cat([h_graph, h_smi], dim=1)
+        #h_smi = self.text_decoder.encoder(**mol["structure"]["SMILES"]).last_hidden_state
+        #h = torch.cat([h_graph, h_smi], dim=1)
+        h = h_graph
         attention_mask = torch.ones(h_graph.shape[:-1], dtype=torch.long).to(h.device)
-        attention_mask = torch.cat([attention_mask, mol["structure"]["SMILES"].attention_mask], dim=1)
+        #attention_mask = torch.cat([attention_mask, mol["structure"]["SMILES"].attention_mask], dim=1)
+
+        """
+        h_coord, mask_coord = self._get_structure_features(mol["structure"]["conformation"])
+        h_smi = self.text_decoder.encoder(**mol["structure"]["SMILES"]).last_hidden_state
+        h, attention_mask = self.feat_wrap(h_coord, mask_coord, h_smi, mol["structure"]["SMILES"].attention_mask)
+        """
         h = BaseModelOutput(
             last_hidden_state=h,
             hidden_states=None,
@@ -162,7 +189,7 @@ class MVMol(MolEncoder, TextEncoder):
         )
 
     def predict_similarity_score(self, mol, text):
-        if "text" not in mol:
+        if "text" in mol:
             prompt = mol["text"]
             mol = mol["structure"]
         else:
@@ -242,12 +269,18 @@ class MVMol(MolEncoder, TextEncoder):
 
     def causal_generation_loss(self, mol, text):
         labels = text["input_ids"].masked_fill(~text["attention_mask"].bool(), -100)
+        """
         h_graph = self.encode_mol(mol)
         h_graph = self.enc2dec(h_graph)
+        """
+        h_coord, mask_coord = self._get_structure_features(mol["structure"]["conformation"])
         h_smi = self.text_decoder.encoder(**mol["structure"]["SMILES"]).last_hidden_state
+        """
         h = torch.cat([h_graph, h_smi], dim=1)
         attention_mask = torch.ones(h_graph.shape[:-1], dtype=torch.long).to(h.device)
         attention_mask = torch.cat([attention_mask, mol["structure"]["SMILES"].attention_mask], dim=1)
+        """
+        h, attention_mask = self.feat_wrap(h_coord, mask_coord, h_smi, mol["structure"]["SMILES"].attention_mask)
         h = BaseModelOutput(
             last_hidden_state=h,
             hidden_states=None,

@@ -1,0 +1,73 @@
+{
+    "model": "drugfm",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "transformer",
+                    "transformer_type": "t5",
+                    "model_name_or_path": "./ckpts/text_ckpts/MolT5-large",
+                    "max_length": 512
+                },
+                "text": {
+                    "name": "TransformerTokenizer",
+                    "transformer_type": "bert",
+                    "max_length": 16,
+                    "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+                    "no_special_tokens": true
+                }
+            }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "t5",
+            "max_length": 512,
+            "model_name_or_path": "./ckpts/text_ckpts/MolT5-large/"
+        }
+    },
+    "network": {
+        "graphmvp": {
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.1,
+            "init_checkpoint": "./ckpts/gnn_ckpts/graphmvp/pretraining_model.pth"
+        },
+        "unimap": {
+            "atom_vocab_size": 10535,
+            "roberta": {
+                "vocab_size": 2426,
+                "max_length": 128,
+                "max_position_embeddings": 515,
+                "type_vocab_size": 1,
+                "pooler_type": "avg"
+            },
+            "gnn": {
+                "gnn_number_layer": 3,
+                "gnn_dropout": 0.1,
+                "conv_encode_edge": true,
+                "gnn_embed_dim": 384,
+                "gnn_aggr": "maxminmean",
+                "gnn_norm": "layer",
+                "gnn_act": "gelu",
+                "atom_vocab_size": 10535,
+                "graph_max_seq_size": 128
+            }
+        },
+        "unimol": {
+            "config_path": "./configs/encoders/mol/unimol.json",
+            "dict_path": "./assets/tokenizers/unimol/unimol_dict.txt"
+        },
+        "kge": {
+            "n_ents": 49151,
+            "n_rels": 16,
+            "norm": 2,
+            "hidden_size": 256,
+            "margin": 2.0
+        },
+        "decoder": "./ckpts/text_ckpts/MolT5-large/",
+        "bert_config_path": "./configs/encoders/multimodal/molfm_bert_config.json",
+        "max_n_atoms": 256,
+        "projection_dim": 256
+    }
+}

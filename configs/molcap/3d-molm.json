@@ -1,0 +1,54 @@
+{
+    "model": "3d-molm",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES", "conformation"],
+                    "SMILES": {
+                        "name": "transformer",
+                        "transformer_type": "3d-molm",
+                        "model_name_or_path": "/data3/luoyz/checkpoints/3dmolm-llama",
+                        "model_name_or_path1": "/data3/luoyz/checkpoints/Llama-2-7b-hf/",
+                        "max_length": 512,
+                        "prompt": "Below is an instruction that describes a task, paired with an input molecule. Write a response that appropriately completes the request.\nInstruction: Describe the input molecule.\nInput molecule: <moleculeHere> <mol><mol><mol><mol><mol><mol><mol><mol>.\nResponse: "
+                    },
+                    "conformation": {
+                        "name": "unimol",
+                        "dictionary_path": "./assets/tokenizers/unimol/unimol_dict.txt",
+                        "max_n_atoms": 256,
+                        "remove_hydrogen": true,
+                        "allow_cache": true,
+                        "cache_file": "./assets/data_mtg_3dmolm_data.pkl"
+                    }
+                }
+            }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "model_name_or_path": "/data3/luoyz/checkpoints/Llama-2-7b-hf/",
+            "transformer_type": "llama",
+            "max_length": 512
+        }
+    },
+    "network": {
+        "structure": {
+            "config_path": "./configs/encoders/mol/unimol.json",
+            "dict_path": "./assets/tokenizers/unimol/unimol_dict.txt",
+            "ckpt_path": "./ckpts/mol_ckpts/unimol/mol_pre_no_h_220816.pt"
+        },
+        "peft_model_config": {
+            "lora_alpha": 32,
+            "lora_r": 8,
+            "lora_dropout": 0.1
+        },
+        "llm": "/data3/luoyz/checkpoints/3dmolm-llama",
+        "llm1": "/data3/luoyz/checkpoints/Llama-2-7b-hf/",
+        "qformer_config_file": "./configs/encoders/multimodal/3d_molm_qformer_config.json",
+        "bert_tokenizer_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+        "max_n_atoms": 256,
+        "projection_dim": 256
+    }
+}

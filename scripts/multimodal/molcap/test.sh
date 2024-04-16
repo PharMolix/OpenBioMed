@@ -13,9 +13,15 @@ then
 fi
 if [ ${MODEL} = "mvmol" ]; 
 then
-    CKPT="./ckpts/finetune_ckpts/molcap/mvmol/checkpoint_9.pth"
-    PARAM_KEY="model_state_dict"
+    #CKPT="./ckpts/finetune_ckpts/molcap/mvmol/checkpoint_9.pth"
+    CKPT="./ckpts/fusion_ckpts/mvmol-stage3/checkpoint_9.pth"
+    PARAM_KEY="model"
 fi
+if [ ${MODEL} = "3d-molm" ];
+then
+    CKPT="./ckpts/fusion_ckpts/3d_molm/stage2.ckpt"
+    PARAM_KEY="state_dict"
+fi 
 
 python open_biomed/tasks/multi_modal_task/molcap.py \
 --device ${DEVICE} \
