@@ -9,7 +9,7 @@
 
 ## 更新信息 🎉
 
-- [08/14] 🔥 发布 **BioMedGPT-LM-7B** (🤗[HuggingFace模型](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) 、 **BioMedGPT-10B** (📃[技术报告](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-biomedgpt)) 和 **DrugFM** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
+- [08/14] 🔥 发布 **BioMedGPT-LM-7B** (🤗[HuggingFace模型](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) 、 **BioMedGPT-10B** (📃[论文](https://arxiv.org/abs/2308.09442v2), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-biomedgpt)) 和 **DrugFM** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
 
     > BioMedGPT-10B是由水木分子联合清华大学智能产业研究院联合发布的首个可商用的多模态生物医药大模型。该模型将以分子结构和蛋白质序列为代表的生命语言与人类的自然语言相结合，在生物医药专业问答能力比肩人类专家水平，在分子和蛋白质跨模态问答中表现出强大的性能。BioMedGPT-LM-7B是首个可商用、生物医药专用的Llama2大模型。
 
@@ -29,6 +29,7 @@
 - [环境搭建](#环境搭建)
 - [使用方式](#使用方式)
 - [文档](./docs)
+- [教程](#教程)
 - [局限性](#局限性)
 - [引用](#引用)
 
@@ -104,6 +105,11 @@ pip install torch-geometric
 | [药物-靶点亲和力预测](./docs/dti.md)     | 药物-靶点亲和力预测的训练和测试方式 |
 | [分子描述生成](./docs/molcap.md)                      | 分子描述生成的训练和测试方式  |
 
+## 教程
+水木分子团队中有来自各个领域的志同道合的小伙伴，或许你和我们一样，也对大模型技术及其在垂直领域的应用很感兴趣。所以，让感兴趣的小伙伴了解工程师是如何从run一个模型开始，体验大模型，使用大模型，到开发自己的大模型是一个有意义的工作。考虑到大家可能有着不同的背景，因此我们决定写一系列连贯的文章，非常详细的把每一步呈现出来。具体示例代码请移步[教程](./examples/course/)。    
+**文章列表：**    
+[01. 如何在自己的笔记本上run起大模型?（Windows/Mac）](https://mp.weixin.qq.com/s/8--ddNKE0QC1mONycDRiSw) | [示例代码](./examples/course/01_run_biomedgpt_lm_on_your_computer.ipynb)
+
 ## 局限性
 
 本项目包含BioMedGPT-LM-7B和BioMedGPT-10B，这些模型应当被负责任地使用。BioMedGPT不应用于向公众提供服务。我们严禁使用BioMedGPT生成任何违反适用法律法规的内容，如煽动颠覆国家政权、危害国家安全和利益、传播恐怖主义、极端主义、种族仇恨和歧视、暴力、色情或虚假有害信息等。BioMedGPT不对用户提供或发布的任何内容、数据或信息产生的任何后果负责。
@@ -134,7 +140,16 @@ pip install torch-geometric
 
 ##### 引用BioMedGPT:
 
-请等待我们在Arxiv上的更新。
+```
+@misc{luo2023biomedgpt,
+      title={BioMedGPT: Open Multimodal Generative Pre-trained Transformer for BioMedicine}, 
+      author={Yizhen Luo and Jiahuan Zhang and Siqi Fan and Kai Yang and Yushuai Wu and Mu Qiao and Zaiqing Nie},
+      year={2023},
+      eprint={2308.09442},
+      archivePrefix={arXiv},
+      primaryClass={cs.CE}
+}
+```
 
 ##### 引用DeepEIK:
 
