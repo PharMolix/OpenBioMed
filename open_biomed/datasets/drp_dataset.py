@@ -14,9 +14,9 @@ import torch
 from torch.utils.data import Dataset
 from torch_geometric.data import Batch
 
-from feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
-from feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
-from utils.cell_utils import SUPPORTED_GENE_SELECTOR
+from open_biomed.feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from open_biomed.feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
+from open_biomed.utils.cell_utils import SUPPORTED_GENE_SELECTOR
 
 class DRPDataset(Dataset, ABC):
     def __init__(self, path, config, task="regression"):

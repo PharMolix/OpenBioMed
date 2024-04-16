@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from transformers import AutoModel
 
-from models.base_models import ProteinEncoder
+from open_biomed.models.base_models import ProteinEncoder
 
 class ProtTrans(ProteinEncoder):
     def __init__(self, config):

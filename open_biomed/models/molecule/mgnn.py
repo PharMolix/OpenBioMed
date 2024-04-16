@@ -10,7 +10,7 @@ import torch_geometric.nn as gnn
 from torch import Tensor
 from collections import OrderedDict
 
-from models.base_models import MolEncoder
+from open_biomed.models.base_models import MolEncoder
 
 class NodeLevelBatchNorm(_BatchNorm):
     r"""

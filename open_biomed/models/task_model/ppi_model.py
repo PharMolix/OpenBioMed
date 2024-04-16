@@ -3,8 +3,8 @@ import json
 import torch
 import torch.nn as nn
 
-from models import SUPPORTED_PROTEIN_ENCODER, SUPPORTED_KNOWLEDGE_ENCODER
-from models.predictor import MLP
+from open_biomed.models import SUPPORTED_PROTEIN_ENCODER, SUPPORTED_KNOWLEDGE_ENCODER
+from open_biomed.models.predictor import MLP
 
 class PPISeqModel(nn.Module):
     def __init__(self, config, num_classes):

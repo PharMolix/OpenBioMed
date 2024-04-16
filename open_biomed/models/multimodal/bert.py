@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from transformers import BertModel
 
-from models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.base_models import MolEncoder, TextEncoder
 
 class MolBERT(MolEncoder, TextEncoder):
     def __init__(self, config):

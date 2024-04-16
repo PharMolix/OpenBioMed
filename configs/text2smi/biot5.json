@@ -1,0 +1,35 @@
+{
+    "model": "biot5",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "selfies",
+                    "transformer_type": "biot5",
+                    "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+                    "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+                    "max_length": 512
+                }
+            }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "biot5",
+            "max_length": 512,
+            "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+            "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+            "prompt": "Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description. Now complete the following example -\nInput: <textHere>\nOutput: "
+        }
+    },
+    "network": {
+        "use_selfies": true,
+        "structure": {
+            "name": "biot5",
+            "model_name_or_path": "./ckpts/text_ckpts/t5-v1.1-base",
+            "path_selfies": "./assets/tokenizers/biot5/selfies_dict.txt",
+            "ckpt": "./ckpts/fusion_ckpts/biot5/text2mol.bin",
+            "transformer_type": "t5"
+        }
+    }
+}

@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch_scatter import scatter_add
 from torch_geometric.nn.inits import glorot, zeros
 
-from models.base_models import MolEncoder
+from open_biomed.models.base_models import MolEncoder
 
 num_atom_type = 120 #including the extra mask tokens
 num_chirality_tag = 3

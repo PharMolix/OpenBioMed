@@ -3,22 +3,25 @@ logger = logging.getLogger(__name__)
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 import argparse
 import json
 import math
 from tqdm import tqdm
+from transformers import BertTokenizer
+import pickle
 
 import torch
+import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from utils import EarlyStopping, AverageMeter, MolCollator, ToDevice, recall_at_k
-from utils.optimizers import BertAdam
-from datasets.mtr_dataset import SUPPORTED_MTR_DATASETS
-from models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM
-from models.task_model.mtr_model import MTRModel
+from open_biomed.utils import EarlyStopping, AverageMeter, MTCollator, ToDevice, recall_at_k
+from open_biomed.utils.optimizers import BertAdam
+from open_biomed.datasets.mtr_dataset import SUPPORTED_MTR_DATASETS
+from open_biomed.models.multimodal import KVPLM, MolBERT, BioMedGPTCLIP, MoMu, MolFM, DrugFM, MoleculeSTM, MolKFormer, MolCAStage1, TDMoLMStage1, CLAMP, MVMol
+from open_biomed.models.task_model.mtr_model import MTRModel
 
 SUPPORTED_MTR_MODEL = {
     "scibert": MolBERT,
@@ -28,8 +31,40 @@ SUPPORTED_MTR_MODEL = {
     "molfm": MolFM,
     "drugfm": DrugFM,
     "biomedgpt": BioMedGPTCLIP,
+    "molkformer": MolKFormer,
+    "moleculestm": MoleculeSTM,
+    "clamp": CLAMP,
+    "molca": MolCAStage1,
+    "3d-molm": TDMoLMStage1,
+    "mvmol": MVMol,
     "combined": MTRModel
 }
+
+def mtr_encode_mol(model, mol, view_oper="add"):
+    if isinstance(mol, dict) and "text" in mol and view_oper != "hybrid":
+        mol_rep = model.encode_mol(mol)
+        #if hasattr(model, "structure_proj_head"):
+        #    mol_rep = model.structure_proj_head(mol_rep)
+        if view_oper == "add":
+            text_rep = model.encode_text(mol["text"])
+            if hasattr(model, "text_proj_head"):
+                text_rep = model.text_proj_head(text_rep)
+            mol_rep = mol_rep + text_rep
+    else:
+        mol_rep = model.encode_mol(mol)
+        if hasattr(model, "structure_proj_head"):
+            mol_rep = model.structure_proj_head(mol_rep)
+    if model.norm:
+        mol_rep = F.normalize(mol_rep, dim=-1)
+    return mol_rep
+
+def mtr_encode_text(model, text):
+    text_rep = model.encode_text(text)
+    #if hasattr(model, "text_proj_head"):
+    #    text_rep = model.text_proj_head(text_rep)
+    if model.norm:
+        text_rep = F.normalize(text_rep, dim=-1)
+    return text_rep
 
 def similarity(logits1, logits2):
     if len(logits1.shape) >= 2: 
@@ -50,7 +85,6 @@ def contrastive_loss(logits_structure, logits_text, margin, device):
     else:
         scores = torch.matmul(logits_structure.unsqueeze(1), logits_text.unsqueeze(-1)).squeeze()
         scores, _ = scores.max(dim=-1) 
-    #print(scores)
     diagonal = scores.diag().view(logits_text.size(0), 1)
     d1 = diagonal.expand_as(scores)
     d2 = diagonal.t().expand_as(scores)
@@ -104,16 +138,15 @@ def train_mtr(train_dataset, val_dataset, model, collator, args):
         running_loss.reset()
 
         step = 0
-        for mol in tqdm(train_loader):
+        for mol, text in tqdm(train_loader):
             mol = ToDevice(mol, args.device)
-            mol_rep = model.encode_mol(mol["structure"])
-            if hasattr(model, "structure_proj_head"):
-                mol_rep = model.structure_proj_head(mol_rep)
-            text_rep = model.encode_text(mol["text"])
+            text = ToDevice(text, args.device)
+            mol_rep = mtr_encode_mol(model, mol, args.view_operation)
+            text_rep = mtr_encode_text(model, text)
             loss = loss_fn(mol_rep, text_rep, margin=args.margin, device=args.device)
-            if hasattr(model, "calculate_matching_loss"):
-                matching_loss = model.calculate_matching_loss(mol["structure"], mol["text"])
-                loss += matching_loss
+            #if hasattr(model, "calculate_matching_loss"):
+            #    matching_loss = model.calculate_matching_loss(mol, text)
+            #    loss += matching_loss
                 
             loss.backward()
             optimizer.step()
@@ -133,16 +166,16 @@ def train_mtr(train_dataset, val_dataset, model, collator, args):
     return model
 
 def rerank(dataset, model, index_structure, index_text, score, alpha, collator, device):
-    mini_batch = []
+    mini_batch_mol, mini_batch_text = [], []
     for i in index_structure:
         for j in index_text:
-            mini_batch.append({
-                "structure": dataset[i]["structure"],
-                "text": dataset[j]["text"],
-            })
-    mini_batch = ToDevice(collator(mini_batch), device)
+            mini_batch_mol.append(dataset[i][0])
+            mini_batch_text.append(dataset[j][1])
+
+    mini_batch_mol = ToDevice(collator.mol_collator(mini_batch_mol), device)
+    mini_batch_text = ToDevice(collator.text_collator(mini_batch_text), device)
     #print(index_structure, index_text, score, model.predict_similarity_score(mini_batch).squeeze())
-    score = score.to(device) * alpha + model.predict_similarity_score(mini_batch).squeeze() * (1 - alpha)
+    score = score.to(device) * alpha + model.predict_similarity_score(mini_batch_mol, mini_batch_text).squeeze() * (1 - alpha)
     _, new_idx = torch.sort(score, descending=True)
     if len(index_structure) > 1:
         return torch.LongTensor([index_structure[i] for i in new_idx.detach().cpu().tolist()])
@@ -153,15 +186,24 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
     val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size, shuffle=False, num_workers=args.num_workers, collate_fn=collator)
     model.eval()
     mol_rep_total, text_rep_total = [], []
+    mol_rep_noview, views = [], []
+    tokenizer = BertTokenizer.from_pretrained("./ckpts/text_ckpts/scibert_scivocab_uncased")
     n_samples = 0
     with torch.no_grad():
-        for mol in tqdm(val_loader):
-            mol = ToDevice(mol, args.device)
+        for mol, text in tqdm(val_loader):
+            if "text" in mol:
+                for view in tokenizer.batch_decode(mol["text"]["input_ids"]):
+                    views.append(view)
 
-            mol_rep = model.encode_mol(mol["structure"])
-            if hasattr(model, "structure_proj_head"):
-                mol_rep = model.structure_proj_head(mol_rep)
-            text_rep = model.encode_text(mol["text"])
+            mol = ToDevice(mol, args.device)
+            text = ToDevice(text, args.device)
+            
+            #print(mol)
+            #print(text)
+            mol_rep = mtr_encode_mol(model, mol, args.view_operation)
+            text_rep = mtr_encode_text(model, text)
+            # mol.pop("text")
+            # mol_rep_noview.append(mtr_encode_mol(model, mol, args.view_operation))
             mol_rep_total.append(mol_rep)
             text_rep_total.append(text_rep)
             
@@ -169,18 +211,24 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
 
         mol_rep = torch.cat(mol_rep_total, dim=0)
         text_rep = torch.cat(text_rep_total, dim=0)
+        pickle.dump({
+            # "mol_rep_noview": torch.cat(mol_rep_noview, dim=0).cpu(),
+            "mol_rep": mol_rep.cpu(),
+            "text_rep": text_rep.cpu(),
+            "view": views
+        }, open("./assets/moleculestm_intermediate.pkl", "wb"))
         score = torch.zeros(n_samples, n_samples)
         mrr_m2t, mrr_t2m = 0, 0
         rec_m2t, rec_t2m = [0, 0, 0], [0, 0, 0]
         logger.info("Calculating cosine similarity...")
-        for i in tqdm(range(n_samples)):
+        for i in range(n_samples):
             score[i] = similarity(mol_rep[i], text_rep)
         if hasattr(model, "predict_similarity_score") and apply_rerank:
             logger.info("Reranking...")
         for i in tqdm(range(n_samples)):
             _, idx = torch.sort(score[i, :], descending=True)
             idx = idx.detach().cpu()
-            if hasattr(model, "predict_similarity_score") and apply_rerank:
+            if hasattr(model, "predict_similarity_score") and apply_rerank and recall_at_k(idx, i, args.rerank_num):
                 idx = torch.cat((
                     rerank(val_dataset, model, [i], idx[:args.rerank_num].tolist(), score[i, idx[:args.rerank_num]], args.alpha_m2t, collator, args.device),
                     idx[args.rerank_num:]
@@ -191,7 +239,7 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
 
             _, idx = torch.sort(score[:, i], descending=True)
             idx = idx.detach().cpu()
-            if hasattr(model, "predict_similarity_score") and apply_rerank:
+            if hasattr(model, "predict_similarity_score") and apply_rerank and recall_at_k(idx, i, args.rerank_num):
                 idx = torch.cat((
                     rerank(val_dataset, model, idx[:args.rerank_num].tolist(), [i], score[idx[:args.rerank_num], i], args.alpha_t2m, collator, args.device),
                     idx[args.rerank_num:]
@@ -210,32 +258,23 @@ def val_mtr(val_dataset, model, collator, apply_rerank, args):
         return result
 
 def main(args, config):
-    dataset = SUPPORTED_MTR_DATASETS[args.dataset](args.dataset_path, config["data"], args.dataset_mode, args.filter, args.filter_path)
+    dataset = SUPPORTED_MTR_DATASETS[args.dataset](args.dataset_path, config["data"], args.dataset_mode, args.perspective, args.filter, args.filter_path)
     train_dataset = dataset.index_select(dataset.train_index)
     val_dataset = dataset.index_select(dataset.val_index)
     test_dataset = dataset.index_select(dataset.test_index)
     val_dataset.set_test()
     test_dataset.set_test()
-    collator = MolCollator(config["data"]["mol"])
+    collator = MTCollator(config["data"])
 
     model = SUPPORTED_MTR_MODEL[config["model"]](config["network"])
     if args.init_checkpoint != "None":
+        logger.info("Load checkpoint from %s" % (args.init_checkpoint))
         ckpt = torch.load(args.init_checkpoint, map_location="cpu")
         if args.param_key != "None":
             ckpt = ckpt[args.param_key]
-        to_add = []
-        to_remove = []
-        for name in ckpt:
-            if "graph_" in name:
-                key_orig = name.replace("graph_", "structure_")
-                to_add.append((key_orig, ckpt[name]))
-                to_remove.append(name)
-        for elem in to_add:
-            ckpt[elem[0]] = elem[1]
-        for key in to_remove:
-            del ckpt[key]
-        model.load_state_dict(ckpt)
+        model.load_state_dict(ckpt, strict=False)
     model = model.to(args.device)
+    # print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
     if args.mode == "zero_shot":
         model.eval()
@@ -252,7 +291,9 @@ def add_arguments(parser):
     parser.add_argument("--config_path", type=str, default="")
     parser.add_argument('--dataset', type=str, default='PCdes')
     parser.add_argument("--dataset_path", type=str, default='../datasets/mtr/PCdes/')
-    parser.add_argument("--dataset_mode", type=str,  default="paragraph")
+    parser.add_argument("--dataset_mode", type=str, default="paragraph")
+    parser.add_argument("--view_operation", type=str, default="add")
+    parser.add_argument("--perspective", type=str, default="None")
     parser.add_argument("--filter", action="store_true")
     parser.add_argument("--filter_path", type=str, default="")
     parser.add_argument("--init_checkpoint", type=str, default="None")

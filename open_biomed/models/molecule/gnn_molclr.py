@@ -6,7 +6,7 @@ from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import add_self_loops
 from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_pool
 
-from models.base_models import MolEncoder
+from open_biomed.models.base_models import MolEncoder
 
 num_atom_type = 119 # including the extra mask tokens
 num_chirality_tag = 3

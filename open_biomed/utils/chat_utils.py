@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 
 import re
 
-from utils.data_utils import DataProcessorFast
-from utils.mol_utils import valid_smiles
-from utils.collators import ToDevice
+from open_biomed.utils.data_utils import DataProcessorFast
+from open_biomed.utils.mol_utils import valid_smiles
+from open_biomed.utils.collators import ToDevice
 
 class Conversation(object):
     def __init__(self, model, processor_config, device, system, roles=("Human", "Assistant"), sep="###", max_length=512):

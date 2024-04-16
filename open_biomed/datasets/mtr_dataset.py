@@ -8,7 +8,9 @@ logger = logging.getLogger(__name__)
 import os
 import os.path as osp
 import copy
+import json
 import random
+from tqdm import tqdm
 
 import rdkit.Chem as Chem
 from rdkit import RDLogger
@@ -17,14 +19,16 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from feature.mol_featurizer import MolMultiModalFeaturizer
-from utils.split_utils import scaffold_split
+from open_biomed.feature.mol_featurizer import SUPPORTED_MOL_FEATURIZER, MolMultiModalFeaturizer
+from open_biomed.feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
+from open_biomed.utils.split_utils import scaffold_split
 
 class MTRDataset(Dataset, ABC):
     def __init__(self, path, config):
         super(MTRDataset, self).__init__()
         self.path = path
         self.config = config
+        self.is_multimodal = len(self.config["mol"]["modality"]) > 1
         self._load_data()
         self._featurize()
 
@@ -34,13 +38,20 @@ class MTRDataset(Dataset, ABC):
 
     def _featurize(self):
         # featurize mol with paired text
-        featurizer = MolMultiModalFeaturizer(self.config["mol"])
-        featurizer.set_mol2text_dict(self.mol2text)
-        self.mols = [featurizer(mol) for mol in self.mols]
+        if self.is_multimodal:
+            mol_featurizer = MolMultiModalFeaturizer(self.config["mol"])
+            mol_featurizer.set_mol2text_dict(self.mol2text)
+        else:
+            mol_featurizer = SUPPORTED_MOL_FEATURIZER[self.config["mol"]["featurizer"]["structure"]["name"]](self.config["mol"]["featurizer"]["structure"])
+            
+        self.mols = [mol_featurizer(mol) for mol in tqdm(self.mols)]
+        text_featurizer = SUPPORTED_TEXT_FEATURIZER[self.config["text"]["name"]](self.config["text"])
+        self.texts = [text_featurizer(text) for text in tqdm(self.texts)]
 
     def index_select(self, indexes):
         new_dataset = copy.copy(self)
         new_dataset.mols = [new_dataset.mols[i] for i in indexes]
+        new_dataset.texts = [new_dataset.texts[i] for i in indexes]
         return new_dataset
 
     def __len__(self):
@@ -60,16 +71,13 @@ class MTRDataset(Dataset, ABC):
             if not self.test:
                 ind = random.randint(0, len(self.mols[index]["text"]) - 1)
             else:
-                ind = self.pseudorandom[index] % len(self.mols[index]["text"])
-            return {
-                "structure": self.mols[index]["structure"],
-                "text": self.mols[index]["text"][ind],
-            }
+                ind = self.pseudorandom[index] % len(self.texts["text"])
+            return self.mols[index], self.texts[index][ind],
         else:
-            return self.mols[index]
+            return self.mols[index], self.texts[index]
 
 class PCdes(MTRDataset):
-    def __init__(self, path, config, mode='paragraph', filter=True, filter_path=""):
+    def __init__(self, path, config, mode='paragraph', perspective="None", filter=True, filter_path=""):
         self.filter = filter
         self.filter_path = filter_path
         self.test = False
@@ -105,16 +113,15 @@ class PCdes(MTRDataset):
                     self.texts.append(texts[i].strip("\n"))
             except:
                 logger.debug("fail to generate 2D graph, data removed")
-
+        self.mol2text = dict(zip(self.mols, ["View: chemical properties and functions" for i in range(len(self.mols))]))
         self.smiles = self.mols
-        self.mol2text = dict(zip(self.mols, self.texts))
         logger.info("Num Samples: %d" % len(self))
 
     def _train_test_split(self):
         self.train_index, self.val_index, self.test_index = scaffold_split(self, 0.1, 0.2)
 
 class PubChem15K(MTRDataset):
-    def __init__(self, path, config, mode, filter, filter_path):
+    def __init__(self, path, config, mode, perspective, filter, filter_path):
         self.mode = mode
         self.test = False
         super(PubChem15K, self).__init__(path, config)
@@ -129,6 +136,7 @@ class PubChem15K(MTRDataset):
                 text_name, smi = line[0], line[1]
                 try:
                     mol = Chem.MolFromSmiles(smi)
+                    smi = Chem.MolToSmiles(mol, isomericSmiles=False)
                     if mol is not None:
                         self.mols.append(smi)
                         text_list = []
@@ -154,7 +162,53 @@ class PubChem15K(MTRDataset):
         self.val_index = np.arange(0, 480)
         self.test_index = np.arange(0, 480)
 
+class MPRetr(MTRDataset):
+    def __init__(self, path, config, mode, perspective, filter, filter_path):
+        if perspective == "mix":
+            self.perspective = ["chemical properties and functions", "physical properties", "pharmacokinetic properties"]
+        else:
+            self.perspective = [" ".join(perspective.split("_"))]
+        self.mode = mode
+        super(MPRetr, self).__init__(path, config)
+        
+    def _load_data(self):
+        self.train_index, self.val_index, self.test_index = [], [], []
+        self.mols, self.texts, self.prompts = [], [], []
+        cnt = 0
+        for split in ["train", "val", "test"]:
+            data = json.load(open(os.path.join(self.path, split + ".json"), "r"))
+            for perspective in self.perspective:
+                print(perspective, len(data[perspective]))
+                for sample in data[perspective]:
+                    try:
+                        mol = Chem.MolFromSmiles(sample[0].strip("\n"))
+                        smi = Chem.MolToSmiles(mol, isomericSmiles=True)
+                        if mol is not None:
+                            self.mols.append(smi)
+                            self.texts.append(sample[1].strip("\n"))
+                            self.prompts.append("View: " + perspective)
+                            #self.prompts.append("Not Available")
+                            if split == "train":
+                                self.train_index.append(cnt)
+                            if split == "val":
+                                self.val_index.append(cnt)
+                            if split == "test":
+                                self.test_index.append(cnt)
+                            cnt += 1
+                    except:
+                        logger.debug("fail to generate 2D graph, data removed")
+        #print(len(self.train_index), len(self.val_index), len(self.test_index))
+        #print(len(self.mols), len(self.prompts))
+        self.mol2text = {}
+        for i in range(len(self.mols)):
+            if self.mols[i] not in self.mol2text:
+                self.mol2text[self.mols[i]] = [self.prompts[i]]
+            else:
+                self.mol2text[self.mols[i]].append(self.prompts[i])
+        # print(self.mol2text)
+
 SUPPORTED_MTR_DATASETS = {
     "PCdes": PCdes,
     "PubChem15K": PubChem15K,
+    "MPRetr": MPRetr,
 }

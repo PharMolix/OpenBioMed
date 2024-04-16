@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 
 import torch
 
-from feature.base_featurizer import BaseFeaturizer
-from utils.kg_utils import SUPPORTED_KG, embed
+from open_biomed.feature.base_featurizer import BaseFeaturizer
+from open_biomed.utils.kg_utils import SUPPORTED_KG, embed
 
 class KGFeaturizer(BaseFeaturizer, ABC):
     def __init__(self, config):

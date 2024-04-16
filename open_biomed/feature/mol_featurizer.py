@@ -17,17 +17,19 @@ import torch
 import rdkit.Chem as Chem
 from rdkit.Chem import DataStructs, rdmolops
 from rdkit.Chem import AllChem, Descriptors
+from rdkit.Chem.rdMHFPFingerprint import MHFPEncoder
 from rdkit import RDLogger
 RDLogger.DisableLog("rdApp.*")
 
 from sklearn.preprocessing import OneHotEncoder
 from torch_geometric.data import Data
-from transformers import BertTokenizer, T5Tokenizer
+from transformers import BertTokenizer, T5Tokenizer, LlamaTokenizer
 
-from feature.base_featurizer import BaseFeaturizer
-from feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
-from feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
-from utils import to_clu_sparse, SmilesTokenizer
+from open_biomed.feature.base_featurizer import BaseFeaturizer
+from open_biomed.feature.kg_featurizer import SUPPORTED_KG_FEATURIZER
+from open_biomed.feature.text_featurizer import SUPPORTED_TEXT_FEATURIZER
+from open_biomed.utils.mol_utils import get_unimol_dictionary
+from open_biomed.utils import to_clu_sparse, SmilesTokenizer, get_biot5_tokenizer
 
 def one_hot_encoding(x, allowable_set, encode_unknown=False):
     """One-hot encoding.
@@ -157,17 +159,55 @@ class MolTransformerTokFeaturizer(BaseFeaturizer):
     name2tokenizer = {
         "bert": BertTokenizer,
         "t5": T5Tokenizer,
-        "unimap": SmilesTokenizer
+        "unimap": SmilesTokenizer,
+        "3d-molm": LlamaTokenizer,
     }
 
     def __init__(self, config):
         super(MolTransformerTokFeaturizer, self).__init__()
         self.max_length = config["max_length"]
         self.tokenizer = self.name2tokenizer[config["transformer_type"]].from_pretrained(config["model_name_or_path"], model_max_length=self.max_length)
+        if config["transformer_type"] == "3d-molm":
+            self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+            self.tokenizer.add_special_tokens({'bos_token': '</s>'})
+            self.tokenizer.add_special_tokens({'eos_token': '</s>'})
+            self.tokenizer.add_special_tokens({'unk_token': '</s>'})
+            self.tokenizer.add_special_tokens({'additional_special_tokens': ['<mol>']})
+        if "prompt" in config:
+            prompt = config["prompt"].split("<moleculeHere>")
+            self.prompt = prompt[0] + "{content}"
+            if len(prompt) > 1:
+                self.prompt += prompt[1]
+            self.len_prompt = len(self.tokenizer(self.prompt.format(content=""), max_length=self.max_length, padding=True, truncation=True).input_ids)
+        else:
+            self.prompt = "{content}"
+            self.len_prompt = 0
 
     def __call__(self, data):
-        result = self.tokenizer(data, max_length=self.max_length, padding=True, truncation=True)
+        result = self.tokenizer(self.prompt.format(content=data), max_length=self.max_length, padding=True, truncation=True)
+        if len(result.input_ids) >= self.max_length:
+            smi = self.tokenizer(data, max_length=self.max_length, truncation=True, add_special_tokens=False).input_ids[:self.max_length - self.len_prompt]
+            result = self.tokenizer(self.prompt.format(content=self.tokenizer.decode(smi)), max_length=self.max_length, padding=True, truncation=True)
         return result
+
+class MolSELFIESFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolSELFIESFeaturizer, self).__init__()
+        self.max_length = config["max_length"]
+        self.tokenizer = get_biot5_tokenizer(config)
+        self.add_special_tokens = False if "no_special_tokens" in config else True
+        if "prompt" in config:
+            prompt = config["prompt"].split("<moleculeHere>")
+            self.prompt = prompt[0] + "{content}" + prompt[1]
+        else:
+            self.prompt = "{content}"
+
+    def __call__(self, data):
+        import selfies as sf
+        mol = Chem.MolFromSmiles(data)
+        smi = Chem.MolToSmiles(mol)
+        sf_seq = '<bom>' + sf.encoder(smi, strict=False) + '<eom>'
+        return self.tokenizer(self.prompt.format(content=sf_seq), max_length=self.max_length, padding=True, truncation=True, add_special_tokens=self.add_special_tokens)
 
 class MolBPEFeaturizer(BaseFeaturizer):
     def __init__(self, config):
@@ -215,19 +255,98 @@ class MolFPFeaturizer(BaseFeaturizer):
     def __init__(self, config):
         super(MolFPFeaturizer, self).__init__()
         self.config = config
+        self.which = config["which"]
+        self.fp_size = config["fp_size"]
+        self.radius = config["radius"]
+
+    def _mol2np(self, mol, which, fp_size, radius):
+        is_dict = False
+        if which == 'morgan':
+            fp = AllChem.GetMorganFingerprintAsBitVect(mol, radius, nBits=fp_size, useFeatures=False, useChirality=True)
+        elif which == 'rdk':
+            fp = Chem.RDKFingerprint(mol, fpSize=fp_size, maxPath=6)
+        elif which == 'rdkc':
+            # https://greglandrum.github.io/rdkit-blog/similarity/reference/2021/05/26/similarity-threshold-observations1.html
+            # -- maxPath 6 found to be better for retrieval in databases
+            fp = AllChem.UnfoldedRDKFingerprintCountBased(mol, maxPath=6).GetNonzeroElements()
+            is_dict = True
+        elif which == 'morganc':
+            fp = AllChem.GetMorganFingerprint(mol, radius, useChirality=True, useBondTypes=True, useFeatures=True,  useCounts=True).GetNonzeroElements()
+            is_dict = True
+        elif which == 'topologicaltorsion':
+            fp = AllChem.GetTopologicalTorsionFingerprint(mol).GetNonzeroElements()
+            is_dict = True
+        elif which == 'maccs':
+            fp = AllChem.GetMACCSKeysFingerprint(mol)
+        elif which == 'erg':
+            v = AllChem.GetErGFingerprint(mol)
+            fp = {idx:v[idx] for idx in np.nonzero(v)[0]}
+            is_dict = True
+        elif which == 'atompair':
+            fp = AllChem.GetAtomPairFingerprint(mol).GetNonzeroElements()
+            is_dict = True
+        elif which == 'pattern':
+            fp = Chem.PatternFingerprint(mol, fpSize=fp_size)
+        elif which == 'ecfp4':
+            # roughly equivalent to ECFP4
+            fp = AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=fp_size, useFeatures=False, useChirality=True)
+        elif which == 'layered':
+            fp = AllChem.LayeredFingerprint(mol, fpSize=fp_size, maxPath=7)
+        elif which == 'mhfp':
+            #TODO check if one can avoid instantiating the MHFP encoder
+            fp = MHFPEncoder().EncodeMol(mol, radius=radius, rings=True, isomeric=False, kekulize=False, min_radius=1)
+            fp = {f:1 for f in fp}
+            is_dict = True
+        elif not (type(which)==str):
+            fp = which(mol)
+
+        if is_dict:
+            nd = np.zeros(fp_size)
+            for k in fp:
+                nk = k % fp_size #remainder
+                if nd[nk] != 0:
+                    nd[nk] = nd[nk] + fp[k] #pooling colisions
+                nd[nk] = fp[k]
+            return nd #np.log(1+nd) # discussion with segler
+        return np.frombuffer(bytes(fp.ToBitString(), 'utf-8'), 'u1') - ord('0')
 
     def __call__(self, data):
         mol = Chem.MolFromSmiles(data)
-        if mol is not None:
-            fp = Chem.RDKFingerprint(mol, fpSize=self.config["fpsize"])
-            np_fp = np.zeros(self.config["fpsize"])
-            DataStructs.ConvertToNumpyArray(fp, np_fp)
-            if self.config["return_type"] == "pt":
-                return torch.tensor(np_fp)
-            else:
-                return np_fp
+        """ + for folding * for concat """
+        cc_symb = '*'
+        if ('+' in self.which) or (cc_symb in self.which):
+            concat = False
+            split_sym = '+'
+            if cc_symb in self.which:
+                concat=True
+                split_sym = '*'
+
+            np_fp = np.zeros(self.fp_size)
+
+            remaining_fps = (self.which.count(split_sym)+1)
+            fp_length_remain = self.fp_size
+
+            for fp_type in self.which.split(split_sym):
+                if concat:
+                    fpp = self._mol2np(mol, fp_type, fp_length_remain//remaining_fps, self.radius)
+                    np_fp[(self.fp_size-fp_length_remain):(self.fp_size-fp_length_remain+len(fpp))] += fpp
+                    fp_length_remain -= len(fpp)
+                    remaining_fps -=1
+                else:
+                    try:
+                        fpp = self._mol2np(mol, fp_type, self.fp_size, self.radius)
+                        np_fp[:len(fpp)] += fpp
+                    except:
+                        pass
+                    #print(fp_type,end='')
+
+            np_fp = np.log(1 + np_fp)
         else:
-            return None
+            np_fp = self._mol2np(mol, self.which, self.fp_size, self.radius)
+        if self.config["return_type"] == 'pt':
+            return torch.FloatTensor(np_fp)
+        else:
+            return np_fp
 
 class MolTGSAFeaturizer(BaseFeaturizer):
     def __init__(self, config):
@@ -744,6 +863,102 @@ class MolGraphFeaturizerV2(BaseFeaturizer):
 
         return data
 
+def smi2_2Dcoords(smi):
+    mol = Chem.MolFromSmiles(smi)
+    mol = AllChem.AddHs(mol)
+    AllChem.Compute2DCoords(mol)
+    coordinates = mol.GetConformer().GetPositions().astype(np.float32)
+    assert len(mol.GetAtoms()) == len(coordinates), "2D coordinates shape is not align with {}".format(smi)
+    return coordinates
+
+def smi2_3Dcoords(smi, cnt=1, max_attempts=1000):
+    mol = Chem.MolFromSmiles(smi)
+    mol = AllChem.AddHs(mol)
+    coordinate_list = []
+    for seed in range(cnt):
+        try:
+            res = AllChem.EmbedMolecule(mol, maxAttempts=max_attempts, randomSeed=seed)  # will random generate conformer with seed equal to -1. else fixed random seed.
+            if res == 0:
+                try:
+                    AllChem.MMFFOptimizeMolecule(mol)       # some conformer can not use MMFF optimize
+                    coordinates = mol.GetConformer().GetPositions()
+                except:
+                    logger.info("Failed to generate 3D, replace with 2D")
+                    coordinates = smi2_2Dcoords(smi)            
+            elif res == -1:
+                mol_tmp = Chem.MolFromSmiles(smi)
+                AllChem.EmbedMolecule(mol_tmp, maxAttempts=max_attempts, randomSeed=seed)
+                mol_tmp = AllChem.AddHs(mol_tmp, addCoords=True)
+                try:
+                    AllChem.MMFFOptimizeMolecule(mol_tmp)       # some conformer can not use MMFF optimize
+                    coordinates = mol_tmp.GetConformer().GetPositions()
+                except:
+                    logger.info("Failed to generate 3D, replace with 2D")
+                    coordinates = smi2_2Dcoords(smi) 
+        except:
+            logger.info("Failed to generate 3D, replace with 2D")
+            coordinates = smi2_2Dcoords(smi) 
+
+        assert len(mol.GetAtoms()) == len(coordinates), "3D coordinates shape is not align with {}".format(smi)
+        coordinate_list.append(coordinates.astype(np.float32))
+    return coordinate_list
+
+class MolConformationFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolConformationFeaturizer, self).__init__(config)
+        assert config["allow_cache"], "Caching is recommended to speed up data processing"
+        self.config = config
+
+    def __call__(self, data):
+        if data not in self.cached_data:
+            self.cached_data[data] = smi2_3Dcoords(data, self.config["num_conformations"])
+        return self.cached_data[data]
+
+class MolUniMolFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolUniMolFeaturizer, self).__init__(config)
+        assert config["allow_cache"], "Caching is recommended to speed up data processing"
+        self.config = config
+        self.dictionary = get_unimol_dictionary(config["dictionary_path"])
+
+    def __call__(self, data):
+        if data not in self.cached_data:
+            smi = data
+            mol = Chem.MolFromSmiles(smi)
+            mol = AllChem.AddHs(mol)
+            if len(mol.GetAtoms()) > 400 or len(mol.GetRingInfo().AtomRings()) > 20:
+                coordinate_list = [smi2_2Dcoords(smi)]
+                logger.info("atom num > 400 or Ring num > 20, use 2D coords for: %s" % smi)
+            else:
+                coordinate_list = smi2_3Dcoords(smi)
+            atoms = np.array([atom.GetSymbol() for atom in mol.GetAtoms()])  # after add H 
+            if self.config["remove_hydrogen"]:
+                mask_hydrogen = atoms != 'H'
+                if sum(mask_hydrogen) > 0:
+                    atoms = atoms[mask_hydrogen]
+                    for i in range(len(coordinate_list)):
+                        coordinate_list[i] = coordinate_list[i][mask_hydrogen]
+
+            # cropping
+            if len(atoms) > self.config["max_n_atoms"] - 2:
+                index = np.random.choice(len(atoms), self.config["max_n_atoms"] - 2, replace=False)
+                atoms = np.array(atoms)[index]
+                for i in range(len(coordinate_list)):
+                    coordinate_list[i] = coordinate_list[i][index]
+
+            # tokenize atoms
+            atoms = torch.from_numpy(np.concatenate([np.array([self.dictionary.bos()]), self.dictionary.vec_index(atoms), np.array([self.dictionary.eos()])])).long()
+            for i in range(len(coordinate_list)):
+                coordinate_list[i] -= coordinate_list[i].mean(axis=0)
+                coordinate_list[i] = np.concatenate([np.zeros((1, 3)), coordinate_list[i], np.zeros((1, 3))], axis=0)
+
+            self.cached_data[data] = {
+                'atoms': atoms, 
+                'coordinates': coordinate_list
+            }
+        
+        return self.cached_data[data]
+
 class MolMultiModalFeaturizer(BaseFeaturizer):
     def __init__(self, config):
         super(MolMultiModalFeaturizer, self).__init__()
@@ -764,6 +979,7 @@ class MolMultiModalFeaturizer(BaseFeaturizer):
 
     def set_mol2text_dict(self, mol2text):
         self.featurizers["text"].set_transform(mol2text)
+        self.featurizers["text"].transform_count = {}
 
     def __call__(self, data, skip=[]):
         feat = {}
@@ -778,17 +994,33 @@ class MolMultiModalFeaturizer(BaseFeaturizer):
             return None
         return self.featurizers[index]
 
+class MolEnsembleFeaturizer(BaseFeaturizer):
+    def __init__(self, config):
+        super(MolEnsembleFeaturizer, self).__init__()
+        self.featurizers = {}
+        for model in config["models"]:
+            self.featurizers[model] = SUPPORTED_MOL_FEATURIZER[config[model]["name"]](config[model])
+    
+    def __call__(self, data):
+        feat = {}
+        for model in self.featurizers:
+            feat[model] = self.featurizers[model](data)
+        return feat
 
 SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER = {
     "OneHot": MolOneHotFeaturizer,
     "KV-PLM*": MolBPEFeaturizer,
     "transformer": MolTransformerTokFeaturizer,
-    "fp": MolFPFeaturizer,
+    "selfies": MolSELFIESFeaturizer,
+    "fingerprint": MolFPFeaturizer,
     "TGSA": MolTGSAFeaturizer,
     "ogb": MolGraphFeaturizer,
     "unimap": MolGraphFeaturizer,
     "MGNN": MolMGNNFeaturizer,
     "BaseGNN": MolGraphFeaturizer,
+    "conformation": MolConformationFeaturizer,
+    "unimol": MolUniMolFeaturizer,
+    "Ensemble": MolEnsembleFeaturizer,
 }
 
 SUPPORTED_SINGLE_MODAL_MOL_FEATURIZER = copy.deepcopy(SUPPORTED_SINGLE_SCALE_MOL_FEATURIZER)

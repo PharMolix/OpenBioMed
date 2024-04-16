@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models import SUPPORTED_CELL_ENCODER
+from open_biomed.models import SUPPORTED_CELL_ENCODER
 
 class CTCModel(nn.Module):
     def __init__(self, config, num_labels):

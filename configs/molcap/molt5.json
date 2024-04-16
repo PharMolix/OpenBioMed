@@ -21,6 +21,7 @@
     },
     "network": {
         "text": {
+            "name": "molt5",
             "model_name_or_path": "./ckpts/text_ckpts/MolT5-base",
             "transformer_type": "t5",
             "stop_grad": true

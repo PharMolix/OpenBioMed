@@ -1,0 +1,35 @@
+{
+    "model": "3d-molm",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "unimol",
+                    "dictionary_path": "./assets/tokenizers/unimol/unimol_dict.txt",
+                    "max_n_atoms": 256,
+                    "remove_hydrogen": true,
+                    "allow_cache": true,
+                    "cache_file": "./assets/data_mtr_3dmolm_pcdes.pkl"
+                }
+            }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "bert",
+            "max_length": 472,
+            "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+        }
+    },
+    "network": {
+        "structure": {
+            "config_path": "./configs/encoders/mol/unimol.json",
+            "dict_path": "./assets/tokenizers/unimol/unimol_dict.txt",
+            "ckpt_path": "./ckpts/mol_ckpts/unimol/mol_pre_no_h_220816.pt"
+        },
+        "qformer_config_file": "./configs/encoders/multimodal/3d_molm_qformer_config.json",
+        "bert_tokenizer_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+        "max_n_atoms": 256,
+        "projection_dim": 256
+    }
+}

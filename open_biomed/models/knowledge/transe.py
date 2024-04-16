@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 
-from models.base_models import KnowledgeEncoder
+from open_biomed.models.base_models import KnowledgeEncoder
 
 class TransE(KnowledgeEncoder):
     def __init__(self, n_ents, n_rels, norm=1, hidden_size=256, margin=1.0):

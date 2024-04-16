@@ -8,13 +8,13 @@ import torch
 
 import datetime
 
-from utils.distributed_utils import *
-from utils.metrics import *
-from utils.mol_utils import *
-from utils.cell_utils import *
-from utils.kg_utils import *
-from utils.matrix_utils import *
-from utils.collators import *
+from open_biomed.utils.distributed_utils import *
+from open_biomed.utils.metrics import *
+from open_biomed.utils.mol_utils import *
+from open_biomed.utils.cell_utils import *
+from open_biomed.utils.kg_utils import *
+from open_biomed.utils.matrix_utils import *
+from open_biomed.utils.collators import *
 
 class BestMeter(object):
     """Computes and stores the best value"""

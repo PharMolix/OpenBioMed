@@ -8,8 +8,8 @@ from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmiles
 import json
 import collections
 
-from utils.cluster import cluster_with_sim_matrix, merge_cluster
-from utils.prot_utils import get_normalized_ctd
+from open_biomed.utils.cluster import cluster_with_sim_matrix, merge_cluster
+from open_biomed.utils.prot_utils import get_normalized_ctd
 
 def random_split(n, r_val, r_test):
     r_train = 1 - r_val - r_test

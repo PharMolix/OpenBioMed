@@ -13,8 +13,6 @@ import torch
 
 from rdkit import Chem
 
-from utils.cell_utils import load_hugo2ncbi
-
 class KG(object):
     def  __init__(self):
         super(KG, self).__init__()
@@ -88,6 +86,7 @@ class BMKGv2(KG):
 class STRING(KG):
     def __init__(self, path, thresh=0.95):
         super(STRING, self).__init__()
+        from utils.cell_utils import load_hugo2ncbi
         self.thresh = thresh
         _, self.hugo2ncbi = load_hugo2ncbi()
         self._load_proteins(path)
@@ -258,3 +257,20 @@ def bfs(graph, node_id, max_depth):
     ### Outputs:
     # dist: a list, dist[i] is the list of i-hop neighbors
     pass
+
+if __name__ == "__main__":
+    kg = BMKG("./datasets/kg/BMKG-DP")
+
+    import pandas as pd
+    for data in ["BBBP", "bace", "clintox", "HIV", "muv", "sider", "tox21", "toxcast_data"]:
+        df = pd.read_csv("./datasets/dp/" + data + ".csv", sep=",")
+        smiles = df['smiles'].to_list()
+        cnt = 0
+        for smi in smiles:
+            mol = Chem.MolFromSmiles(smi)
+            if mol is None:
+                continue
+            iso_smi = Chem.MolToSmiles(mol, isomericSmiles=True)
+            if iso_smi in kg.smi2drugid:
+                cnt += 1
+        print(data, ": ", cnt, "/", len(smiles))

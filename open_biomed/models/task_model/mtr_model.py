@@ -3,7 +3,7 @@ import json
 import torch
 import torch.nn as nn
 
-from models import SUPPORTED_MOL_ENCODER, SUPPORTED_TEXT_ENCODER
+from open_biomed.models import SUPPORTED_MOL_ENCODER, SUPPORTED_TEXT_ENCODER
 
 class MTRModel(nn.Module):
     def __init__(self, config):

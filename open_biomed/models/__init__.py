@@ -1,9 +1,9 @@
-from models.molecule import *
-from models.protein import *
-from models.cell import *
-from models.knowledge import *
-from models.text import *
-from models.multimodal import *
+from open_biomed.models.molecule import *
+from open_biomed.models.protein import *
+from open_biomed.models.cell import *
+from open_biomed.models.knowledge import *
+from open_biomed.models.text import *
+from open_biomed.models.multimodal import *
 
 SUPPORTED_MOL_ENCODER = {
     "cnn": MolCNN,
@@ -36,7 +36,8 @@ SUPPORTED_PROTEIN_ENCODER = {
 
 SUPPORTED_CELL_ENCODER = {
     "scbert": PerformerLM,
-    "celllm": PerformerLM_CellLM
+    "celllm": PerformerLM_CellLM,
+    "geneformer": GeneFormer,
 }
 
 SUPPORTED_TEXT_ENCODER = {
@@ -53,6 +54,8 @@ SUPPORTED_TEXT_ENCODER = {
 
 SUPPORTED_TEXT_DECODER = {
     "molt5": MolT5,
+    "chatmol": ChatMol,
+    "biot5": BioT5,
 }
 
 SUPPORTED_KNOWLEDGE_ENCODER = {

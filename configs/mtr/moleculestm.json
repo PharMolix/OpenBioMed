@@ -1,0 +1,37 @@
+{
+    "model": "moleculestm",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "BaseGNN"
+                }
+            }
+        },
+        "text": {
+            "name": "TransformerTokenizer",
+            "transformer_type": "bert",
+            "max_length": 512,
+            "model_name_or_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+        }
+    },
+    "network": {
+        "structure": {
+            "name": "gnn",
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0,
+            "output_dim": 300,
+            "ckpt": "./ckpts/fusion_ckpts/moleculestm/molecule_model.pth"
+        },
+        "text": {
+            "bert_path": "./ckpts/text_ckpts/scibert_scivocab_uncased",
+            "output_dim": 768,
+            "ckpt": "./ckpts/fusion_ckpts/moleculestm/text_model.pth"
+        },
+        "projection_dim": 256,
+        "structure_proj_ckpt": "./ckpts/fusion_ckpts/moleculestm/mol2latent_model.pth",
+        "text_proj_ckpt": "./ckpts/fusion_ckpts/moleculestm/text2latent_model.pth"
+    }
+}

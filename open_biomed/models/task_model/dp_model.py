@@ -3,8 +3,8 @@ import torch.nn as nn
 import json
 
 from transformers import AutoModel
-from models import SUPPORTED_MOL_ENCODER
-from models.multimodal.molfm.molfm import MolFM
+from open_biomed.models import SUPPORTED_MOL_ENCODER
+from open_biomed.models.multimodal.molfm.molfm import MolFM
 
 activation = {
     "sigmoid": nn.Sigmoid(),

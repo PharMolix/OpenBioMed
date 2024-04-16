@@ -11,7 +11,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 import torch
 from torch.utils.data import Dataset
 
-from feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
+from open_biomed.feature.cell_featurizer import SUPPORTED_CELL_FEATURIZER
 
 class CTCDataset(Dataset, ABC):
     def __init__(self, path, config, seed):

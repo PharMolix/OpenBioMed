@@ -3,7 +3,7 @@ logger = logging.getLogger(__name__)
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 import argparse
 import copy
@@ -19,12 +19,12 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 from scipy.stats import pearsonr
 
-from datasets.drp_dataset import SUPPORTED_DRP_DATASET, TCGA
+from open_biomed.datasets.drp_dataset import SUPPORTED_DRP_DATASET, TCGA
 # from models.drp_model import TGDRP
 # from datasets.drp_dataset import SUPPORTED_DRP_DATASET, TCGA
-from models.task_model.drp_model import TGDRP
-from utils import EarlyStopping, AverageMeter, seed_all, roc_auc, metrics_average
-from utils.collators import DRPCollator
+from open_biomed.models.task_model.drp_model import TGDRP
+from open_biomed.utils import EarlyStopping, AverageMeter, seed_all, roc_auc, metrics_average
+from open_biomed.utils.collators import DRPCollator
 
 SUPPORTED_DRP_MODEL = {
     "TGDRP": TGDRP,

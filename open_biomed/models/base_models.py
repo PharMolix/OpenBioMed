@@ -17,6 +17,14 @@ class ProteinEncoder(nn.Module, ABC):
     def encode_protein(self, prot):
         raise NotImplementedError
 
+class CellEncoder(nn.Module, ABC):
+    def __init__(self):
+        super(CellEncoder, self).__init__()
+
+    @abstractmethod
+    def encode_cell(self, cell):
+        raise NotImplemented
+
 class KnowledgeEncoder(nn.Module, ABC):
     def __init__(self):
         super(KnowledgeEncoder, self).__init__()

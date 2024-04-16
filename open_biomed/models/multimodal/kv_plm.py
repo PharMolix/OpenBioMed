@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from transformers import BertConfig, BertForPreTraining, BertModel
 
-from models.base_models import MolEncoder, TextEncoder
+from open_biomed.models.base_models import MolEncoder, TextEncoder
 
 class KVPLMStarEncoder(nn.Module):
     def __init__(self, bert_config):

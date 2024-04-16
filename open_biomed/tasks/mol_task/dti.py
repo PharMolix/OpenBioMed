@@ -3,7 +3,7 @@ logger = logging.getLogger(__name__)
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 import random
 import argparse
@@ -16,12 +16,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from datasets.dti_dataset import SUPPORTED_DTI_DATASETS
+from open_biomed.datasets.dti_dataset import SUPPORTED_DTI_DATASETS
 # from models.dti_model import DTIModel, DeepEIK4DTI
 # from datasets.dti_dataset import SUPPORTED_DTI_DATASETS
-from models.task_model.dti_model import DTIModel, DeepEIK4DTI
-from utils import DTICollator, AverageMeter, EarlyStopping, ToDevice, metrics_average
-from utils.metrics import roc_auc, pr_auc, concordance_index, rm2_index
+from open_biomed.models.task_model.dti_model import DTIModel, DeepEIK4DTI
+from open_biomed.utils import DTICollator, AverageMeter, EarlyStopping, ToDevice, metrics_average
+from open_biomed.utils.metrics import roc_auc, pr_auc, concordance_index, rm2_index
 from sklearn.metrics import f1_score, precision_score, recall_score, mean_squared_error
 from scipy.stats import pearsonr, spearmanr
 
