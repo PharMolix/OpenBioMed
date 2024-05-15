@@ -190,7 +190,7 @@ pip install torch-geometric
       primaryClass={cs.CE}
 }
 ```
-##### 引用LangCell
+##### 引用LangCell:
 ```
 @misc{zhao2024langcell,
       title={LangCell: Language-Cell Pre-training for Cell Identity Understanding}, 
