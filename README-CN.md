@@ -9,19 +9,23 @@
 
 ## 更新信息 🎉
 
-- [08/14] 🔥 发布 **BioMedGPT-LM-7B** (🤗[HuggingFace模型](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) 、 **BioMedGPT-10B** (📃[论文](https://arxiv.org/abs/2308.09442v2), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-biomedgpt)) 和 **DrugFM** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
+- [2024/05/16] 🔥 发布 **LangCell** (📃[论文](https://arxiv.org/abs/2405.06708), 💻[代码](https://github.com/PharMolix/LangCell), 🤖[模型](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[引用](#to-cite-langcell)).
+
+    > LangCell是由水木分子与清华大学智能产业研究院联合研发的首个“自然语言-单细胞”多模态预训练模型。该模型通过学习富含细胞身份信息的知识性文本，有效提升了对单细胞转录组学的理解能力，并解决了数据匮乏场景下的细胞身份理解任务。LangCell是唯一能有效进行零样本细胞身份理解的单细胞模型，并且在少样本和微调场景下也取得SOTA。LangCell将很快被集成到OpenBioMed。
+
+- [2023/08/14] 🔥 发布 **BioMedGPT-LM-7B** (🤗[HuggingFace模型](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) 、 **BioMedGPT-10B** (📃[论文](https://arxiv.org/abs/2308.09442v2), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-biomedgpt)) 和 **DrugFM** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
 
     > BioMedGPT-10B是由水木分子联合清华大学智能产业研究院联合发布的首个可商用的多模态生物医药大模型。该模型将以分子结构和蛋白质序列为代表的生命语言与人类的自然语言相结合，在生物医药专业问答能力比肩人类专家水平，在分子和蛋白质跨模态问答中表现出强大的性能。BioMedGPT-LM-7B是首个可商用、生物医药专用的Llama2大模型。
 
     > DrugFM是由"清华AIR-智源联合研究中心"联合研发的多模态小分子基础模型。 该模型针对小分子药物的组织规律和表示学习进行了更细粒度的设计，形成了小分子药物预训练模型UniMap，并与多模态小分子基础模型MolFM有机结合。该模型在跨模态抽取任务中取得SOTA。
 
-- [06/12] 发布 **MolFM** (📃[论文](https://arxiv.org/abs/2307.09484), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-molfm)) 和 **CellLM** (📃[论文](https://arxiv.org/abs/2306.04371), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), 📎[引用](#to-cite-celllm)). 
+- [2023/06/12] 发布 **MolFM** (📃[论文](https://arxiv.org/abs/2307.09484), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-molfm)) 和 **CellLM** (📃[论文](https://arxiv.org/abs/2306.04371), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), 📎[引用](#to-cite-celllm)). 
 
     > MolFM是一个支持统一表示分子结构、生物医学文本和知识图谱的多模态小分子基础模型。在零样本和微调场景下，MolFM的跨模态检索能力分别比现有模型提升了12.03%和5.04%。在分子描述生成、基于文本的分子生成和分子性质预测中，MolFM也取得了显著的结果。
 
     > CellLM是首个使用分支对比学习策略在正常细胞和癌症细胞数据上同时训练的大规模细胞表示学习模型。CellLM在细胞类型注释（71.8 vs 68.8）、少样本场景下的单细胞药物敏感性预测（88.9 vs 80.6）和单组学细胞系药物敏感性预测上均优于ScBERT（93.4 vs 87.2）。
 
-- [04/23] 发布 **BioMedGPT-1.6B** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)) 和 **OpenBioMed**.
+- [2023/04/23] 发布 **BioMedGPT-1.6B** (🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)) 和 **OpenBioMed**.
 
 ## 目录
 
@@ -186,4 +190,14 @@ pip install torch-geometric
       primaryClass={cs.CE}
 }
 ```
-
+##### 引用LangCell:
+```
+@misc{zhao2024langcell,
+      title={LangCell: Language-Cell Pre-training for Cell Identity Understanding}, 
+      author={Suyuan Zhao and Jiahuan Zhang and Yizhen Luo and Yushuai Wu and Zaiqing Nie},
+      year={2024},
+      eprint={2405.06708},
+      archivePrefix={arXiv},
+      primaryClass={q-bio.GN}
+}
+```
