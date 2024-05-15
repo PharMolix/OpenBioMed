@@ -9,19 +9,23 @@
 
 ## News 🎉
 
-- [08/14] 🔥 Released implementation of **BioMedGPT-10B** (📃[Paper](https://arxiv.org/abs/2308.09442v2), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[Citation](#to-cite-biomedgpt)), **BioMedGPT-LM-7B** (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) and **DrugFM** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
+- [2024/05/16] 🔥 Released implementation of **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 💻[Code](https://github.com/PharMolix/LangCell), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)).
+
+    > LangCell is the first "language-cell" multimodal pre-trained model jointly developed by PharMolix and Institute for AI Industry Research (AIR) . It effectively enhances the understanding of single-cell transcriptomics by learning knowledge-rich texts containing cell identity information, and addresses the task of cell identity understanding in data-scarce scenarios. LangCell is the only single-cell model capable of effective zero-shot cell identity understanding and has also achieved SOTA in few-shot and fine-tuning scenarios. LangCell will soon be integrated into OpenBioMed. 
+
+- [2023/08/14] 🔥 Released implementation of **BioMedGPT-10B** (📃[Paper](https://arxiv.org/abs/2308.09442v2), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[Citation](#to-cite-biomedgpt)), **BioMedGPT-LM-7B** (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) and **DrugFM** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
 
     > BioMedGPT-10B is the first commercial-friendly multimodal biomedical foundation model jointly released by PharMolix and Institute of AI Industry Research (AIR) . It aligns the language of life (molecular structures and protein sequences) with human natural language, performing on par with human experts on biomedical QA benchmarks, and demonstrating powerful performance in cross-modal molecule and protein question answering tasks. BioMedGPT-LM-7B is the first commercial-friendly generative foundation model tailored for biomedicine based on Llama-2. 
 
     > DrugFM is a multi-modal molecular foundation model jointly developed by Institute of AI Industry Research (AIR) and Beijing Academy of Artificial Intelligence, BAAI. It leverages UniMAP, a pre-trained molecular model that captures fine-grained properties and representations of molecules, and incorporates MolFM, our multimodal molecular foundation model. DrugFM achieves SOTA on cross-modal retrieval.
 
-- [06/12] Released implementation of **MolFM** (📃[Paper](https://arxiv.org/abs/2307.09484), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[Citation](#to-cite-molfm)) and **CellLM** (📃[Paper](https://arxiv.org/abs/2306.04371), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), 📎[Citation](#to-cite-celllm)). 
+- [2023/06/12] Released implementation of **MolFM** (📃[Paper](https://arxiv.org/abs/2307.09484), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[Citation](#to-cite-molfm)) and **CellLM** (📃[Paper](https://arxiv.org/abs/2306.04371), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), 📎[Citation](#to-cite-celllm)). 
 
     > MolFM is a multi-modal molecular foundation model that enables joint comprehension of molecular structures, biomedical documents and knowledge graphs. On cross-modal retrieval, MolFM outperforms existing models by 12.03% and 5.04% under zero-shot and fine-tuning settings. MolFM also excels in molecule captioning, text-to-molecule generation and molecule property prediction.
 
     > CellLM is the first large-scale cell representation learning model trained on both normal cells and cancer cells with divide-and-conquer contrastive learning. CellLM beats ScBERT on cell type annotation (71.8 vs 68.8), few-shot single-cell drug sensitivity prediction (88.9 vs 80.6) and single-omics cell line drug sensitivity prediction (93.4 vs 87.2).
 
-- [04/23] Released implementation of **BioMedGPT-1.6B** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)) and **OpenBioMed**.
+- [2023/04/23] Released implementation of **BioMedGPT-1.6B** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)) and **OpenBioMed**.
 
 ## Table of contents
 
@@ -179,5 +183,17 @@ If you find our open-sourced code and models helpful to your research, please co
       eprint={2306.04371},
       archivePrefix={arXiv},
       primaryClass={cs.CE}
+}
+```
+
+##### To cite LangCell:
+```
+@misc{zhao2024langcell,
+      title={LangCell: Language-Cell Pre-training for Cell Identity Understanding}, 
+      author={Suyuan Zhao and Jiahuan Zhang and Yizhen Luo and Yushuai Wu and Zaiqing Nie},
+      year={2024},
+      eprint={2405.06708},
+      archivePrefix={arXiv},
+      primaryClass={q-bio.GN}
 }
 ```
