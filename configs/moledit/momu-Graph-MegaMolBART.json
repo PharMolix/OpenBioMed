@@ -1,0 +1,43 @@
+{
+    "model": "momu-MegaMolBART",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES", "graph"],
+                    "SMILES": {
+                        "name": "moleculeSTM",
+                        "transformer_type": "molbart",
+                        "model_name_or_path": "./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt",
+                        "max_length": 512
+                    },
+                    "graph": {
+                        "name": "ogb"
+                    }
+                }
+
+            }
+        }
+    },
+    "network": {
+        "graph": {
+            "name": "momu",
+            "gin_hidden_dim": 300,
+            "gin_num_layers": 5,
+            "drop_ratio": 0.0,
+            "graph_pooling": "sum",
+            "graph_self": false,
+            "max_n_nodes": -1,
+            "bert_dropout": 0.0,
+            "bert_hidden_dim": 768,
+            "output_dim": 300,
+            "projection_dim": 256,
+            "init_checkpoint": "./ckpts/fusion_ckpts/momu/MoMu-S.ckpt",
+            "param_key": "state_dict",
+            "stop_grad": false
+        }
+
+        }
+}
