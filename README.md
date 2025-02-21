@@ -9,6 +9,8 @@
 
 ## News 🎉
 
+- [2025/02/20] 🔥 BioMedGPT-R1 (🤗[Huggingface Model](https://huggingface.co/PharMolix/BioMedGPT-R1)) has been released. Fine-tuning and inference will be supported by OpenBioMed in early March. Stay tuned!
+
 - [2024/05/16] 🔥 Released implementation of **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 💻[Code](https://github.com/PharMolix/LangCell), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)).
 
     > LangCell is the first "language-cell" multimodal pre-trained model jointly developed by PharMolix and Institute for AI Industry Research (AIR) . It effectively enhances the understanding of single-cell transcriptomics by learning knowledge-rich texts containing cell identity information, and addresses the task of cell identity understanding in data-scarce scenarios. LangCell is the only single-cell model capable of effective zero-shot cell identity understanding and has also achieved SOTA in few-shot and fine-tuning scenarios. LangCell will soon be integrated into OpenBioMed. 
