@@ -9,6 +9,8 @@
 
 ## 更新信息 🎉
 
+- [2026/02/20] 🔥 发布BioMedGPT-R1 (🤗[Huggingface Model](https://huggingface.co/PharMolix/BioMedGPT-R1))，我们预计将在3月上旬支持模型的推理和微调，敬请期待！
+
 - [2024/05/16] 🔥 发布 **LangCell** (📃[论文](https://arxiv.org/abs/2405.06708), 💻[代码](https://github.com/PharMolix/LangCell), 🤖[模型](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[引用](#to-cite-langcell)).
 
     > LangCell是由水木分子与清华大学智能产业研究院联合研发的首个“自然语言-单细胞”多模态预训练模型。该模型通过学习富含细胞身份信息的知识性文本，有效提升了对单细胞转录组学的理解能力，并解决了数据匮乏场景下的细胞身份理解任务。LangCell是唯一能有效进行零样本细胞身份理解的单细胞模型，并且在少样本和微调场景下也取得SOTA。LangCell将很快被集成到OpenBioMed。
