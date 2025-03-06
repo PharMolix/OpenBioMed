@@ -9,7 +9,7 @@
 
 ## 更新信息 🎉
 
-- [2026/02/20] 🔥 发布BioMedGPT-R1 (🤗[Huggingface Model](https://huggingface.co/PharMolix/BioMedGPT-R1))，我们预计将在3月上旬支持模型的推理和微调，敬请期待！
+- [2025/02/20] 🔥 发布BioMedGPT-R1 (🤗[Huggingface Model](https://huggingface.co/PharMolix/BioMedGPT-R1))，我们预计将在3月上旬支持模型的推理和微调，敬请期待！
 
 - [2024/05/16] 🔥 发布 **LangCell** (📃[论文](https://arxiv.org/abs/2405.06708), 💻[代码](https://github.com/PharMolix/LangCell), 🤖[模型](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[引用](#to-cite-langcell)).
 
