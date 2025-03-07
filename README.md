@@ -6,8 +6,6 @@
     <p>
 </h4>
 
-<iframe height=432 width=510 src="https://cdn-for-chatdd.oss-accelerate.aliyuncs.com/video/3%E6%9C%886%E6%97%A5%20OpenBioMed%E8%A7%86%E9%A2%91V1.mp4">
-
 ## News 🎉
 
 

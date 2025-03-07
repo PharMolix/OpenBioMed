@@ -6,8 +6,6 @@
     <p>
 </h4>
 
-<iframe height=432 width=510 src="https://cdn-for-chatdd.oss-accelerate.aliyuncs.com/video/3%E6%9C%886%E6%97%A5%20OpenBioMed%E8%A7%86%E9%A2%91V1.mp4">
-
 ## 更新信息 🎉
 
 - [2025/03/07] 🔥 发布**OpenBioMed v2**. 我们在这次更新中适配了更多的生物医药下游任务，开放了更加易用的数据接口，并推出了一个用户友好的[在线平台](http://openbiomed.pharmolix.com)用于定制生物医药研究中的多工具协同工作流和基于大语言模型的智能体。同时，我们发布了试用版**PharmolixFM**模型（📃[技术报告](), 🤖[模型](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/), 📎[引用](#to-cite-pharmolixfm)），并完成了BioMedGPT-R1模型的推理支持。我们预计于本月内开放BioMedGPT-R1的微调代码。
