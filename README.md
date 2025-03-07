@@ -1,9 +1,9 @@
-
 <div align="center"><h1>OpenBioMed</h1></div>
 <h4 align="center">
     <p>
         <b>English</b> |
-        <a href="./README-CN.md">中文</a>
+        <a href="./README-CN.md">中文</a> |
+        <a href="./README-JP.md">日本語</a>
     <p>
 </h4>
 

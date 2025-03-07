@@ -1,9 +1,9 @@
-
 <div align="center"><h1>OpenBioMed</h1></div>
 <h4 align="center">
     <p>
         <b>中文</b> |
-        <a href="./README.md">English</a>
+        <a href="./README.md">English</a> |
+        <a href="./README-JP.md">日本語</a>
     <p>
 </h4>
 
@@ -23,7 +23,7 @@
 
 - [2023/06/12] 发布 **MolFM** (📃[论文](https://arxiv.org/abs/2307.09484), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[引用](#to-cite-molfm)) 和 **CellLM** (📃[论文](https://arxiv.org/abs/2306.04371), 🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg), 📎[引用](#to-cite-celllm)). 
 
-    > MolFM是一个支持统一表示分子结构、生物医学文本和知识图谱的多模态小分子基础模型。在零样本和微调场景下，MolFM的跨模态检索能力分别比现有模型提升了12.03%和5.04%。在分子描述生成、基于文本的分子生成和分子性质预测中，MolFM也取得了显著的结果。
+    > MolFM是一个支持统一表示分子结构、生物医学文本和知识图谱的多模态小分子基础模型。在零样本和微调场景下，MolFM的跨模态检索能力分别比现有模型提升了12.03%和5.04%。在分子描述生成、基于文本的分子生成位代表的多模态任务。
 
     > CellLM是首个使用分支对比学习策略在正常细胞和癌症细胞数据上同时训练的大规模细胞表示学习模型。CellLM在细胞类型注释（71.8 vs 68.8）、少样本场景下的单细胞药物敏感性预测（88.9 vs 80.6）和单组学细胞系药物敏感性预测上均优于ScBERT（93.4 vs 87.2）。
 
