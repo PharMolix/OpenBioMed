@@ -62,7 +62,7 @@ class ExportProtein(Tool):
                         task="protein_folding",
                         model="esmfold",
                         model_ckpt="/AIRvePFS/dair/users/ailin/.cache/huggingface/hub/esmfold_v1/pytorch_model.bin",
-                        device="cuda:2"
+                        device="cuda:1"
                     )
                 prot = pipeline.run(protein=prot)[0][0]
             files.append(prot.save_pdb())
