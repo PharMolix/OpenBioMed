@@ -1,0 +1,47 @@
+{
+    "model": "molstm-MegaMolBART",
+    "data": {
+        "mol": {
+            "modality": ["structure"],
+            "featurizer": {
+                "structure": {
+                    "name": "MultiScale",
+                    "scales": ["SMILES", "graph"],
+                    "SMILES": {
+                        "name": "moleculeSTM",
+                        "transformer_type": "molbart",
+                        "model_name_or_path": "./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt",
+                        "max_length": 512
+                    },
+                    "graph": {
+                        "name": "BaseGNN"
+                    }
+                }
+            }
+        }
+    },
+    "network": {
+        "graph": {
+            "name": "molstm",
+            "structure": {
+                "name": "gnn",
+                "gin_hidden_dim": 300,
+                "gin_num_layers": 5,
+                "drop_ratio": 0.5,
+                "output_dim": 300,
+                "ckpt" : "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_Graph/molecule_model.pth",
+                "MegaMolBART_generation_model_dir" : "./ckpts/fusion_ckpts/pretrained_MegaMolBART/checkpoints",
+                "vocab_path": "./ckpts/fusion_ckpts/pretrained_MegaMolBART/bart_vocab.txt"
+            },
+            "text": {
+                "output_dim": 768,
+                "ckpt": "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_Graph/text_model.pth",
+                "bert_path": "./ckpts/text_ckpts/scibert_scivocab_uncased"
+            },
+            "structure_proj_ckpt": "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_Graph/mol2latent_model.pth",
+            "text_proj_ckpt": "./ckpts/fusion_ckpts/moleculestm/demo_checkpoints_Graph/text2latent_model.pth",
+            "projection_dim": 256
+        }
+
+        }
+}
