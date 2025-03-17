@@ -6,6 +6,13 @@
     <p>
 </h4>
 
+[![GitHub Repo stars](https://img.shields.io/github/stars/PharMolix/OpenBioMed?style=social)](https://github.com/PharMolix/OpenBioMed/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/PharMolix/OpenBioMed)](https://github.com/PharMolix/OpenBioMed/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/PharMolix/OpenBioMed?color=orange)](https://github.com/PharMolix/OpenBioMed/graphs/contributors)
+[![GitHub pull request](https://img.shields.io/badge/PRs-welcome-blue)](https://github.com/PharMolix/OpenBioMed/pulls)
+[![Spaces](https://img.shields.io/badge/🤗-Open%20in%20Spaces-blue)](https://huggingface.co/PharMolix)
+[![Docker Pulls](https://img.shields.io/docker/pulls/youngking0727/openbiomed_server)](https://hub.docker.com/repository/docker/youngking0727/openbiomed_server)
+
 ![platform](images/platform.png)
 
 Feel free to use our **Agent Platform for Biomedicine and Life Science** at this [website](http://openbiomed.pharmolix.com)!
@@ -138,12 +145,13 @@ python
 >>> nltk.download('wordnet')
 >>> nltk.download('omw-1.4')
 ```
-### docker
+### Build Docker
 
 Executing ./scripts/docker_run.sh directly will build the Docker image and run the container, launching the backend services on ports 8082 and 8083.
 ```
 sh ./scripts/docker_run.sh
 ```
+At the same time, we also provide a pre-built [docker image](https://hub.docker.com/repository/docker/youngking0727/openbiomed_server), which can be pulled and used directly.    
 
 ## Tutorials
 

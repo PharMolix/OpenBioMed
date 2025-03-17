@@ -6,6 +6,13 @@
     <p>
 </h4>
 
+[![GitHub Repo stars](https://img.shields.io/github/stars/PharMolix/OpenBioMed?style=social)](https://github.com/PharMolix/OpenBioMed/stargazers)
+[![GitHub last commit](https://img.shields.io/github/last-commit/PharMolix/OpenBioMed)](https://github.com/PharMolix/OpenBioMed/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/PharMolix/OpenBioMed?color=orange)](https://github.com/PharMolix/OpenBioMed/graphs/contributors)
+[![GitHub pull request](https://img.shields.io/badge/PRs-welcome-blue)](https://github.com/PharMolix/OpenBioMed/pulls)
+[![Spaces](https://img.shields.io/badge/🤗-Open%20in%20Spaces-blue)](https://huggingface.co/PharMolix)
+[![Docker Pulls](https://img.shields.io/docker/pulls/youngking0727/openbiomed_server)](https://hub.docker.com/repository/docker/youngking0727/openbiomed_server)
+
 ![platform](images/platform.png)
 
 欢迎用户在[该网站](http://openbiomed.pharmolix.com)使用我们的生物医药智能体开发平台！
@@ -122,12 +129,13 @@ python
 >>> nltk.download('wordnet')
 >>> nltk.download('omw-1.4')
 ```
-### docker
+### 构建docker
 
 直接运行 `./scripts/docker_run.sh`，就可以构建docker镜像并运行容器，并在端口8082和8083运行后端服务。
 ```
 sh ./scripts/docker_run.sh
 ```
+与此同时，我们也提供了build好的[docker镜像](https://hub.docker.com/repository/docker/youngking0727/openbiomed_server)，可以直接拉取使用。
 
 ## 使用指南
 
