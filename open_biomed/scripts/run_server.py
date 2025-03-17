@@ -91,6 +91,7 @@ class TaskRequest(BaseModel):
     task: str
     model: Optional[str] = None
     config: Optional[str] = None
+    visualize_config: Optional[str] = None
     molecule: Optional[str] = None
     protein: Optional[str] = None
     pocket: Optional[str] = None
@@ -179,7 +180,7 @@ def handle_visualize_molecule(request: TaskRequest, pipeline):
     vis_process = [
                     "python3", "./open_biomed/core/visualize.py", 
                     "--task", "visualize_molecule",
-                    "--molecule_config", request.config,
+                    "--molecule_config", request.visualize_config,
                     "--save_output_filename", "./tmp/molecule_visualization_file.txt",
                     "--molecule", request.molecule]
     subprocess.Popen(vis_process).communicate()
@@ -401,7 +402,7 @@ TASK_CONFIGS = [
     },
     {
         "task_name": "visualize_molecule",
-        "required_inputs": ["config", "molecule"],
+        "required_inputs": ["visualize_config", "molecule"],
         "pipeline_key": "visualize_molecule",
         "handler_function": handle_visualize_molecule,
         "is_async": False

@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, TextIO
 import numpy as np
 import random
 import torch
+import os
 from transformers import BatchEncoding, PreTrainedTokenizer
 
 from open_biomed.data import Molecule, Pocket, Protein, Text
