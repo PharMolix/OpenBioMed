@@ -7,7 +7,7 @@ Drug property prediction (DP) aims to predict molecule properties such as toxici
 - Supported models:  [MolCLR](https://arxiv.org/abs/2102.10056), [GraphMVP](https://arxiv.org/abs/2110.07728), [MoMu](https://arxiv.org/abs/2209.05481), [MolFM](https://arxiv.org/abs/2307.09484) and [DeepEIK](https://arxiv.org/abs/2305.01523). This is a continuing effort and we are working on further growing the list.
 - Supported datasets: 8 classification datasets i.e. BBBP, Tox21, ToxCast, SIDER, ClinTox, MUV, HIV and BACE of [MoleculeNet](https://moleculenet.org).
 - Supported split: random split, scaffold split and random-scaffold split;
-- Supproted evaluation: ROC-AUC.
+- Supported evaluation: ROC-AUC.
 
 #### Data Preparation
 
