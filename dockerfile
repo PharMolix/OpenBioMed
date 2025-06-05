@@ -57,4 +57,4 @@ WORKDIR /app
 RUN echo "source activate OpenBioMed" >> ~/.bashrc
 
 # Set default command
-ENTRYPOINT ["./scripts/run_docker.sh"]
+ENTRYPOINT ["./scripts/run_server.sh"]
