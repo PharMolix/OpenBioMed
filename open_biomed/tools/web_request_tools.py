@@ -16,23 +16,33 @@ import tarfile
 from urllib.parse import quote
 
 from open_biomed.data import Molecule, Protein
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 
 class Requester(Tool):
     def __init__(self) -> None:
         self.requires_async = True
 
 class DBRequester(Requester):
-    def __init__(self, db_url: str=None, timeout: int=30) -> None:
+    def __init__(self, timeout: int=30) -> None:
         super().__init__()
-        self.db_url = db_url
         self.timeout = timeout
 
+    def print_usage(self) -> str:
+        return "\n".join([
+            'Usage: Query a database.',
+            'Inputs: {"accession": str (the accession of the database)}',
+            "Outputs: Any (the parsed output of the database)"
+        ])
+
+    def run(self, accession: Any, **kwargs) -> Any:
+        return asyncio.run(self.run_async(accession, **kwargs))
+
     @RateLimiter(max_calls=5, period=1)
-    async def run(self, accession: str="") -> Any:
+    async def run_async(self, accession: Any, **kwargs) -> Any:
+        url = self._determine_query_url(accession, **kwargs)
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                async with session.get(self.db_url.format(accession=accession)) as response:
+                async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.read()
                         content = content.decode("utf-8")
@@ -44,37 +54,63 @@ class DBRequester(Requester):
             content = None
             logging.error(f"Download failed. Exception: {e}")
             raise e
-        return self._parse_and_save_outputs(accession, content)
+        return self._parse_and_save_outputs(accession, content, **kwargs)
 
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> Any:
+        # Parse the content and save them at a local file
+        return [content], [content]
+
+    def _determine_query_url(self, accession: str="", **kwargs) -> str:
+        if hasattr(self, "db_url"):
+            return self.db_url.format(accession=accession)
+        else:
+            raise NotImplementedError
+
+class MetaDataParser(ABC):
     @abstractmethod
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> Any:
-        # Parse the outputs and save them at a local file
+    def parse(self, content: str="", **kwargs) -> Any:
         raise NotImplementedError
 
+    @abstractmethod
+    def output_format(self) -> str:
+        raise NotImplementedError
+
+class RawParser(MetaDataParser):
+    def __init__(self, output_format: str="") -> None:
+        self.format = output_format
+
+    def parse(self, content: str="", **kwargs) -> Any:
+        return content
+
+    def output_format(self) -> str:
+        return self.format
+
+# TODO: add metadata parser for PubChem
 class PubChemRequester(DBRequester):
     def __init__(self, 
-        db_url: str="https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{accession}/SDF",
         timeout: int=30
     ) -> None:
-        super().__init__(db_url, timeout)
+        super().__init__(timeout)
 
     def print_usage(self) -> str:
-        query_type = ""
-        if "cid" in self.db_url:
-            query_type = "a PubChem ID"
-        elif "name" in self.db_url:
-            query_type = "molecule name"
-        
         return "\n".join([
             'PubChem query.',
-            'Inputs: {"accession": ' + query_type + '}',
+            'Inputs: {"accession": a PubChem ID or molecule name}',
             "Outputs: A molecule from PubChem."
         ])
+    
+    def _determine_query_url(self, accession: str="", **kwargs) -> str:
+        try:
+            id = int(accession)
+            db_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{accession}/SDF"
+        except ValueError:
+            db_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{accession}/SDF"
+        return db_url.format(accession=accession)
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> Tuple[List[Molecule], List[str]]:
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> Tuple[List[Molecule], List[str]]:
         sdf_file = f"./tmp/pubchem_{accession}.sdf"
         with open(sdf_file, "w") as f:
-            f.write(outputs)
+            f.write(content)
         molecule = Molecule.from_sdf_file(sdf_file)
         return [molecule], [molecule.save_binary()]
 
@@ -89,13 +125,16 @@ class PubChemStructureRequester(Requester):
 
     def print_usage(self) -> str:        
         return "\n".join([
-            'PubChem query.',
-            'Inputs: {"accession": a molecule}',
-            "Outputs: A molecule from PubChem."
+            'Usage: Query PubChem for similar molecules.',
+            'Inputs: {"accession": str (could be a PubChem ID, SMILES string, or molecular name)}',
+            'Outputs: Molecule (an OpenBioMed Molecule object)'
         ])
 
+    def run(self, molecule: Molecule=None, threshold: float=0.8, max_records=10) -> Tuple[List[Molecule], List[str]]:
+        return asyncio.run(self.run_async(molecule, threshold, max_records))
+
     @RateLimiter(max_calls=5, period=1)
-    async def run(self, molecule: Molecule=None, threshold: float=0.8, max_records=10) -> Tuple[List[Molecule], List[str]]:
+    async def run_async(self, molecule: Molecule=None, threshold: float=0.8, max_records=10) -> Tuple[List[Molecule], List[str]]:
         molecule._add_smiles()
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
@@ -122,6 +161,7 @@ class PubChemStructureRequester(Requester):
             all_files.extend(mol_file)
         return all_mols, all_files
 
+# TODO: add metadata parser for ChemBL
 class ChemBLRequester(DBRequester):
     def __init__(self, 
         db_url: str="https://www.ebi.ac.uk/chembl/api/data/molecule?molecule_chembl_id={accession}&format=json", 
@@ -129,55 +169,73 @@ class ChemBLRequester(DBRequester):
     ) -> None:
         super().__init__(db_url, timeout)
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> str:
-        obj = json.loads(outputs)
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> str:
+        obj = json.loads(content)
         sdf_file = f"./tmp/chembl_{accession}.sdf"
         with open(sdf_file, "w") as f:
             f.write(obj["molecules"][0]["molecule_structures"]["molfile"])
         molecule = Molecule.from_sdf_file(sdf_file)
         return [molecule], [molecule.save_binary()]
 
+# TODO: add metadata parser for UniProt
 class UniProtRequester(DBRequester):
     def __init__(self, 
-        db_url: str="https://rest.uniprot.org/uniprotkb/{accession}?format=json", 
         timeout: int=30
     ) -> None:
-        super().__init__(db_url, timeout)
+        super().__init__(timeout)
 
     def print_usage(self) -> str:
         return "\n".join([
-            'UniProt query.',
-            'Inputs: {"accession": a UniProt ID}',
-            "Outputs: A protein from UniProt."
+            'Usage: Query UniProt for a protein.',
+            'Inputs: {"accession": str (a UniProt ID)}',
+            "Outputs: Protein (an OpenBioMed Protein object)"
         ])
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> str:
-        obj = json.loads(outputs)
+    def _determine_query_url(self, accession: str="", **kwargs) -> str:
+        return f"https://rest.uniprot.org/uniprotkb/{accession}?format=json"
+
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> str:
+        obj = json.loads(content)
         protein = Protein.from_fasta(obj["sequence"]["value"])
         protein.name = f"uniprot_{accession}"
         return [protein], [protein.save_binary()]
 
 class PDBRequester(DBRequester):
     def __init__(self, 
-        db_url: str="https://files.rcsb.org/download/{accession}.pdb", 
         timeout: int=30
     ) -> None:
-        super().__init__(db_url, timeout)
+        super().__init__(timeout)
+        self.requires_async = False
 
     def print_usage(self) -> str:
-        database = "AlphaFoldDB" if "alphafold" in self.db_url else "PDB"
         return "\n".join([
-            'PDB structure query.',
-            'Inputs: {"accession": a ' + database + ' ID}',
-            "Outputs: A protein from the database."
+            'Usage: Query a PDB structure.',
+            'Inputs: {"accession": str (PDB/AlphaFoldDB ID), "mode": "metadata" (extracting the metadata of the pdb accession) or "file_only" (downloading the pdb file)}',
+            "Outputs: Protein (an OpenBioMed Protein object) or str (the path to the pdb file)"
         ])
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> str:
-        pdb_file = f"./tmp/pdb_{accession}.pdb"
-        with open(pdb_file, "w") as f:
-            f.write(outputs)
-        protein = Protein.from_pdb_file(pdb_file)
-        return [protein], [protein.save_binary()]
+    def _determine_query_url(self, accession: str="", mode: str="metadata", **kwargs) -> str:
+        if len(accession) == 4:
+            if mode == "metadata":
+                return f"https://data.rcsb.org/rest/v1/core/entry/{accession}"
+            elif mode == "file_only":
+                return f"https://files.rcsb.org/download/{accession}.pdb"
+            else:
+                raise ValueError(f"Invalid mode: {mode}")
+        else:
+            # AlphaFoldDB ID
+            assert mode == "file_only", "Only file_only mode is supported for AlphaFoldDB ID."
+            return f"https://alphafold.ebi.ac.uk/files/AF-{accession}-F1-model_v4.pdb"
+
+    def _parse_and_save_outputs(self, accession: str="", content: str="", mode: str="metadata", **kwargs) -> str:
+        if mode == "metadata":
+            obj = json.loads(content)
+            return [obj], [content]
+        elif mode == "file_only":
+            pdb_file = f"./tmp/pdb_{accession}.pdb"
+            with open(pdb_file, "w") as f:
+                f.write(content)
+            return [pdb_file], [content]
 
 class WebSearchRequester(Tool):
     def __init__(self, timeout: int=30) -> None:
@@ -185,9 +243,9 @@ class WebSearchRequester(Tool):
 
     def print_usage(self) -> str:
         return "\n".join([
-            'Web search.',
-            'Inputs: {"query": Any query inputs}',
-            "Outputs: results from the search engine."
+            'Usage: Search the web for information.',
+            'Inputs: {"query": str (a query string)}',
+            "Outputs: str (returned results from the search engine)"
         ])
 
     def run(self, query: str) -> Tuple[List[str], List[str]]:
@@ -257,6 +315,12 @@ class MMSeqsRequester(Requester):
         self.host = host
         self.job_url_suffix = job_url_suffix
         self.timeout = timeout
+
+    def run(self, query: str) -> Tuple[List[str], List[str]]:
+        return asyncio.run(self.run_async(query))
+
+    async def run_async(self, query: str) -> Tuple[List[str], List[str]]:
+        raise NotImplementedError
 
     @RateLimiter(max_calls=5, period=1)
     async def submit_job(self, data: Dict[str, Any]) -> str:
@@ -347,12 +411,12 @@ class MSARequester(MMSeqsRequester):
 
     def print_usage(self) -> str:
         return "\n".join([
-            'Multiple sequence alignment.',
-            'Inputs: {"protein": a protein sequence}',
-            "Outputs: A .a3m file comprising metadata of similar sequences."
+            'Usage: Perform multiple sequence alignment.',
+            'Inputs: {"protein": Protein (an OpenBioMed Protein object)}',
+            "Outputs: str (the path to the .a3m file that contains the MSA results)"
         ])
 
-    async def run(self, protein: Protein="") -> Tuple[List[str], List[str]]:
+    async def run_async(self, protein: Protein="") -> Tuple[List[str], List[str]]:
         fasta = f">1\n{protein.sequence}\n"
         data = {
             "q": fasta,
@@ -389,12 +453,12 @@ class FoldSeekRequester(MMSeqsRequester):
 
     def print_usage(self) -> str:
         return "\n".join([
-            'Foldseek.',
-            'Inputs: {"protein": a protein backbone structure (typically in pdb format)}',
-            "Outputs: A .m8 file comprising metadata of similar structures."
+            'Usage: Perform FoldSeek search for similar structures.',
+            'Inputs: {"protein": Protein (an OpenBioMed Protein object)}',
+            "Outputs: str (the path to the .m8 file that contains the FoldSeek results)"
         ])
 
-    async def run(self, protein: Protein="") -> Tuple[List[str], List[str]]:
+    async def run_async(self, protein: Protein="") -> Tuple[List[str], List[str]]:
         timestamp = int(datetime.now().timestamp() * 1000)
         pdb_file = f"./tmp/protein_{timestamp}.pdb"
         protein.save_pdb(pdb_file)
@@ -464,5 +528,8 @@ if __name__ == "__main__":
     asyncio.run(requester.run("dimethoxy-sulfanylidene-(3,5,6-trichloropyridin-2-yl)oxy-lambda5-phosphane"))
     """
 
-    requester = PubChemStructureRequester()
-    asyncio.run(requester.run(Molecule.from_smiles("CN1CCC[C@H]1COC2=NC3=C(CCN(C3)C4=CC=CC5=C4C(=CC=C5)Cl)C(=N2)N6CCN([C@H](C6)CC#N)C(=O)C(=C)F"), threshold=0.8))
+    # requester = PubChemStructureRequester()
+    # asyncio.run(requester.run(Molecule.from_smiles("CN1CCC[C@H]1COC2=NC3=C(CCN(C3)C4=CC=CC5=C4C(=CC=C5)Cl)C(=N2)N6CCN([C@H](C6)CC#N)C(=O)C(=C)F"), threshold=0.8))
+
+    requester = PDBRequester(db_url="https://data.rcsb.org/rest/v1/core/entry/{accession}")
+    requester.run("4xli")

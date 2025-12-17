@@ -1,4 +1,4 @@
-from typing import Any, Dict, TextIO
+from typing import Any, Dict, TextIO, List, Tuple, Optional, TypedDict
 
 import argparse
 import asyncio
@@ -12,12 +12,13 @@ import re
 import subprocess
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+work_dir = os.path.abspath(__file__).replace("open_biomed/core/workflow.py", "")
 
-from open_biomed.core.tool_registry import TOOLS
-from open_biomed.core.visualize import Visualizer
+from open_biomed.tools.tool_registry import TOOLS
+from open_biomed.tools.visualization_tools import Visualizer
 from open_biomed.utils.config import Config
 from open_biomed.data import Molecule, Protein, Text
-from open_biomed.utils.misc import wrap_and_select_outputs, create_tool_input
+from open_biomed.utils.misc import wrap_outputs, wrap_and_select_outputs, create_tool_input
 
 def parse_frontend(json_string: str, output_floder: str = "tmp/workflow") -> str:
     
@@ -55,9 +56,6 @@ def parse_frontend(json_string: str, output_floder: str = "tmp/workflow") -> str
             if key in ["config", "molecule", "protein", "pocket", "text", "dataset", "query", "mutation", "indices", "threshold"] and data_context[key]["value"]:
                 node_dict["value"].update({key: data_context[key]["value"]})
         return node_dict
-
-
-
 
     def remove_duplicate_path(nodes):
         # node handled
@@ -233,6 +231,7 @@ class WorkflowNode():
         name: str,
         executable: Any,
         inputs: Dict[str, Any]={},
+        num_repeats: int=1,
     ) -> None:
         self.name = name
         self.executable = executable
@@ -240,8 +239,33 @@ class WorkflowNode():
         for key, value in inputs.items():
             self.inputs[key] = create_tool_input(key, value)
         self.orig_inputs = copy.deepcopy(self.inputs)
+        self.num_repeats = num_repeats
+        self.outputs = None
 
-class Workflow():
+    def pretty_print(self, step_id: int) -> str:
+        completed = self.outputs is not None
+        message = f"Node {step_id + 1}. "
+        message += "[✓] " if completed else "[ ] "
+        message += self.name.upper() + "\n"
+        if self.name == "code_execution":
+            message += f"Execute the following code for {self.num_repeats} times: \n```python\n" + self.inputs["code"] + "\n```"
+        else:
+            message += self.executable.print_usage().split("\n")[0]
+            if self.num_repeats > 1:
+                message += f" (repeat {self.num_repeats} times)"
+            else:
+                message += "\n"
+            message += "Filled inputs:\n"
+            for key, value in self.inputs.items():
+                message += f"{key}: {value}\n"
+        if completed:
+            message += "Outputs:\n"
+            for i in range(len(self.outputs[1])):
+                message += f"{self.outputs[1][i]}\n"
+        message += "\n"
+        return message
+
+class WorkflowV0():
     def __init__(self, config: Config) -> None:
         # create a list of tools as nodes and a DAG as edges for the workflow to run
         self.nodes = []
@@ -337,6 +361,129 @@ class Workflow():
                 print(e)
                 context.write("The workflow execution failed")
 
+class WorkflowState(TypedDict):
+    exec_queue: List[int]
+    in_deg: List[int]
+    node_list: List[WorkflowNode]
+    edge_list: List[Tuple[int, int, Dict[str, Any]]]
+    messages: List[str]
+
+class Workflow:
+    def __init__(self, config: Config) -> None:
+        self.metadata = config.metadata
+        self.description = config.metadata.description + "\nExpected inputs: "
+        for missing_input in config.metadata.inputs:
+            self.description += f"The '{missing_input[1]}' field of for Step '{missing_input[0]}' ({missing_input[2]})\n"
+        self.nodes = []
+        self.edges = []
+        for tool in config.tools:
+            if tool["name"] == "code_execution":
+                self.nodes.append(WorkflowNode(
+                    name="code_execution",
+                    executable=exec,
+                    inputs={"code": tool.get("code", {})},
+                    num_repeats=tool.get("num_repeats", 1)
+                ))
+            else:
+                self.nodes.append(WorkflowNode(
+                    name=tool["name"],
+                    executable=TOOLS[tool["name"]],
+                    inputs=tool.get("inputs", {}),
+                    num_repeats=tool.get("num_repeats", 1)
+                ))
+        out_deg = [0 for i in range(len(self.nodes))]
+        for edge in config.edges:
+            out_deg[edge["start"]] += 1
+            self.edges.append((edge["start"], edge["end"], edge.get("name_mapping", None)))
+        self.output_nodes = [i for i in range(len(self.nodes)) if out_deg[i] == 0]
+        if hasattr(self.metadata, "outputs"):
+            for output in self.metadata.outputs:
+                assert output[0] in self.output_nodes, f"The output {output[0]} is not a valid output node"
+            self.output_nodes = [output[0] for output in self.metadata.outputs]
+        else:
+            self.metadata.outputs = []
+            for i in self.output_nodes:
+                if self.nodes[i].name == "code_execution":
+                    self.metadata.outputs.append([i, "Any: The code execution result"])
+                else:
+                    self.metadata.outputs.append([i, self.nodes[i].executable.print_usage().split("\n")[2]])
+        self.output_nodes.sort()
+
+    def step(self, state: WorkflowState) -> WorkflowState:
+        state["exec_queue"].sort()
+        node_idx = state["exec_queue"].pop(0)
+        node = state["node_list"][node_idx]
+        node.outputs = ([], [])
+        for i in range(node.num_repeats):
+            if getattr(node.executable, "requires_async", False):
+                outputs = asyncio.run(node.executable.run(**node.inputs))
+            elif node.name == "code_execution":
+                cur_namespace = []
+                for cur_node in state["node_list"]:
+                    if cur_node.outputs is not None:
+                        cur_namespace.append(copy.deepcopy(cur_node.outputs[0]))
+                    else:
+                        cur_namespace.append(None)
+                exec(node.inputs["code"], {"step_outputs": cur_namespace})
+                outputs = cur_namespace[node_idx], ["Code execution completed"]
+            else:
+                outputs = node.executable.run(**node.inputs)
+            node.outputs[0].extend(outputs[0])
+            node.outputs[1].extend(outputs[1])
+        for e in self.edges:
+            if e[0] == node_idx:
+                state["in_deg"][e[1]] -= 1
+                wrapped_outputs = wrap_outputs(node.outputs[0])
+                for key, value in wrapped_outputs.items():
+                    if e[2] is not None and key in e[2]:
+                        key = e[2][key]
+                    state["node_list"][e[1]].inputs[key] = copy.deepcopy(value)
+                if state["in_deg"][e[1]] == 0:
+                    state["exec_queue"].append(e[1])
+        state["messages"].append(node.pretty_print(node_idx))
+
+    def determine_next_step(self, state: WorkflowState) -> bool:
+        if len(state["exec_queue"]) == 0 or self.deamon is not None and self.deamon.should_interrupt(state):
+            return False
+        else:
+            return True
+
+    def _initial_state(self, inputs: Tuple[int, str, Any]) -> WorkflowState:
+        in_deg = [0 for i in range(len(self.nodes))]
+        for edge in self.edges:
+            in_deg[edge[1]] += 1
+        node_list = self.nodes
+        for node in node_list:
+            node.inputs = node.orig_inputs
+        for elem in inputs:
+            node_list[elem[0] - 1].inputs[elem[1]] = elem[2]
+        return {
+            "exec_queue": [i for i in range(len(self.nodes)) if in_deg[i] == 0],
+            "in_deg": in_deg,
+            "node_list": node_list,
+            "edge_list": self.edges,
+            "messages": [self.description],
+        }
+
+    def run(self, inputs: Tuple[int, str, Any], num_repeats: int=1, deamon: Optional[Any]=None) -> Tuple[List[Any], List[str]]:
+        self.deamon = deamon
+        results, messages = [], []
+        for i in range(num_repeats):
+            state = self._initial_state(inputs)
+            while self.determine_next_step(state):
+                self.step(state)
+            results.append([])
+            for node_idx in self.output_nodes:
+                results[-1].append(copy.deepcopy(state["node_list"][node_idx].outputs[0]))
+            messages.append(copy.deepcopy(state["messages"]))
+        return results, messages
+
+WORKFLOWS = {}
+for file in os.listdir(os.path.join(work_dir, "memory/workflows")):
+    workflow_name = file.split(".")[0]
+    workflow_config = Config(config_file=os.path.join(work_dir, "memory/workflows", file))
+    WORKFLOWS[workflow_name] = Workflow(workflow_config)
+
 if __name__ == "__main__":
     """
     parser = argparse.ArgumentParser()
@@ -348,10 +495,19 @@ if __name__ == "__main__":
     workflow = Workflow(config)
     asyncio.run(workflow.run(num_repeats=args.num_repeats, context=open("./logs/workflow_outputs.txt", "w"), tool_outputs=open("./logs/workflow_tool_outputs.txt", "w")))
     # workflow.run(num_repeats=1)
-    """
     file_path = "configs/workflow/yuandong-0404.json"
     with open(file_path, "r") as f:
         json_data = json.load(f)
     json_string = json.dumps(json_data, ensure_ascii=False, indent=4)  # if 
     fronted_file = parse_frontend(json_string)
+    """
+    file_path = "configs/workflow/pdb_query.yaml"
+    config = Config(config_file=file_path)
+    workflow = Workflow(config)
+    results, messages = workflow.run([(1, "accession", "4xli"), (2, "accession", "4xli")])
+    print(len(results))
+    print(results[0][0], results[0][1])
+    with open("./tmp/pdb_query_messages.txt", "w") as f:
+        for msg in messages[0]:
+            f.write(msg + "\n")
     

@@ -1,0 +1,13 @@
+agent: planner_executor
+llm: deepseek-reasoner
+timeout: 600
+critic: false
+tool_retriever: false
+tool_call: custom
+chat_tolerance: 10
+code_tolerance: 3
+checkpointing: true
+checkpointing_db_path: ./tmp/planner_executor_checkpointing.db
+memory:
+  workflow: true
+  workflow_retriever: false

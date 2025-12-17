@@ -8,7 +8,7 @@ import pickle
 from rdkit import Chem
 import re
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data.text import Text
 from open_biomed.utils.exception import ProteinConstructError
 
@@ -70,7 +70,7 @@ class Residue(dict):
         self.res_insert_id = res_insert_id
         self.chain_res_id = chain_res_id
 
-class Protein(dict):
+class Protein:
     def __init__(self) -> None:
         super().__init__()
         self.name = None
@@ -246,15 +246,25 @@ class Protein(dict):
         return self.sequence
 
 def protein_sequence_similarity(protein1: Protein, protein2: Protein) -> Tuple[float, str, str]:
-    from Bio.Align import PairwiseAligner, fasta
-    aligner = PairwiseAligner()
-    aligner.mode = "global"
-    aligner.match_score = 1
-    aligner.mismatch_score = 0
-    aligner.open_gap_score = 0
-    aligner.extend_gap_score = 0
-    alignment = aligner.align(protein1.sequence, protein2.sequence)[0]
-    similarity = alignment.score / (len(protein1) + len(protein2) - alignment.score)
-    output_seq = fasta.AlignmentWriter(None).format_alignment(alignment)
-    return similarity, output_seq.split("\n")[1], output_seq.split("\n")[3]
+    from Bio import pairwise2
+    from Bio.pairwise2 import format_alignment
+
+    seq1 = protein1.sequence
+    seq2 = protein2.sequence
+    alignments = pairwise2.align.globalms(seq1, seq2, 1, 0, 0, 0)
+    alignment = alignments[0]
+    # alignment: (aligned_seq1, aligned_seq2, score, begin, end)
+    aligned_seq1, aligned_seq2, score, start, end = alignment
+    # Calculate similarity as (number of matches) / (alignment length)
+    matches = sum(a == b for a, b in zip(aligned_seq1, aligned_seq2) if a != "-" and b != "-")
+    alignment_length = max(len(aligned_seq1.replace("-", "")), len(aligned_seq2.replace("-", "")))
+    if alignment_length == 0:
+        similarity = 0.0
+    else:
+        similarity = matches / alignment_length
+    output = format_alignment(*alignment)
+    aligned_lines = output.splitlines()
+    seq_line_1 = aligned_lines[0] if len(aligned_lines) > 0 else ""
+    seq_line_2 = aligned_lines[2] if len(aligned_lines) > 2 else ""
+    return similarity, seq_line_1, seq_line_2
 

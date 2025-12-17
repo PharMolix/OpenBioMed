@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from open_biomed.data import Molecule, Protein, Pocket
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

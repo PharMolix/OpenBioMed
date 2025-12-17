@@ -14,8 +14,8 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk, ChoiceD
 
 from open_biomed.data import Text
 from open_biomed.utils.config import Config
-from open_biomed.core.tool import Tool
-from open_biomed.core.web_request import WebSearchRequester
+from open_biomed.tools.base_tool import Tool
+from open_biomed.tools.web_request_tools import WebSearchRequester
 from open_biomed.core.email_server import EmailServer
 from open_biomed.models.foundation_models.biomedgpt import BioMedGPT4Chat, BioMedGPTR14Chat
 
@@ -201,7 +201,7 @@ class LLMReportGenerator(LLM_API):
 class KeyInfoExtractor(Tool):
 
     def __init__(self, api_infos: dict=API_INFOS) -> None:
-        from open_biomed.core.web_request import WebSearchRequester
+        from open_biomed.tools.web_request_tools import WebSearchRequester
         self.agent_search = WebSearchRequester()
         self.agent_extractor = LLMExtractor(api_infos=api_infos, temperature=0.0)
         self.task_prompts = {

@@ -27,8 +27,8 @@ class MoleculePropertyPrediction(BaseTask):
     def print_usage():
         return "\n".join([
             'Molecular property prediction.',
-            'Inputs: {"molecule": a small molecule}',
-            "Outputs: A float number in [0, 1] indicating the likeness of the molecule to exhibit certain properties."
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}',
+            "Outputs: float (the property score of the molecule)"
         ])
 
     @staticmethod

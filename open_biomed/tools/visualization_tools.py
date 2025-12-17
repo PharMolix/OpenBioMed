@@ -2,13 +2,15 @@ from typing import List, Optional, Union
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+work_dir = os.path.abspath(__file__).replace("open_biomed/tools/visualization_tools.py", "")
 
 import argparse
 from datetime import datetime
 import shutil
 from rdkit.Chem import Draw, rdDepictor
+import subprocess
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data import Molecule, Protein, Pocket
 from open_biomed.utils.config import Config, merge_config
 from open_biomed.utils.misc import create_tool_input
@@ -139,8 +141,8 @@ class MoleculeVisualizer(Visualizer):
     def print_usage(self) -> str:
         return "\n".join([
             'Visualize molecule.',
-            'Inputs: {"molecule": a small molecule, "rotate": whether to rotate the molecule}',
-            "Outputs: A figure."
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "rotate": bool (whether to rotate the molecule), "config": str (the visualization style, currently supported: "2D", "ball_and_stick")}',
+            "Outputs: str (the path of the generated png figure)."
         ])
 
     def run(self, 
@@ -178,9 +180,9 @@ class ProteinVisualizer(Visualizer):
 
     def print_usage(self) -> str:
         return "\n".join([
-            'Visualize protein.',
-            'Inputs: {"protein": a protein (3D structure is required), "rotate": whether to rotate the molecule}',
-            "Outputs: A figure."
+            'Visualize protein',
+            'Inputs: {"protein": Protein (an OpenBioMed Protein object, 3D structure is required), "rotate": bool (whether to rotate the protein, default: False), "config": str (the visualization style, currently supported: "cartoon", "all_atom", "surface". Default: "cartoon")}',
+            "Outputs: str (the path of the generated png figure)."
         ])
 
     def run(self, 
@@ -216,8 +218,8 @@ class ComplexVisualizer(Visualizer):
     def print_usage(self) -> str:
         return "\n".join([
             'Visualize a ligand-receptor complex.',
-            'Inputs: {"molecule": the ligand, "protein": the protein receptor, "rotate": whether to rotate the molecule}',
-            "Outputs: A figure."
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "protein": Protein (an OpenBioMed Protein object, 3D structure is required), "rotate": bool (whether to create a gif animation by rotating the complex, default: True), "molecule_config": str (the visualization style for the molecule, currently supported: "ball_and_stick". Default: "ball_and_stick"), "protein_config": str (the visualization style for the protein, currently supported: "cartoon", "all_atom", "surface". Default: "cartoon")}',
+            "Outputs: str (the path of the generated png figure)."
         ])
 
     def run(self, 
@@ -275,6 +277,48 @@ class ProteinPocketVisualizer(Visualizer):
         visualize_protein_with_pocket(img_file, pdb_file, pocket.orig_indices, config=Config("./configs/visualization/global_config.yaml"), rotate=rotate, num_frames=20)
         return [os.path.abspath(img_file)], [os.path.abspath(img_file)]
 
+class VisualizerWrapper(Tool):
+    def __init__(self, task: str) -> None:
+        self.task = task
+        if task == "visualize_molecule":
+            self.visualizer = MoleculeVisualizer()
+        elif task == "visualize_protein":
+            self.visualizer = ProteinVisualizer()
+        elif task == "visualize_complex":
+            self.visualizer = ComplexVisualizer()
+        elif task == "visualize_protein_pocket":
+            self.visualizer = ProteinPocketVisualizer()
+        else:
+            raise ValueError(f"Invalid task: {task}")
+
+    def print_usage(self) -> str:
+        return self.visualizer.print_usage()
+
+    def run(self, *args, **kwargs) -> Union[List[str], List[str]]:
+        vis_process = [
+            "python3", os.path.join(work_dir, "open_biomed/tools/visualization_tools.py"), 
+            "--task", self.task,
+            "--save_output_filename", os.path.join(work_dir, "tmp/visualization_file.txt"),
+        ]
+        for key, value in kwargs.items():
+            if key in ["molecule", "protein", "pocket"]:
+                vis_process.append(f"--{key}")
+                if key == "molecule":
+                    vis_process.append(value.save_sdf())
+                elif key == "protein":
+                    vis_process.append(value.save_pdb())
+                elif key == "pocket":
+                    vis_process.append(value.save_binary())
+            elif key == "rotate":
+                vis_process.append("--rotate")
+            else:
+                vis_process.append(f"--{key}")
+                vis_process.append(value)
+        subprocess.Popen(vis_process).communicate()
+        outputs = open(os.path.join(work_dir, "tmp/visualization_file.txt"), "r").read()
+        outputs = [outputs], [f"The generated figure is saved at {output}" for output in outputs]
+        return outputs
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=str, default="visualize_molecule")
@@ -283,6 +327,7 @@ if __name__ == "__main__":
     parser.add_argument("--protein", type=str, default=None)
     parser.add_argument("--protein_config", type=str, default=None)
     parser.add_argument("--pocket", type=str, default=None)
+    parser.add_argument("--rotate", action="store_true")
     parser.add_argument("--output_file", type=str, default=None)
     parser.add_argument("--save_output_filename", type=str, default=None)
     
@@ -298,6 +343,7 @@ if __name__ == "__main__":
             create_tool_input("protein", args.protein),
             config=args.protein_config,
             img_file=args.output_file,
+            rotate=args.rotate
         )[0]
     elif args.task == "visualize_complex":
         img_file = ComplexVisualizer().run(
@@ -306,7 +352,7 @@ if __name__ == "__main__":
             molecule_config=args.molecule_config,
             protein_config=args.protein_config,
             img_file=args.output_file,
-            rotate=False
+            rotate=args.rotate
         )[0]
     elif args.task == "visualize_protein_pocket":
         img_file = ProteinPocketVisualizer().run(

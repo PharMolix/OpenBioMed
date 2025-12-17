@@ -16,7 +16,7 @@ from rdkit.six import iteritems
 from rdkit.six.moves import cPickle
 import re
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data.text import Text
 from open_biomed.utils.exception import MoleculeConstructError
 
@@ -67,9 +67,18 @@ class Molecule:
         return molecule
 
     @classmethod
+    def from_pdb(cls, pdb_lines: List[str]) -> Self:
+        # initialize a molecule with pdb lines
+        path = os.path.join(os.path.abspath(os.path.dirname(__file__)).replace("/open_biomed/data", ""), "tmp", "molecule.pdb")
+        with open(path, "w") as f:
+            f.write(pdb_lines)
+        return cls.from_pdb_file(path)
+
+    @classmethod
     def from_pdb_file(cls, pdb_file: str) -> Self:
         # initialize a molecule with a pdb file
-        pass
+        rdmol = Chem.MolFromPDBFile(pdb_file)
+        return cls.from_rdmol(rdmol)
 
     @classmethod
     def from_sdf_file(cls, sdf_file: str) -> Self:
@@ -184,11 +193,14 @@ class Molecule:
         except Exception:
             return 0.0
 
-    def calc_sa(self) -> float:
+    def calc_sa(self, normalize: bool=False) -> float:
         self._add_rdmol()
         sa = calc_sa_score(self.rdmol)
-        sa_norm = round((10 - sa) / 9, 2)
-        return sa_norm
+        if normalize:
+            sa_norm = round((10 - sa) / 9, 2)
+            return sa_norm
+        else:
+            return sa
 
     def calc_logp(self) -> float:
         from rdkit.Chem.Crippen import MolLogP
@@ -205,8 +217,9 @@ class Molecule:
             rule_3 = Lipinski.NumHAcceptors(mol) <= 10
             logp = self.calc_logp()
             rule_4 = (logp >= -2) & (logp <= 5)
-            rule_5 = Chem.rdMolDescriptors.CalcNumRotatableBonds(mol) <= 10
-            return np.sum([int(a) for a in [rule_1, rule_2, rule_3, rule_4, rule_5]])
+            #rule_5 = Chem.rdMolDescriptors.CalcNumRotatableBonds(mol) <= 10
+            #return np.sum([int(a) for a in [rule_1, rule_2, rule_3, rule_4, rule_5]])
+            return np.sum([int(a) for a in [rule_1, rule_2, rule_3, rule_4]])
         except Exception:
             return 0.0
 
@@ -385,41 +398,80 @@ class MoleculeQEDTool(Tool):
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the drug-likeness (QED score) of a molecule"
+        return """
+Calculate the drug-likeness (QED score) of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the QED score of the molecule)
+"""
 
     def run(self, molecule: Molecule) -> float:
-        return molecule.calc_qed()
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_qed())
+            messages.append(f"The molecule has a QED score of {scores[-1]}")
+        return scores, messages
 
 class MoleculeSATool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the synthetic accessibility (SA score) of a molecule"
+        return """
+Calculate the synthetic accessibility (SA score) of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "normalize": bool (whether to normalize the SA score to range [0, 1], default: False)}
+Outputs: float (the SA score of the molecule)
+"""
 
-    def run(self, molecule: Molecule) -> float:
-        return molecule.calc_sa()
+    def run(self, molecule: Union[Molecule, List[Molecule]], normalize: bool=False) -> float:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_sa(normalize))
+            messages.append(f"The molecule has a SA score of {scores[-1]}")
+        return scores, messages
 
 class MoleculeLogPTool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the solubility (LogP score) of a molecule"
+        return """
+Calculate the solubility (LogP score) of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the LogP score of the molecule)
+"""
 
-    def run(self, molecule: Molecule) -> float:
-        return molecule.calc_logp()
+    def run(self, molecule: Union[Molecule, List[Molecule]]) -> float:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_logp())
+            messages.append(f"The molecule has a LogP score of {scores[-1]}")
+        return scores, messages
 
 class MoleculeLipinskiTool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the number of lipinski rules that a molecule satisfies"
+        return """
+Calculate the number of lipinski rules that a molecule satisfies
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the number of lipinski rules that the molecule satisfies)
+"""
 
-    def run(self, molecule: Molecule) -> float:
-        return molecule.calc_lipinski()
-
+    def run(self, molecule: Union[Molecule, List[Molecule]]) -> float:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_lipinski())
+            messages.append(f"The molecule satisfies {scores[-1]} lipinski rules")
+        return scores, messages
 
 class MoleculePropertyCalculationTool:
     def __init__(self):
@@ -454,8 +506,21 @@ class MoleculeSimilarityTool(Tool):
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the Morgan fingerprint similarity of two molecules"
+        return """
+Calculate the Morgan fingerprint similarity of two molecules
+Inputs: {"molecule_1": Molecule (an OpenBioMed Molecule object), "molecule_2": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the Morgan fingerprint similarity of the two molecules)
+"""
 
-    def run(self, molecule_1: Molecule, molecule_2: Molecule) -> float:
-        return molecule_fingerprint_similarity(molecule_1, molecule_2, fingerprint_type="morgan")
+    def run(self, molecule_1: Union[Molecule, List[Molecule]], molecule_2: Union[Molecule, List[Molecule]]) -> Tuple[List[float], List[str]]:
+        if isinstance(molecule_1, Molecule):
+            molecule_1 = [molecule_1]
+        if isinstance(molecule_2, Molecule):
+            molecule_2 = [molecule_2]
+        scores, messages = [], []
+        for idx, mol1 in enumerate(molecule_1):
+            mol2 = molecule_2[idx]
+            scores.append(molecule_fingerprint_similarity(mol1, mol2, fingerprint_type="morgan"))
+            messages.append(f"The Morgan fingerprint similarity of the two molecules is {scores[-1]}")
+        return scores, messages
         

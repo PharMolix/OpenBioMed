@@ -1,0 +1,35 @@
+metadata:
+  description: Given a PDB ID, query the PDB database, analyze the metadata, and extract the molecules from the PDB file.
+  inputs:
+    - [1, "accession", "The desired PDB ID"]
+    - [2, "accession", "The desired PDB ID"]
+  outputs:
+    - [3, "str: Summarized results of the PDB metadata"]
+    - [4, "list[Tuple[str (molecule type, could be 'molecule', 'ion', or 'protein'), str (chain id), Molecule | Protein]]: Molecules extracted from the PDB file"]
+tools:
+  - name: protein_pdb_request                 # 0
+    inputs:
+      mode: metadata
+  - name: protein_pdb_request                 # 1
+    inputs:
+      mode: file_only
+  - name: code_execution                      # 2
+    code: |
+      import json
+      step_outputs[2] = []
+      for i in range(len(step_outputs[0])):
+          step_outputs[2].append(json.dumps(step_outputs[0][i]))
+  - name: summarize_content                   # 3
+  - name: extract_molecules_from_pdb_file     # 4
+edges:
+  - start: 0
+    end: 2
+  - start: 2
+    end: 3
+    name_mapping:
+      output: content
+  - start: 1
+    end: 4
+    name_mapping:
+      output: pdb_file
+      

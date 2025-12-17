@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict, Any, Tuple
 
 import contextlib
 import copy
@@ -8,7 +8,7 @@ from tqdm import tqdm
 import sys
 import pytorch_lightning as pl
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data import Molecule, Protein, calc_mol_rmsd, mol_array_to_conformer
 from open_biomed.tasks.base_task import BaseTask, DefaultDataModule, DefaultModelWrapper
 from open_biomed.utils.collator import Collator
@@ -23,8 +23,8 @@ class PocketMoleculeDocking(BaseTask):
     def print_usage() -> str:
         return "\n".join([
             'Ligand-pocket docking.',
-            'Inputs: {"molecule": the ligand, "pocket": the pocket}',
-            "Outputs: A new molecule with 3D coordinates indicating the binding pose."
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "pocket": Pocket (an OpenBioMed Pocket object)}',
+            "Outputs: Molecule (an OpenBioMed Molecule object with 3D coordinates indicating the binding pose, which could be accessed by .conformer as a numpy array)"
         ])
 
     @staticmethod
@@ -224,11 +224,11 @@ class VinaDockTask(Tool):
     def print_usage(self) -> str:
         return "\n".join([
             'Ligand-receptor docking.',
-            'Inputs: {"molecule": the ligand, "protein": the receptor}',
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "protein": Protein (an OpenBioMed Protein object)}',
             "Outputs: A float number indicating the AutoDockVina score of the binding."
         ])
 
-    def run(self, molecule: Molecule, protein: Protein) -> Union[List[float], List[str]]:
+    def run(self, molecule: Molecule, protein: Protein) -> Tuple[List[float], List[str]]:
         sdf_file = molecule.save_sdf()
         pdb_file = protein.save_pdb()
         pos = np.array(molecule.conformer)
@@ -280,3 +280,47 @@ class VinaDockTask(Tool):
         except ImportError:
             print("AutoDockVina not installed. This function return 0.0.")
             return [0.0], ["0.0"]
+
+class ComplexInteractionAnalysis(Tool):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'Analyze the interactions between a ligand and a protein.',
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "protein": Protein (an OpenBioMed Protein object)}',
+            "Outputs: str (a textual report of the interactions between the ligand and the protein)"
+        ])
+
+    def run(self, molecule: Union[Molecule, List[Molecule]], protein: Union[Protein, List[Protein]]) -> Tuple[List[str], List[str]]:
+        try:
+            from rdkit import Chem
+            from plip.structure.preparation import PDBComplex
+            from plip.exchange.report import BindingSiteReport
+
+            if isinstance(molecule, Molecule):
+                molecule = [molecule]
+            if isinstance(protein, Protein):
+                protein = [protein]
+            all_report = []
+            for mol, prot in zip(molecule, protein):
+                pdb_file = prot.save_pdb()
+                mol._add_name()
+                rdmol = mol.rdmol
+                rdprotein = Chem.MolFromPDBFile(pdb_file)
+                rdcomplex = Chem.CombineMols(rdmol, rdprotein)
+                complex_pdb_file = pdb_file.replace(".pdb", f"_{mol.name}_complex.pdb")
+                Chem.MolToPDBFile(rdcomplex, complex_pdb_file)
+                complex = PDBComplex()
+                complex.read_pdb_file(complex_pdb_file)
+                complex.analyze()
+                all_report.append("")
+                for key in complex.interaction_sets:
+                    if key.startswith("UNL"):
+                        interactions = complex.interaction_sets[key]
+                        report = BindingSiteReport(interactions)
+                        report_txt = ";".join(report.generate_txt())
+                        all_report[-1] += f"{key}:\n{report_txt}\n"
+            return all_report, all_report
+        except ImportError:
+            raise ImportError("PLIP not installed. Please install it using `pip install plip`.")

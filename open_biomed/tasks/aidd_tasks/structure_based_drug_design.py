@@ -23,8 +23,8 @@ class StructureBasedDrugDesign(BaseTask):
     def print_usage() -> str:
         return "\n".join([
             'Structure-based drug design.',
-            'Inputs: {"pocket": a protein pocket}',
-            "Outputs: A small molecule that is likely to bind with the pocket."
+            'Inputs: {"pocket": Pocket (an OpenBioMed Pocket object)} REMARK: we recommend using Pocket.from_protein_ref_ligand(protein, ligand) to construct the pocket object so that the generation is more likely to succeed. The ligand should be a reference molecule that is already bound to the protein and should NOT be constructed from scratch.',
+            "Outputs: Molecule (an OpenBioMed Molecule object that is likely to bind with the pocket)"
         ])
 
     @staticmethod
