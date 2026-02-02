@@ -19,6 +19,10 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 ## News 🎉
 
+- [2026/02/02] 🔥 BioMedGPT-Mol (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-Mol)) has been released.
+
+> BioMedGPT-Mol is a multimodal molecular language model jointly released by PharMolix Inc. and the Institute of AI Industry Research (AIR), Tsinghua University. It is built for both molecular understanding and generation, supporting a wide range of tasks including chemical name conversion, molecular captioning, property prediction, reaction modeling, molecule editing, and property optimization. Trained with a well-structured multi-task curriculum, BioMedGPT-Mol shows strong performance across diverse molecule-centric discovery benchmarks.
+
 - [2025/05/26] 🔥 Our framework has been updated with several new features including new tools, datasets, and models. We implement **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)) and APIs to manipulate cells (See [the Example](./examples/cell_annotation.ipynb)). We also introduce a wider range of tools to calculate molecular properties (ADMET, QED, SA, LogP, Lipinski, Similarity, etc.). 
 
 - [2025/03/07] 🔥 We present **OpenBioMed Agent Platform** at this [website](http://openbiomed.pharmolix.com) to customize workflows and LLM agents (**AutoPilots**) in solving complicated scientific research tasks. **Tutorials** for using this platform are also [available](https://www.zybuluo.com/icycookies/note/2587490).
