@@ -1,6 +1,27 @@
+from functools import wraps
 from typing import Any, List, Tuple, Callable
 
 from abc import ABC, abstractmethod
+
+def serial_exec(func: Callable):
+    @wraps(func)
+    def wrapper(self, **kwargs):
+        for key, value in kwargs.items():
+            break
+        if isinstance(value, list):
+            outputs, msgs = [], []
+            for i in range(len(value)):
+                cur_kwargs = {}
+                for key, value in kwargs.items():
+                    cur_kwargs[key] = value[i]
+                output, msg = func(self, **cur_kwargs)
+                outputs.append(output)
+                msgs.append(msg)
+            return outputs, msgs
+        else:
+            output, msg = func(self, **kwargs)
+            return [output], [msg]
+    return wrapper
 
 class Tool(ABC):
     def __init__(self) -> None:

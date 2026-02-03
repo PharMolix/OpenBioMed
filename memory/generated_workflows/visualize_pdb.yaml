@@ -1,0 +1,57 @@
+metadata:
+  name: pdb_chain_complex_visualization
+  description: Extract and visualize a protein-ligand complex for a specific chain from a PDB file
+  inputs:
+    - [0, "pdb_file", "Path to the PDB file containing the protein-ligand complex"]
+    - [1, "chain_id", "The chain identifier to visualize (e.g., 'A', 'B')"]
+  outputs:
+    - [2, "output", "Path to the generated visualization file (PNG or GIF)"]
+tools:
+  - name: extract_molecules_from_pdb_file
+    num_repeats: 1
+  - name: code_execution
+    code: |
+      # Extract protein and ligand for the specified chain
+      chain_id = step_inputs[1]["chain_id"]
+      extracted_components = step_outputs[0][0]  # List of (type, chain, object) tuples
+      
+      protein_obj = None
+      ligand_obj = None
+      
+      for comp_type, comp_chain, comp_obj in extracted_components:
+          if comp_chain == chain_id:
+              if comp_type == "protein" and protein_obj is None:
+                  protein_obj = comp_obj
+              elif comp_type == "molecule" and ligand_obj is None:
+                  ligand_obj = comp_obj
+      
+      if protein_obj is None:
+          raise ValueError(f"No protein found for chain {chain_id}")
+      
+      if ligand_obj is None:
+          # If no ligand found, use the protein alone
+          step_outputs[1] = {"protein": protein_obj, "ligand_available": False}
+      else:
+          step_outputs[1] = {
+              "protein": protein_obj, 
+              "molecule": ligand_obj, 
+              "ligand_available": True
+          }
+    inputs:
+      chain_id: {chain_id}
+  - name: visualize_complex
+    inputs:
+      rotate: True
+      molecule_config: "ball_and_stick"
+      protein_config: "cartoon"
+    num_repeats: 1
+edges:
+  - start: 0
+    end: 1
+    name_mapping:
+      output: extracted_components
+  - start: 1
+    end: 2
+    name_mapping:
+      protein: protein
+      molecule: molecule

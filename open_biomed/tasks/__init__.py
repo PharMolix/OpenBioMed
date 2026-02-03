@@ -9,7 +9,7 @@ from open_biomed.tasks.multi_modal_tasks.protein_question_answering import Prote
 from open_biomed.tasks.multi_modal_tasks.mutation_text_translation import MutationExplanation, MutationEngineering
 from open_biomed.tasks.aidd_tasks.molecule_property_prediction import MoleculePropertyPrediction, MoleculePropertyPredictionRegression
 from open_biomed.tasks.aidd_tasks.protein_molecule_docking import PocketMoleculeDocking
-from open_biomed.tasks.aidd_tasks.structure_based_drug_design import StructureBasedDrugDesign
+from open_biomed.tasks.aidd_tasks.structure_based_drug_design import StructureBasedDrugDesign, StructureTextBasedMoleculeOptimization
 from open_biomed.tasks.aidd_tasks.protein_folding import ProteinFolding
 from open_biomed.tasks.aidd_tasks.cell_annotation import CellAnnotation
 
@@ -24,13 +24,9 @@ TASK_REGISTRY = {
     "molecule_property_prediction_regression": MoleculePropertyPredictionRegression,
     "pocket_molecule_docking": PocketMoleculeDocking,
     "structure_based_drug_design": StructureBasedDrugDesign,
+    "structure_text_based_molecule_optimization": StructureTextBasedMoleculeOptimization,
     "mutation_explanation": MutationExplanation,
     "mutation_engineering": MutationEngineering,
     "protein_folding": ProteinFolding,
     "cell_annotation": CellAnnotation,
 }
-
-def check_compatible(task_name: str, dataset_name: Optional[str], model_name: Optional[str]) -> None:
-    # Check if the dataset and model supports the task
-    # If not, raise NotImplementedError
-    pass

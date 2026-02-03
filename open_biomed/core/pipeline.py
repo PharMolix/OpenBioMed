@@ -241,7 +241,7 @@ class InferencePipeline(Pipeline, Tool):
     def __init__(self, 
         task: str="",
         model: str="",
-        model_ckpt: str="",
+        model_ckpt: Optional[str]=None,
         additional_config: Optional[str]=None,
         logging_level: str="info",
         device: str="cpu",
@@ -281,17 +281,18 @@ class InferencePipeline(Pipeline, Tool):
     def setup_model(self):
         self.model = self.task.get_model_wrapper(self.cfg.model, None)
         self.featurizer, self.collator = self.model.get_featurizer()
-        if os.path.exists(self.cfg.model_ckpt):
-            logging.info(f"Loading model from {self.cfg.model_ckpt}")
-            state_dict = torch.load(open(self.cfg.model_ckpt, "rb"), map_location="cpu")
-            if "state_dict" in state_dict:
-                state_dict = state_dict["state_dict"]
-            if hasattr(self.model.model, "load_ckpt"):
-                self.model.model.load_ckpt(state_dict)
-            else:
-                self.model.load_state_dict(state_dict, strict=False)
-        self.model.model.eval()
-        self.model.to(self.cfg.device)
+        if self.cfg.model_ckpt is not None:
+            if os.path.exists(self.cfg.model_ckpt):
+                logging.info(f"Loading model from {self.cfg.model_ckpt}")
+                state_dict = torch.load(open(self.cfg.model_ckpt, "rb"), map_location="cpu")
+                if "state_dict" in state_dict:
+                    state_dict = state_dict["state_dict"]
+                if hasattr(self.model.model, "load_ckpt"):
+                    self.model.model.load_ckpt(state_dict)
+                else:
+                    self.model.load_state_dict(state_dict, strict=False)
+            self.model.model.eval()
+            self.model.to(self.cfg.device)
 
     def print_usage(self):
         return self.task.print_usage()

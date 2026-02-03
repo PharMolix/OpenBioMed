@@ -77,12 +77,37 @@ def test_structure_based_drug_design(unit_test: bool=True):
         print(outputs)
     return pipeline
 
+def test_structure_text_based_molecule_optimization(unit_test: bool=True):
+    pipeline = InferencePipeline(
+        task="structure_text_based_molecule_optimization",
+        model="llm4molopt",
+    )
+    if unit_test:
+        protein = Protein.from_pdb_file("./checkpoints/server/test_data/4xli_B.pdb")
+        ligand = Molecule.from_sdf_file("./checkpoints/server/test_data/4xli_B_ref.sdf")
+        pocket = Pocket.from_protein_ref_ligand(protein, ligand)
+        outputs = pipeline.run(
+            molecule=ligand,
+            pocket=pocket,
+            text=Text.from_str("Increase the binding affinity to the pocket and improve the solubility."),
+        )
+        print(outputs[0][0])
+        from open_biomed.data.molecule import check_identical_molecules
+        print(check_identical_molecules(Molecule.from_smiles("Cc1nc(Nc2ncc(C(=O)Nc3c(C)cccc3C(=O)O)s2)cc(N2CCN(CCO)CC2)n1"), outputs[0][0]))
+        from open_biomed.tasks.aidd_tasks.structure_based_drug_design import calc_vina_molecule_metrics
+        print("=== Original ligand metrics ===")
+        print(calc_vina_molecule_metrics(ligand, protein))
+        print("=== Optimized ligand metrics ===")
+        print(calc_vina_molecule_metrics(outputs[0][0], protein))
+        print(outputs)
+    return pipeline
+
 def test_protein_molecule_docking(unit_test: bool=True):
     protein = Protein.from_pdb_file("./checkpoints/server/test_data/4xli_B.pdb")
     ligand = Molecule.from_sdf_file("./checkpoints/server/test_data/4xli_B_ref.sdf")
-    vina = VinaDockTask(mode="dock")
+    vina = VinaDockTask()
     if unit_test:
-        print(vina.run(ligand, protein)[0][0])
+        print(vina.run(molecule=ligand, protein=protein)[0][0])
     return vina
     
 def test_molecule_question_answering(unit_test: bool=True):
@@ -238,7 +263,9 @@ def test_protein_folding(unit_test: bool=True):
 INFERENCE_UNIT_TESTS = {
     "text_based_molecule_editing": test_text_based_molecule_editing,
     "pocket_molecule_docking": test_pocket_molecule_docking,
+    "protein_molecule_docking": test_protein_molecule_docking,
     "structure_based_drug_design": test_structure_based_drug_design,
+    "structure_text_based_molecule_optimization": test_structure_text_based_molecule_optimization,
     "molecule_question_answering": test_molecule_question_answering,
     "protein_question_answering": test_protein_question_answering,
     "mutation_explanation": test_mutation_explanation,

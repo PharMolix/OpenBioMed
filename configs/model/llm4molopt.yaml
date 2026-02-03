@@ -1,0 +1,6 @@
+model:
+  name: llm4molopt
+  llm: deepseek-reasoner
+  temperature: 1.0
+  tolerance: 3
+  scaffold_hopping: false

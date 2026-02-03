@@ -8,10 +8,9 @@ work_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(work_dir)
 
 from open_biomed.core.llm_provider import get_llm
-from open_biomed.tools.base_tool import Tool
+from open_biomed.tools.base_tool import Tool, serial_exec
 from open_biomed.tools.web_request_tools import DBRequester
 from open_biomed.data import Molecule, Protein, Pocket
-from open_biomed.core.pipeline import InferencePipeline
 
 class ImportPocket(Tool):
     def __init__(self) -> None:
@@ -68,6 +67,7 @@ Outputs: str (the path to the pdb file)
 """
 
     def run(self, protein: Union[Protein, List[Protein]]) -> Tuple[List[str], List[str]]:
+        from open_biomed.core.pipeline import InferencePipeline
         if isinstance(protein, Protein):
             protein = [protein]
         files = []
@@ -127,6 +127,7 @@ Inputs: {"content": str (a Python String of the document to summarize)}
 Outputs: str (a concise and informative summary of the document)
 """
 
+    @serial_exec
     def run(self, content: str) -> str:
         response = self.llm.invoke([
             SystemMessage(content=self.system_prompt),
@@ -138,7 +139,7 @@ Outputs: str (a concise and informative summary of the document)
                 SystemMessage(content=self.system_prompt),
                 HumanMessage(content=content)
             ]).content
-        return [response.lstrip("<summary>").rstrip("</summary>")], ["Summary completed, the summary is: " + response.lstrip("<summary>").rstrip("</summary>")]
+        return response.lstrip("<summary>").rstrip("</summary>"), "Summary completed, the summary is: " + response.lstrip("<summary>").rstrip("</summary>")
 
 class ExtractAllMoleculesFromPDB(Tool):
     def __init__(self) -> None:
@@ -151,7 +152,8 @@ Inputs: {"pdb_file": str (the path to the PDB file)}
 Outputs: List[Tuple[str, str, Molecule | Protein]] (a list of tuples, the first element is the type of the molecule, which can be "molecule", "ion", or "protein", the second element is the chain id, the third element is the molecule or protein object)
 """
 
-    def run(self, pdb_file: str) -> List[Tuple[str, Union[Molecule, Protein]]]:
+    @serial_exec
+    def run(self, pdb_file: str) -> Tuple[List[Tuple[str, Union[Molecule, Protein]]], List[str]]:
         results = []
         output_metadata = ""
         num_ions = 0
@@ -239,7 +241,51 @@ Outputs: List[Tuple[str, str, Molecule | Protein]] (a list of tuples, the first 
             output_metadata += f"{atm_type}: {molecule.smiles}\n"
 
         output_metadata += f"Total {len(chains)} protein chains, {num_molecules} molecules and {num_ions} ions extracted from {pdb_file}"
-        return [results], [output_metadata]
+        return results, output_metadata
+
+class ComplexInteractionAnalysis(Tool):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'Analyze the interactions between a ligand and a protein.',
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "protein": Protein (an OpenBioMed Protein object)}',
+            "Outputs: str (a textual report of the interactions between the ligand and the protein)"
+        ])
+
+    def run(self, molecule: Union[Molecule, List[Molecule]], protein: Union[Protein, List[Protein]]) -> Tuple[List[str], List[str]]:
+        try:
+            from rdkit import Chem
+            from plip.structure.preparation import PDBComplex
+            from plip.exchange.report import BindingSiteReport
+
+            if isinstance(molecule, Molecule):
+                molecule = [molecule]
+            if isinstance(protein, Protein):
+                protein = [protein]
+            all_report = []
+            for mol, prot in zip(molecule, protein):
+                pdb_file = prot.save_pdb()
+                mol._add_name()
+                rdmol = mol.rdmol
+                rdprotein = Chem.MolFromPDBFile(pdb_file)
+                rdcomplex = Chem.CombineMols(rdmol, rdprotein)
+                complex_pdb_file = pdb_file.replace(".pdb", f"_{mol.name}_complex.pdb")
+                Chem.MolToPDBFile(rdcomplex, complex_pdb_file)
+                complex = PDBComplex()
+                complex.load_pdb(complex_pdb_file)
+                complex.analyze()
+                all_report.append("")
+                for key in complex.interaction_sets:
+                    if key.startswith("UNL"):
+                        interactions = complex.interaction_sets[key]
+                        report = BindingSiteReport(interactions)
+                        report_txt = ";".join(report.generate_txt())
+                        all_report[-1] += f"{key}:\n{report_txt}\n"
+            return all_report, all_report
+        except ImportError:
+            raise ImportError("PLIP not installed. Please install it using `pip install plip`.")
 
 if __name__ == "__main__":
     """

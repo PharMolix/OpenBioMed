@@ -66,15 +66,15 @@ def wrap_outputs(outputs: Any) -> Dict[str, Any]:
     else:
         output_check = outputs
     if isinstance(output_check, Molecule):
-        return {"molecule": output_check}
+        return {"molecule": outputs}
     elif isinstance(output_check, Protein):
-        return {"protein": output_check}
+        return {"protein": outputs}
     elif isinstance(output_check, Pocket):
-        return {"pocket": output_check}
+        return {"pocket": outputs}
     elif isinstance(output_check, Text):
-        return {"text": output_check}
+        return {"text": outputs}
     else:
-        return {"output": output_check}
+        return {"output": outputs}
 
 def wrap_and_select_outputs(outputs: Any, context: Optional[TextIO]=None) -> Dict[str, Any]:
     if isinstance(outputs, tuple):

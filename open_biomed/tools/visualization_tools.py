@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Callable
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -10,7 +10,7 @@ import shutil
 from rdkit.Chem import Draw, rdDepictor
 import subprocess
 
-from open_biomed.tools.base_tool import Tool
+from open_biomed.tools.base_tool import Tool, serial_exec
 from open_biomed.data import Molecule, Protein, Pocket
 from open_biomed.utils.config import Config, merge_config
 from open_biomed.utils.misc import create_tool_input
@@ -277,7 +277,7 @@ class ProteinPocketVisualizer(Visualizer):
         visualize_protein_with_pocket(img_file, pdb_file, pocket.orig_indices, config=Config("./configs/visualization/global_config.yaml"), rotate=rotate, num_frames=20)
         return [os.path.abspath(img_file)], [os.path.abspath(img_file)]
 
-class VisualizerWrapper(Tool):
+class PyMolVisualizerWrapper(Tool):
     def __init__(self, task: str) -> None:
         self.task = task
         if task == "visualize_molecule":
@@ -294,7 +294,7 @@ class VisualizerWrapper(Tool):
     def print_usage(self) -> str:
         return self.visualizer.print_usage()
 
-    def run(self, *args, **kwargs) -> Union[List[str], List[str]]:
+    def run_single(self, *args, **kwargs) -> Union[List[str], List[str]]:
         vis_process = [
             "python3", os.path.join(work_dir, "open_biomed/tools/visualization_tools.py"), 
             "--task", self.task,
@@ -311,13 +311,58 @@ class VisualizerWrapper(Tool):
                     vis_process.append(value.save_binary())
             elif key == "rotate":
                 vis_process.append("--rotate")
-            else:
+            elif key in ["molecule_config", "protein_config", "output_file", "save_output_filename"]:
                 vis_process.append(f"--{key}")
                 vis_process.append(value)
         subprocess.Popen(vis_process).communicate()
-        outputs = open(os.path.join(work_dir, "tmp/visualization_file.txt"), "r").read()
-        outputs = [outputs], [f"The generated figure is saved at {output}" for output in outputs]
-        return outputs
+        output = open(os.path.join(work_dir, "tmp/visualization_file.txt"), "r").read()
+        output = output, f"The generated figure is saved at {output}"
+        return output
+
+    @serial_exec
+    def run(self, *args, **kwargs) -> Union[List[str], List[str]]:
+        return self.run_single(*args, **kwargs)
+
+class GraphVizDrawer:
+    def __init__(self) -> None:
+        pass
+
+    def invoke(self) -> str:
+        pass
+
+def get_drawer(drawer: str) -> Callable:
+    pass
+
+class YamlWorkflowVisualizer(Tool):
+    def print_usage(self) -> str:
+        return """
+            'Draw an image of a workflow in yaml format.',
+            'Inputs: {
+                "workflow": str (the workflow in yaml format), 
+                "llm": str (the LLM used to generate the prompt, default is "deepseek-chat"), 
+                "drawer": str (the model used to generate the image, default is "graphviz"), 
+            }',
+            "Outputs: str (the path of the generated png figure)."
+        """
+
+    def run(self,
+        workflow: str,
+        llm: str="deepseek-chat",
+        drawer: str="graphviz",
+    ) -> Union[List[str], List[str]]:
+
+        return [os.path.abspath(img_file)], [os.path.abspath(img_file)]
+
+class CodeWorkflowVisualizer(Tool):
+    def __init__(self) -> None:
+        pass
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'Visualize a workflow implemented with Python code.',
+            'Inputs: {"workflow": the workflow (should be part of the workflow), "rotate": whether to rotate the molecule}',
+            "Outputs: A figure."
+        ])
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

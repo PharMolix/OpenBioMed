@@ -414,18 +414,20 @@ class Workflow:
         node_idx = state["exec_queue"].pop(0)
         node = state["node_list"][node_idx]
         node.outputs = ([], [])
+        print(node.inputs)
         for i in range(node.num_repeats):
             if getattr(node.executable, "requires_async", False):
                 outputs = asyncio.run(node.executable.run(**node.inputs))
             elif node.name == "code_execution":
-                cur_namespace = []
+                node_inputs, node_outputs = [], []
                 for cur_node in state["node_list"]:
                     if cur_node.outputs is not None:
-                        cur_namespace.append(copy.deepcopy(cur_node.outputs[0]))
+                        node_outputs.append(copy.deepcopy(cur_node.outputs[0]))
                     else:
-                        cur_namespace.append(None)
-                exec(node.inputs["code"], {"step_outputs": cur_namespace})
-                outputs = cur_namespace[node_idx], ["Code execution completed"]
+                        node_outputs.append(None)
+                    node_inputs.append(copy.deepcopy(cur_node.inputs))
+                exec(node.inputs["code"], {"step_inputs": node_inputs, "step_outputs": node_outputs})
+                outputs = [node_outputs[node_idx]], ["Code execution completed"]
             else:
                 outputs = node.executable.run(**node.inputs)
             node.outputs[0].extend(outputs[0])
@@ -433,7 +435,13 @@ class Workflow:
         for e in self.edges:
             if e[0] == node_idx:
                 state["in_deg"][e[1]] -= 1
-                wrapped_outputs = wrap_outputs(node.outputs[0])
+                if node.name == "code_execution":
+                    for key, value in node_inputs[e[1]].items():
+                        state["node_list"][e[1]].inputs[key] = copy.deepcopy(value)
+                    print(node.outputs)
+                    wrapped_outputs = node.outputs[0][0]
+                else:
+                    wrapped_outputs = wrap_outputs(node.outputs[0])
                 for key, value in wrapped_outputs.items():
                     if e[2] is not None and key in e[2]:
                         key = e[2][key]
@@ -456,7 +464,7 @@ class Workflow:
         for node in node_list:
             node.inputs = node.orig_inputs
         for elem in inputs:
-            node_list[elem[0] - 1].inputs[elem[1]] = elem[2]
+            node_list[elem[0]].inputs[elem[1]] = elem[2]
         return {
             "exec_queue": [i for i in range(len(self.nodes)) if in_deg[i] == 0],
             "in_deg": in_deg,
@@ -501,13 +509,21 @@ if __name__ == "__main__":
     json_string = json.dumps(json_data, ensure_ascii=False, indent=4)  # if 
     fronted_file = parse_frontend(json_string)
     """
-    file_path = "configs/workflow/pdb_query.yaml"
+    """
+    file_path = "memory/workflows/pdb_query.yaml"
     config = Config(config_file=file_path)
     workflow = Workflow(config)
-    results, messages = workflow.run([(1, "accession", "4xli"), (2, "accession", "4xli")])
+    results, messages = workflow.run([(0, "accession", "4xli"), (1, "accession", "4xli")])
     print(len(results))
     print(results[0][0], results[0][1])
     with open("./tmp/pdb_query_messages.txt", "w") as f:
         for msg in messages[0]:
             f.write(msg + "\n")
-    
+    """
+    file_path = "memory/generated_workflows/visualize_pdb.yaml"
+    config = Config(config_file=file_path)
+    workflow = Workflow(config)
+    results, messages = workflow.run([(0, "pdb_file", "./tmp/4xli.pdb"), (1, "chain_id", "A")])
+    print(results[0][0])
+    for msg in messages[0]:
+        print(msg)

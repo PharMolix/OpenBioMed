@@ -1,4 +1,5 @@
 import logging
+from open_biomed.models.agentic_models.llm_molecule_optimization import TextBasedMoleculeEditingAgent
 from open_biomed.models.foundation_models.molt5 import MolT5
 from open_biomed.models.foundation_models.biot5 import BioT5
 from open_biomed.models.foundation_models.biot5_plus import BioT5_PLUS
@@ -13,7 +14,11 @@ MODEL_REGISTRY = {
     "text_based_molecule_editing": {
         "molt5": MolT5,
         "biot5": BioT5,
-        "biot5_plus": BioT5_PLUS
+        "biot5_plus": BioT5_PLUS,
+        "llm4molopt": TextBasedMoleculeEditingAgent,
+    },
+    "structure_text_based_molecule_optimization": {
+        "llm4molopt": TextBasedMoleculeEditingAgent,
     },
     "molecule_captioning": {
         "molt5": MolT5,
@@ -67,4 +72,4 @@ try:
         "langcell": LangCell,
     }
 except ImportError:
-    logging.warn("Install geneformer to use LangCell: pip install geneformer")
+    logging.warning("Install geneformer to use LangCell: pip install geneformer")

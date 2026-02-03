@@ -2,7 +2,6 @@ from open_biomed.tools.tool_misc import *
 from open_biomed.tools.web_request_tools import *
 from open_biomed.tools.visualization_tools import *
 from open_biomed.tools.third_party_tools import *
-from open_biomed.core.llm_provider1 import KeyInfoExtractor
 from open_biomed.data.molecule import *
 from open_biomed.scripts.inference import *
 
@@ -49,13 +48,13 @@ class LazyDictForTool(dict):
         elif key == "protein_binding_site_prediction":
             self[key] = ProteinBindingSitePrediction()
         elif key == "visualize_molecule":
-            self[key] = VisualizerWrapper(task="visualize_molecule")
+            self[key] = PyMolVisualizerWrapper(task="visualize_molecule")
         elif key == "visualize_protein":
-            self[key] = VisualizerWrapper(task="visualize_protein")
+            self[key] = PyMolVisualizerWrapper(task="visualize_protein")
         elif key == "visualize_complex":
-            self[key] = VisualizerWrapper(task="visualize_complex")
+            self[key] = PyMolVisualizerWrapper(task="visualize_complex")
         elif key == "visualize_protein_pocket":
-            self[key] = VisualizerWrapper(task="visualize_protein_pocket")
+            self[key] = PyMolVisualizerWrapper(task="visualize_protein_pocket")
         # TODO: update the name mapping between frontend and backend
         elif key == "molecule_name_request" or key == "pubchemid_search":
             self[key] = PubChemRequester()
