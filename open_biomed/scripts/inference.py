@@ -269,7 +269,7 @@ def test_go_guided_protein_generation(unit_test: bool=True):
     )
     if unit_test:
         outputs = pipeline.run(
-            go_terms=[['GO:0004930', 'GO:0004984']],
+            go_terms=[['GO:0004930', 'GO:0004984'], ['GO:0030550', 'GO:0099106', 'GO:0090729']],
         )
         print(outputs[0][0], outputs[1][0])
     return pipeline

@@ -17,10 +17,11 @@ log = logging.getLogger(__name__)
 
 
 
-class IdentityCollator(Collator):
+class GoTermsBatchCollator(Collator):
     def __call__(self, inputs: List[Any]) -> Any:
-        # print(inputs)
-        return inputs[0]
+        return {
+            "go_terms": [item["go_terms"] for item in inputs]
+        }
 
 class GOFeaturizer:
     def __init__(self, model_cfg: Config) -> None:
@@ -145,7 +146,7 @@ class CodeFP(GoGuidedProteinGenerationModel):
         }
 
     def featurizer_go_guided_protein_generation(self) -> Tuple[Featurizer, Collator]:
-        return GoTermsFeaturizer(), IdentityCollator()
+        return GoTermsFeaturizer(), GoTermsBatchCollator()
     
     def forward_go_guided_protein_generation(self,
         go_terms: List[List[str]],
@@ -155,82 +156,88 @@ class CodeFP(GoGuidedProteinGenerationModel):
     
     @torch.no_grad()
     def predict_go_guided_protein_generation(self,
-        go_terms: List[str], 
+        go_terms: List[List[str]], 
     ) -> List[Protein]:
 
-        log.warning("CodeFP only support one protein generation for now.")
+        # log.warning("CodeFP only support one protein generation for now.")
 
         self.model.eval()
         device = self.model.device
         self.go_featurizer.to(device)
+        designed_protein = []
 
-        feats = self.go_featurizer.encode(go_terms)
+        # print(go_terms)
 
-        seq_lens = getattr(self.config, "seq_lens", [200, 400])
-        length = np.random.randint(seq_lens[0], seq_lens[1] + 1)
+        for go_term in go_terms:
+            feats = self.go_featurizer.encode(go_term)
 
-        tokenizer = self.model.tokenizer
-        seq_struct = tokenizer.struct_cls_token + (tokenizer.all_tokens[50] * length) + tokenizer.struct_eos_token
-        seq_aa = tokenizer.aa_cls_token + ("A" * length) + tokenizer.aa_eos_token
+            seq_lens = getattr(self.config, "seq_lens", [200, 400])
+            length = np.random.randint(seq_lens[0], seq_lens[1] + 1)
 
-        batch_struct = tokenizer.batch_encode_plus(
-            [seq_struct],
-            add_special_tokens=False,
-            padding="longest",
-            return_tensors="pt",
-        )
-        batch_aatype = tokenizer.batch_encode_plus(
-            [seq_aa],
-            add_special_tokens=False,
-            padding="longest",
-            return_tensors="pt",
-        )
-        input_ids = torch.concat([batch_struct["input_ids"], batch_aatype["input_ids"]], dim=1).to(device)
+            tokenizer = self.model.tokenizer
+            seq_struct = tokenizer.struct_cls_token + (tokenizer.all_tokens[50] * length) + tokenizer.struct_eos_token
+            seq_aa = tokenizer.aa_cls_token + ("A" * length) + tokenizer.aa_eos_token
 
-        batch = {
-            "input_ids": input_ids,
-            "go_label": feats["go_label"] if feats["go_label"] is not None else None,
-        }
-        if self.model.use_motif_struct_emb:
-            batch["motif_struct_emb"] = feats["motif_struct_emb"].unsqueeze(0)
-
-        # print(batch)
-
-        sampling_strategy = getattr(self.config, "sampling_strategy", "annealing@2.0:1.0")
-        max_iter = getattr(self.config, "max_iter", 500)
-        use_only_struct = getattr(self.config, "use_only_struct", False)
-
-        # print(sampling_strategy)
-        # print(max_iter)
-        # print(use_only_struct)
-
-        with autocast():
-            gen_outputs = self.model.generate(
-                batch=batch,
-                max_iter=max_iter,
-                sampling_strategy=sampling_strategy,
-                use_struct_only=use_only_struct,
+            batch_struct = tokenizer.batch_encode_plus(
+                [seq_struct],
+                add_special_tokens=False,
+                padding="longest",
+                return_tensors="pt",
             )
-        
-        # print(gen_outputs[2])
-        # exit()
-        
-        output_tokens = gen_outputs[0]
-        _, aatype_tokens = output_tokens.chunk(2, dim=-1)
-
-        # print(aatype_tokens)
-        
-        if use_only_struct:
-            raise NotImplementedError("use_only_struct is not supported yet.")
-        output_results = list(
-            map(
-                lambda s: "".join(s.split()),
-                tokenizer.batch_decode(
-                    aatype_tokens, skip_special_tokens=True
-                ),
+            batch_aatype = tokenizer.batch_encode_plus(
+                [seq_aa],
+                add_special_tokens=False,
+                padding="longest",
+                return_tensors="pt",
             )
-        )
-        seq = output_results[0]
-        # print(output_results)
+            input_ids = torch.concat([batch_struct["input_ids"], batch_aatype["input_ids"]], dim=1).to(device)
+
+            batch = {
+                "input_ids": input_ids,
+                "go_label": feats["go_label"] if feats["go_label"] is not None else None,
+            }
+            if self.model.use_motif_struct_emb:
+                batch["motif_struct_emb"] = feats["motif_struct_emb"].unsqueeze(0)
+
+            # print(batch)
+
+            sampling_strategy = getattr(self.config, "sampling_strategy", "annealing@2.0:1.0")
+            max_iter = getattr(self.config, "max_iter", 500)
+            use_only_struct = getattr(self.config, "use_only_struct", False)
+
+            # print(sampling_strategy)
+            # print(max_iter)
+            # print(use_only_struct)
+
+            with autocast():
+                gen_outputs = self.model.generate(
+                    batch=batch,
+                    max_iter=max_iter,
+                    sampling_strategy=sampling_strategy,
+                    use_struct_only=use_only_struct,
+                )
+            
+            # print(gen_outputs[2])
+            # exit()
+            
+            output_tokens = gen_outputs[0]
+            _, aatype_tokens = output_tokens.chunk(2, dim=-1)
+
+            # print(aatype_tokens)
+            
+            if use_only_struct:
+                raise NotImplementedError("use_only_struct is not supported yet.")
+            output_results = list(
+                map(
+                    lambda s: "".join(s.split()),
+                    tokenizer.batch_decode(
+                        aatype_tokens, skip_special_tokens=True
+                    ),
+                )
+            )
+            seq = output_results[0]
+            print(f"go_term: {go_term}, seq: {seq}")
+            designed_protein.append(Protein.from_fasta(seq))
+        # print(designed_protein)
         # exit()
-        return [Protein.from_fasta(seq)]
+        return designed_protein
