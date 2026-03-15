@@ -1,0 +1,37 @@
+{
+  "eval_id": 2,
+  "eval_name": "analyze-smiles-input",
+  "prompt": "Evaluate this molecule for drug potential: CC(C)Cc1ccc(cc1)C(C)C(=O)O (that's the SMILES for ibuprofen, but pretend you don't know that)",
+  "assertions": [
+    {
+      "name": "handles_smiles_input",
+      "description": "Correctly handles SMILES input",
+      "check": "Analysis creates molecule from SMILES string without requiring name lookup"
+    },
+    {
+      "name": "includes_qed_score",
+      "description": "Report includes QED score",
+      "check": "Output contains QED score (Quantitative Estimate of Drug-likeness)"
+    },
+    {
+      "name": "includes_sa_score",
+      "description": "Report includes SA score",
+      "check": "Output contains SA (Synthetic Accessibility) score"
+    },
+    {
+      "name": "includes_logp",
+      "description": "Report includes LogP value",
+      "check": "Output contains LogP (lipophilicity) value"
+    },
+    {
+      "name": "includes_lipinski",
+      "description": "Report includes Lipinski violations",
+      "check": "Output mentions Lipinski's Rule of Five and indicates violations"
+    },
+    {
+      "name": "provides_assessment_without_name",
+      "description": "Provides assessment even without knowing molecule name",
+      "check": "Analysis is complete even though molecule name was not provided"
+    }
+  ]
+}

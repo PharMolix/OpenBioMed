@@ -14,6 +14,7 @@ import random
 from ratelimiter import RateLimiter
 import tarfile
 from urllib.parse import quote
+import xml.etree.ElementTree as ET
 
 from open_biomed.data import Molecule, Protein
 from open_biomed.tools.base_tool import Tool
@@ -156,10 +157,146 @@ class PubChemStructureRequester(Requester):
             raise e
         all_mols, all_files = [], []
         for cid in content['IdentifierList']['CID']:
-            mol, mol_file = await self.molecule_requester.run(cid)
+            mol, mol_file = await self.molecule_requester.run_async(cid)
             all_mols.extend(mol)
             all_files.extend(mol_file)
         return all_mols, all_files
+
+class PubChemBioactivityRequester(Requester):
+    """
+    Query PubChem for bioactivity data.
+    Supports:
+    1. Query by target gene symbol -> get assays -> get active compounds
+    2. Query by compound CID -> get assays where it was tested
+    3. Get bioactivity data for a specific assay
+    """
+    def __init__(self, timeout: int=30) -> None:
+        super().__init__()
+        self.timeout = timeout
+        self.base_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'PubChem bioactivity query.',
+            'Inputs:',
+            '  {"query_type": "target", "gene_symbol": "HMGCR"} - Get assays targeting a gene',
+            '  {"query_type": "compound", "cid": 2244, "aids_type": "active"} - Get assays for a compound',
+            '  {"query_type": "assay", "aid": 1053202, "cids_type": "active"} - Get compounds from an assay',
+            '  {"query_type": "bioactivity", "aid": 1053202} - Get full bioactivity data for an assay',
+            "Outputs: Dict with bioactivity information"
+        ])
+
+    def run(self, query_type: str = "compound", **kwargs) -> Tuple[List[Dict], List[str]]:
+        return asyncio.run(self.run_async(query_type, **kwargs))
+
+    @RateLimiter(max_calls=5, period=1)
+    async def run_async(self, query_type: str = "compound", **kwargs) -> Tuple[List[Dict], List[str]]:
+        results = []
+
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+            if query_type == "target":
+                # Get assays targeting a gene
+                gene_symbol = kwargs.get("gene_symbol")
+                gene_id = kwargs.get("gene_id")
+
+                if gene_symbol:
+                    url = f"{self.base_url}/assay/target/genesymbol/{gene_symbol}/aids/JSON"
+                elif gene_id:
+                    url = f"{self.base_url}/assay/target/geneid/{gene_id}/aids/JSON"
+                else:
+                    raise ValueError("Either gene_symbol or gene_id must be provided for target query")
+
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        data = json.loads(content.decode("utf-8"))
+                        aids = data.get("IdentifierList", {}).get("AID", [])
+                        results = [{"AID": aid, "type": "assay_id"} for aid in aids]
+                        logging.info(f"Found {len(aids)} assays for target")
+                    else:
+                        logging.warning(f"Target query failed, status {response.status}")
+
+            elif query_type == "compound":
+                # Get assays where a compound was tested
+                # Note: JSON endpoint returns empty, use XML instead
+                cid = kwargs.get("cid")
+                aids_type = kwargs.get("aids_type", "active")  # all, active, inactive
+
+                if not cid:
+                    raise ValueError("cid must be provided for compound query")
+
+                url = f"{self.base_url}/compound/cid/{cid}/aids/XML?aids_type={aids_type}"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        # Parse XML response
+                        root = ET.fromstring(content.decode("utf-8"))
+                        ns = {'pug': 'http://pubchem.ncbi.nlm.nih.gov/pug_rest'}
+                        aids = []
+                        for aid_elem in root.findall('.//pug:AID', ns):
+                            aids.append(int(aid_elem.text))
+                        results = [{"CID": cid, "AID": aid, "activity": aids_type} for aid in aids]
+                        logging.info(f"Found {len(aids)} assays for CID {cid} ({aids_type})")
+                    else:
+                        logging.warning(f"Compound query failed, status {response.status}")
+
+            elif query_type == "assay":
+                # Get compounds from an assay
+                # Note: JSON endpoint may return empty, use XML instead
+                aid = kwargs.get("aid")
+                cids_type = kwargs.get("cids_type", "active")  # all, active, inactive
+
+                if not aid:
+                    raise ValueError("aid must be provided for assay query")
+
+                url = f"{self.base_url}/assay/aid/{aid}/cids/XML?cids_type={cids_type}"
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        # Parse XML response
+                        root = ET.fromstring(content.decode("utf-8"))
+                        ns = {'pug': 'http://pubchem.ncbi.nlm.nih.gov/pug_rest'}
+                        cids = []
+                        for cid_elem in root.findall('.//pug:CID', ns):
+                            cids.append(int(cid_elem.text))
+                        results = [{"AID": aid, "CID": cid, "activity": cids_type} for cid in cids]
+                        logging.info(f"Found {len(cids)} compounds ({cids_type}) in assay {aid}")
+                    else:
+                        logging.warning(f"Assay query failed, status {response.status}")
+
+            elif query_type == "bioactivity":
+                # Get full bioactivity data for an assay
+                aid = kwargs.get("aid")
+                cid_filter = kwargs.get("cid")  # optional: filter by CID
+
+                if not aid:
+                    raise ValueError("aid must be provided for bioactivity query")
+
+                url = f"{self.base_url}/assay/aid/{aid}/CSV"
+                if cid_filter:
+                    url += f"?cid={cid_filter}"
+
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        csv_data = content.decode("utf-8")
+                        # Parse CSV
+                        lines = csv_data.strip().split('\n')
+                        if len(lines) > 0:
+                            headers = lines[0].split(',')
+                            for line in lines[1:min(51, len(lines))]:  # Limit to 50 results
+                                values = line.split(',')
+                                result = dict(zip(headers, values))
+                                results.append(result)
+                        logging.info(f"Retrieved bioactivity data for assay {aid}")
+                    else:
+                        logging.warning(f"Bioactivity query failed, status {response.status}")
+
+            else:
+                raise ValueError(f"Unknown query_type: {query_type}. Use 'target', 'compound', 'assay', or 'bioactivity'")
+
+        return results, [json.dumps(results, indent=2)]
+
 
 # TODO: add metadata parser for ChemBL
 class ChemBLRequester(DBRequester):

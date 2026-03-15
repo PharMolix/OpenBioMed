@@ -1,0 +1,50 @@
+{
+  "eval_id": 1,
+  "eval_name": "analyze-known-drug",
+  "run_id": "with_skill",
+  "assertions": [
+    {
+      "name": "includes_qed_score",
+      "text": "Report includes QED score",
+      "passed": true,
+      "evidence": "QED Score: 0.69 found in Drug-likeness Scores table"
+    },
+    {
+      "name": "includes_sa_score",
+      "text": "Report includes SA score",
+      "passed": true,
+      "evidence": "SA Score: 1.82 found in Drug-likeness Scores table"
+    },
+    {
+      "name": "includes_logp",
+      "text": "Report includes LogP value",
+      "passed": true,
+      "evidence": "LogP (Wildman-Crippen): 3.97 found in Drug-likeness Scores table"
+    },
+    {
+      "name": "includes_lipinski",
+      "text": "Report includes Lipinski violations",
+      "passed": true,
+      "evidence": "Lipinski Violations: 0 found with detailed table of all rules"
+    },
+    {
+      "name": "includes_overall_assessment",
+      "text": "Report provides overall assessment",
+      "passed": true,
+      "evidence": "Executive Summary states 'excellent drug-likeness properties' and Conclusion provides comprehensive assessment"
+    },
+    {
+      "name": "uses_open_biomed_tools",
+      "text": "Uses OpenBioMed tools",
+      "passed": true,
+      "evidence": "Appendix lists all tools used: molecule_name_request, molecule_qed, molecule_sa, molecule_logp, molecule_lipinski, molecule_property_prediction"
+    },
+    {
+      "name": "structured_format",
+      "text": "Report is well-structured",
+      "passed": true,
+      "evidence": "Report uses tables, clear sections (Executive Summary, Drug-likeness Scores, ADMET Properties, Conclusion), and structured format"
+    }
+  ],
+  "pass_rate": 1.0
+}

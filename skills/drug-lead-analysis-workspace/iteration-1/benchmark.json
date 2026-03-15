@@ -1,0 +1,65 @@
+{
+  "skill_name": "drug-lead-analysis",
+  "iteration": 1,
+  "timestamp": "2026-03-14",
+  "results": [
+    {
+      "eval_id": 1,
+      "eval_name": "analyze-known-drug",
+      "with_skill": {
+        "pass_rate": 1.0,
+        "assertions_passed": 7,
+        "assertions_total": 7
+      },
+      "without_skill": {
+        "pass_rate": 0.857,
+        "assertions_passed": 6,
+        "assertions_total": 7
+      }
+    },
+    {
+      "eval_id": 2,
+      "eval_name": "analyze-smiles-input",
+      "with_skill": {
+        "pass_rate": 1.0,
+        "assertions_passed": 6,
+        "assertions_total": 6
+      },
+      "without_skill": {
+        "pass_rate": 1.0,
+        "assertions_passed": 6,
+        "assertions_total": 6
+      }
+    },
+    {
+      "eval_id": 3,
+      "eval_name": "compare-drug-candidates",
+      "with_skill": {
+        "pass_rate": 1.0,
+        "assertions_passed": 6,
+        "assertions_total": 6
+      },
+      "without_skill": {
+        "pass_rate": 1.0,
+        "assertions_passed": 6,
+        "assertions_total": 6
+      }
+    }
+  ],
+  "summary": {
+    "with_skill": {
+      "mean_pass_rate": 1.0,
+      "total_assertions_passed": 19,
+      "total_assertions_total": 19
+    },
+    "without_skill": {
+      "mean_pass_rate": 0.952,
+      "total_assertions_passed": 18,
+      "total_assertions_total": 19
+    },
+    "delta": {
+      "pass_rate_improvement": 0.048,
+      "additional_assertions_passed": 1
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "eval_id": 2,
+  "eval_name": "analyze-smiles-input",
+  "run_id": "with_skill",
+  "assertions": [
+    {
+      "name": "handles_smiles_input",
+      "text": "Correctly handles SMILES input",
+      "passed": true,
+      "evidence": "Report analyzes molecule from SMILES: CC(C)Cc1ccc(cc1)C(C)C(=O)O without requiring name lookup"
+    },
+    {
+      "name": "includes_qed_score",
+      "text": "Report includes QED score",
+      "passed": true,
+      "evidence": "QED Score: 0.6947 found in Drug-likeness Scores section"
+    },
+    {
+      "name": "includes_sa_score",
+      "text": "Report includes SA score",
+      "passed": true,
+      "evidence": "SA Score: 1.85 found in Drug-likeness Scores section"
+    },
+    {
+      "name": "includes_logp",
+      "text": "Report includes LogP value",
+      "passed": true,
+      "evidence": "LogP (XLogP3): 3.97 found in Drug-likeness Scores section"
+    },
+    {
+      "name": "includes_lipinski",
+      "text": "Report includes Lipinski violations",
+      "passed": true,
+      "evidence": "Lipinski's Rule of Five table shows Total Violations: 0, FULL COMPLIANCE"
+    },
+    {
+      "name": "provides_assessment_without_name",
+      "text": "Provides assessment even without knowing molecule name",
+      "passed": true,
+      "evidence": "Complete analysis provided with 'EXCELLENT' assessment despite molecule name not being provided"
+    }
+  ],
+  "pass_rate": 1.0
+}

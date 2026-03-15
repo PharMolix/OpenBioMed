@@ -1,0 +1,44 @@
+{
+  "eval_id": 3,
+  "eval_name": "compare-drug-candidates",
+  "run_id": "without_skill",
+  "assertions": [
+    {
+      "name": "analyzes_both_molecules",
+      "text": "Analyzes both molecules",
+      "passed": true,
+      "evidence": "Report analyzes both aspirin AND acetaminophen with molecular structures table"
+    },
+    {
+      "name": "includes_comparison_table",
+      "text": "Includes comparison table or format",
+      "passed": true,
+      "evidence": "Comparative Summary table and Scoring Summary table present"
+    },
+    {
+      "name": "includes_qed_for_both",
+      "text": "Includes QED scores for both",
+      "passed": true,
+      "evidence": "QED Score: Aspirin 0.5548, Acetaminophen 0.5906"
+    },
+    {
+      "name": "includes_sa_for_both",
+      "text": "Includes SA scores for both",
+      "passed": true,
+      "evidence": "SA Score: Aspirin 1.95, Acetaminophen 1.73"
+    },
+    {
+      "name": "provides_recommendation",
+      "text": "Provides clear recommendation",
+      "passed": true,
+      "evidence": "Recommendation section clearly states 'Winner: Acetaminophen'"
+    },
+    {
+      "name": "explains_reasoning",
+      "text": "Explains reasoning for recommendation",
+      "passed": true,
+      "evidence": "Final Recommendation section provides detailed reasoning with numbered key findings"
+    }
+  ],
+  "pass_rate": 1.0
+}

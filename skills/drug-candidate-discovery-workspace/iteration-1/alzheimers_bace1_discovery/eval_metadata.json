@@ -1,0 +1,27 @@
+{
+  "eval_id": 1,
+  "eval_name": "alzheimers_bace1_discovery",
+  "prompt": "Generate 3 drug candidates for Alzheimer's disease targeting BACE1. Use device cuda:0. Property constraints: LogP between 0 and 3, QED > 0.5, Vina docking score < -7 kcal/mol.",
+  "assertions": [
+    {
+      "text": "produces_sdf_files: Should produce at least 1 SDF file containing candidate molecules",
+      "passed": false
+    },
+    {
+      "text": "produces_visualizations: Should produce molecular visualizations (PNG images)",
+      "passed": false
+    },
+    {
+      "text": "produces_markdown_report: Should produce a markdown report with target introduction, methods, and results",
+      "passed": false
+    },
+    {
+      "text": "report_contains_uniprot_id: Report should contain UniProt ID for BACE1 (P56817) obtained from web search",
+      "passed": false
+    },
+    {
+      "text": "report_mentions_pdb_structure: Report should mention PDB structures found through database search",
+      "passed": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "skill_name": "drug-lead-analysis",
+  "evals": [
+    {
+      "id": 1,
+      "name": "analyze-known-drug",
+      "prompt": "Analyze ibuprofen as a drug candidate and tell me if it has good drug-likeness properties.",
+      "expected_output": "A comprehensive analysis including QED score, SA score, LogP, Lipinski violations, and overall assessment of ibuprofen's drug potential.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "analyze-smiles-input",
+      "prompt": "Evaluate this molecule for drug potential: CC(C)Cc1ccc(cc1)C(C)C(=O)O (that's the SMILES for ibuprofen, but pretend you don't know that)",
+      "expected_output": "Drug-likeness analysis with QED, SA, LogP, Lipinski scores, and assessment regardless of whether the molecule name is known.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "compare-drug-candidates",
+      "prompt": "I'm trying to decide between aspirin and acetaminophen for a lead optimization project. Can you analyze both and tell me which has better drug-likeness properties?",
+      "expected_output": "Comparative analysis of both molecules with drug-likeness scores, side-by-side comparison table, and recommendation.",
+      "files": []
+    }
+  ]
+}

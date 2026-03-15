@@ -1,0 +1,42 @@
+{
+  "eval_id": 1,
+  "eval_name": "analyze-known-drug",
+  "prompt": "Analyze ibuprofen as a drug candidate and tell me if it has good drug-likeness properties.",
+  "assertions": [
+    {
+      "name": "includes_qed_score",
+      "description": "Report includes QED score",
+      "check": "Output contains QED score (Quantitative Estimate of Drug-likeness)"
+    },
+    {
+      "name": "includes_sa_score",
+      "description": "Report includes SA score",
+      "check": "Output contains SA (Synthetic Accessibility) score"
+    },
+    {
+      "name": "includes_logp",
+      "description": "Report includes LogP value",
+      "check": "Output contains LogP (lipophilicity) value"
+    },
+    {
+      "name": "includes_lipinski",
+      "description": "Report includes Lipinski violations",
+      "check": "Output mentions Lipinski's Rule of Five and indicates violations"
+    },
+    {
+      "name": "includes_overall_assessment",
+      "description": "Report provides overall assessment",
+      "check": "Output provides a conclusion or recommendation about drug potential"
+    },
+    {
+      "name": "uses_open_biomed_tools",
+      "description": "Uses OpenBioMed tools",
+      "check": "Analysis uses the open_biomed tools (TOOLS dictionary, molecule_name_request, etc.)"
+    },
+    {
+      "name": "structured_format",
+      "description": "Report is well-structured",
+      "check": "Output uses tables, sections, or structured format for clarity"
+    }
+  ]
+}

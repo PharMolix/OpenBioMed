@@ -92,8 +92,7 @@ def test_structure_text_based_molecule_optimization(unit_test: bool=True):
             text=Text.from_str("Increase the binding affinity to the pocket and improve the solubility."),
         )
         print(outputs[0][0])
-        from open_biomed.data.molecule import check_identical_molecules
-        print(check_identical_molecules(Molecule.from_smiles("Cc1nc(Nc2ncc(C(=O)Nc3c(C)cccc3C(=O)O)s2)cc(N2CCN(CCO)CC2)n1"), outputs[0][0]))
+        import pdb; pdb.set_trace()
         from open_biomed.tasks.aidd_tasks.structure_based_drug_design import calc_vina_molecule_metrics
         print("=== Original ligand metrics ===")
         print(calc_vina_molecule_metrics(ligand, protein))

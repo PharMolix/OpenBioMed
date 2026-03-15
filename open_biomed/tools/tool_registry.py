@@ -10,15 +10,15 @@ from open_biomed.scripts.inference import *
 class LazyDictForTool(dict):
     def available_tools(self):
         return [
-            "text_based_molecule_editing", "molecule_property_prediction", "structure_based_drug_design", 
-            "molecule_question_answering", "protein_question_answering", "mutation_explanation", 
-            "mutation_engineering", "apply_mutation_to_sequence", "pocket_molecule_docking", 
-            "protein_molecule_docking_score", "protein_folding", "protein_binding_site_prediction", 
-            "visualize_molecule", "visualize_protein", "visualize_complex", 
-            "visualize_protein_pocket", "molecule_name_request", "pubchemid_search", 
-            "molecule_structure_request", "protein_uniprot_request", "protein_pdb_request", 
-            "web_search", "import_pocket", "export_molecule", "export_protein", 
-            "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity", 
+            "text_based_molecule_editing", "molecule_property_prediction", "structure_based_drug_design",
+            "molecule_question_answering", "protein_question_answering", "mutation_explanation",
+            "mutation_engineering", "apply_mutation_to_sequence", "pocket_molecule_docking",
+            "protein_molecule_docking_score", "protein_folding", "protein_binding_site_prediction",
+            "visualize_molecule", "visualize_protein", "visualize_complex",
+            "visualize_protein_pocket", "molecule_name_request", "pubchemid_search",
+            "molecule_structure_request", "pubchem_bioactivity", "protein_uniprot_request", "protein_pdb_request",
+            "web_search", "import_pocket", "export_molecule", "export_protein",
+            "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity",
             "extract_molecules_from_pdb_file", "summarize_content"
         ]
     
@@ -60,6 +60,8 @@ class LazyDictForTool(dict):
             self[key] = PubChemRequester()
         elif key == "molecule_structure_request":
             self[key] = PubChemStructureRequester()
+        elif key == "pubchem_bioactivity":
+            self[key] = PubChemBioactivityRequester()
         elif key == "protein_uniprot_request":
             self[key] = UniProtRequester()
         elif key == "protein_pdb_request":
