@@ -259,6 +259,20 @@ def test_protein_folding(unit_test: bool=True):
         print(outputs[0][0], outputs[1][0])
     return pipeline
 
+def test_go_guided_protein_generation(unit_test: bool=True):
+    pipeline = InferencePipeline(
+        task="go_guided_protein_generation",
+        model="codefp",
+        model_ckpt="/AIRvePFS/dair/chenxr-data/repo/cfpgen/byprot-checkpoints/cfpgen_general_dataset_stage1_dplm2_goonly_alldata_dm_ca_me-scale-0.2_weight-headclloss-2.0_sn-pnwandb/checkpoints/step_109999.0-loss_0.89.ckpt",
+        device="cuda:1"
+    )
+    if unit_test:
+        outputs = pipeline.run(
+            go_terms=[['GO:0004930', 'GO:0004984'], ['GO:0030550', 'GO:0099106', 'GO:0090729']],
+        )
+        print(outputs[0][0], outputs[1][0])
+    return pipeline
+
 INFERENCE_UNIT_TESTS = {
     "text_based_molecule_editing": test_text_based_molecule_editing,
     "pocket_molecule_docking": test_pocket_molecule_docking,
@@ -272,6 +286,7 @@ INFERENCE_UNIT_TESTS = {
     "protein_generation": test_protein_generation,
     "molecule_property_prediction": test_molecule_property_prediction,
     "protein_folding": test_protein_folding,
+    "go_guided_protein_generation": test_go_guided_protein_generation,
 }
 
 if __name__ == "__main__":
