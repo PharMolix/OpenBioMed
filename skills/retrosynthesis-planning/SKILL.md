@@ -1,5 +1,5 @@
 ---
-name: retro-plan
+name: retrosynthesis-planning
 description: "Expert-in-the-loop retrosynthetic planning workflow. Use when you need to break down complex target molecules into available starting materials, design synthetic routes, or collaborate with a human chemist to refine a proposed synthesis pathway."
 ---
 
