@@ -1,11 +1,15 @@
 ---
 name: similar-protein-retrieval
-description: |
+description: >
   Retrieve proteins with similar structures, sequences, or from the same family.
-  Use this skill when users want to find similar proteins, search for homologs,
-  or discover proteins with related functions. Triggers on phrases like
-  "find similar proteins", "search for homologs", "proteins with similar structure",
-  "sequence similarity search", "find proteins in the same family".
+  Use this skill when:
+  (1) Finding similar proteins or homologs,
+  (2) Searching for proteins with similar 3D structure,
+  (3) Performing sequence similarity search,
+  (4) Discovering proteins in the same family.
+license: MIT
+category: data-retrieval
+tags: [protein-similarity, foldseek, homolog-search, structure-search]
 ---
 
 # Similar Protein Retrieval

@@ -1,6 +1,15 @@
 ---
 name: pubchem-query
-description: Query PubChem database for chemical structures, similar compounds, and bioactivity data. Use when user asks about drug information, compound properties, similar molecules, or bioactivity against targets. Trigger phrases: "look up", "find compound", "search PubChem", "similar to", "bioactivity of", "active against".
+description: >
+  Query PubChem database for chemical structures, similar compounds, and bioactivity data.
+  Use this skill when:
+  (1) Converting drug name to molecular structure (SMILES, SDF),
+  (2) Finding similar compounds for lead optimization,
+  (3) Querying bioactivity data against protein targets,
+  (4) Getting compounds active in specific assays.
+license: MIT
+category: data-retrieval
+tags: [pubchem, compound-search, bioactivity, similarity-search]
 ---
 
 # PubChem Query

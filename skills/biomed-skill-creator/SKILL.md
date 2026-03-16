@@ -1,12 +1,18 @@
 ---
 name: biomed-skill-creator
-description: |
+description: >
   Create new biomedical skills or improve existing ones for the OpenBioMed toolkit.
-  Use this skill when the user wants to create a skill, capture a workflow, automate
-  a biomedical task, or improve an existing skill. This skill guides through an
-  interactive process: define intent → design workflow → validate with real data →
-  iterate → evaluate. Triggers on phrases like "create a skill", "make a new skill",
-  "capture this workflow", "automate this task", "turn this into a skill".
+  Use this skill when:
+  (1) Creating a new skill from scratch,
+  (2) Capturing a workflow as a reusable skill,
+  (3) Automating a biomedical task,
+  (4) Improving an existing skill.
+
+  This skill guides through an interactive process: define intent → design workflow →
+  validate with real data → iterate → evaluate.
+license: MIT
+category: utilities
+tags: [skill-creation, workflow-automation, meta-skill]
 ---
 
 # BioMed Skill Creator
@@ -120,7 +126,15 @@ See `references/skill_template.md` for the full structure. Key sections:
 ```markdown
 ---
 name: skill-name
-description: [When to trigger + what it does + trigger phrases]
+description: >
+  [One-line summary of what the skill does].
+  Use this skill when:
+  (1) [Use case 1],
+  (2) [Use case 2],
+  (3) [Use case 3].
+license: [MIT|Apache-2.0|BSD-3-Clause|GPL-3.0|Proprietary]
+category: [category from list below]
+tags: [tag1, tag2, tag3]
 ---
 
 # Skill Title
@@ -130,6 +144,48 @@ description: [When to trigger + what it does + trigger phrases]
 ## Expected Outputs
 ## Error Handling
 ```
+
+### License Selection
+
+Before finalizing SKILL.md, ask the user to choose a license:
+
+> "What license should this skill use?
+> 1. **MIT** (Recommended) - Permissive, allows commercial use
+> 2. **Apache-2.0** - Permissive with patent grant
+> 3. **BSD-3-Clause** - Permissive, no endorsement clause
+> 4. **GPL-3.0** - Copyleft, derivatives must be open source
+> 5. **Proprietary** - Restricted use, not open source"
+
+Default to **MIT** if user doesn't specify.
+
+### Category Options
+
+| Category | Description |
+|----------|-------------|
+| `drug-discovery` | Drug design, molecule generation, lead optimization, virtual screening |
+| `admet-prediction` | Absorption, distribution, metabolism, excretion, toxicity prediction |
+| `protein-engineering` | Protein design, stability optimization, function prediction |
+| `protein-structure` | Structure prediction, folding, conformational analysis |
+| `mutation-analysis` | Mutation effect prediction, variant annotation, engineering |
+| `antibody-design` | Antibody/nanobody design, affinity maturation, epitope prediction |
+| `immunology` | Immunogenicity prediction, vaccine design, immune profiling |
+| `single-cell` | Single-cell analysis, cell annotation, spatial transcriptomics |
+| `genomics` | Gene analysis, variant calling, regulatory element prediction |
+| `transcriptomics` | RNA-seq analysis, expression profiling, differential expression |
+| `metabolomics` | Metabolite identification, pathway analysis, metabolic modeling |
+| `proteomics` | Protein identification, PTM analysis, protein-protein interactions |
+| `pathway-analysis` | Pathway enrichment, network analysis, systems biology |
+| `bioactivity-prediction` | Activity prediction, target identification, bioassay analysis |
+| `binding-affinity` | Docking, binding prediction, protein-ligand interactions |
+| `molecular-dynamics` | MD simulation, conformational sampling, free energy calculation |
+| `chemical-synthesis` | Retrosynthesis, reaction prediction, synthesis planning |
+| `safety-toxicology` | Toxicity prediction, safety assessment, off-target effects |
+| `clinical-translational` | Biomarker discovery, patient stratification, drug repurposing |
+| `bioimaging` | Medical imaging analysis, cell segmentation, image-based profiling |
+| `knowledge-retrieval` | Literature mining, database queries, knowledge graphs |
+| `multi-modal-reasoning` | Cross-modal tasks, text-based molecule/protein tasks, QA |
+| `visualization` | Molecular visualization, structure rendering, report generation |
+| `utilities` | Meta-skills, workflow automation, helper tools, evaluation |
 
 ### Writing Guidelines
 

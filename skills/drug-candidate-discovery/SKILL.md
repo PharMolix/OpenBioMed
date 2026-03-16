@@ -1,16 +1,19 @@
 ---
 name: drug-candidate-discovery
-description: |
-  Generate diverse druggable molecules for a given target or disease using OpenBioMed's AI-powered drug discovery tools.
+description: >
+  Generate diverse druggable molecules for a given target or disease using OpenBioMed's
+  AI-powered drug discovery tools. Use this skill when:
+  (1) Generating drug candidates, molecules, or compounds for a target/disease,
+  (2) Performing structure-based drug design or de novo drug design,
+  (3) Finding or creating molecules that bind to a specific protein target,
+  (4) Discovering potential drugs for a disease name,
+  (5) Designing molecules with specific properties (LogP, QED, docking scores).
 
-  TRIGGER this skill when the user asks to:
-  - Generate drug candidates, molecules, or compounds for a target/disease
-  - Perform structure-based drug design or de novo drug design
-  - Find or create molecules that bind to a specific protein target
-  - Discover potential drugs for a disease name (e.g., "find drug candidates for Alzheimer's")
-  - Design molecules with specific properties (LogP, QED, docking scores)
-
-  The skill handles target identification, structure retrieval, molecule generation, and in silico evaluation.
+  The skill handles target identification, structure retrieval, molecule generation,
+  and in silico evaluation.
+license: MIT
+category: drug-discovery
+tags: [drug-design, molecule-generation, structure-based-design]
 ---
 
 # Drug Candidate Discovery

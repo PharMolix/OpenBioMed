@@ -1,12 +1,16 @@
 ---
 name: drug-lead-analysis
-description: |
+description: >
   Analyze drug candidate molecules for drug-likeness, ADMET properties, and safety profiles.
-  Use this skill when the user wants to evaluate a molecule's potential as a drug candidate,
-  check drug-likeness scores, predict blood-brain barrier penetration, or assess side effects.
-  Triggers on phrases like "analyze this molecule", "drug-likeness", "is this a good drug candidate",
-  "ADMET properties", "QED score", "Lipinski violations", "evaluate drug potential", or when
-  provided with a molecule name/SMILES for assessment.
+  Use this skill when:
+  (1) Evaluating a molecule's potential as a drug candidate,
+  (2) Checking drug-likeness scores (QED, Lipinski),
+  (3) Predicting blood-brain barrier penetration,
+  (4) Assessing side effects and ADMET properties,
+  (5) Comparing multiple molecules for lead optimization.
+license: MIT
+category: drug-discovery
+tags: [admet, drug-likeness, lead-optimization, molecular-properties]
 ---
 
 # Drug Lead Analysis

@@ -1,0 +1,120 @@
+# BioMedSkills Overview
+
+This document provides a comprehensive overview of all available skills in the OpenBioMed toolkit.
+
+**Last Updated:** 2026-03-16
+
+---
+
+## Skills Summary
+
+| Total Skills | Verified | To Be Verified |
+|--------------|----------|----------------|
+| 25 | 11 | 14 |
+
+---
+
+## All Skills
+
+### Drug Discovery
+
+| Name | Category | Usage | Status |
+|------|----------|-------|--------|
+| drug-candidate-discovery | Drug Discovery | Generate diverse druggable molecules for a given target or disease using AI-powered drug discovery tools including target identification, structure retrieval, and molecule generation. | To Be Verified |
+| drug-lead-analysis | Drug Discovery | Analyze drug candidate molecules for drug-likeness (QED, Lipinski), ADMET properties, BBB penetration, and safety profiles. | Verified |
+| pocket-based-drug-design | Drug Discovery | Structure-based drug design using protein binding pockets to generate novel drug-like molecules with MolCraft model. | To Be Verified |
+| admet-prediction | ADMET Prediction | Predict comprehensive ADMET properties (BBB penetration, side effects, Caco-2 permeability, half-life, LD50 toxicity) for drug candidates using GraphMVP ensemble models. | Verified |
+
+### Protein Engineering & Structure
+
+| Name | Category | Usage | Status |
+|------|----------|-------|--------|
+| protein-mutation-analysis | Mutation Analysis | Analyze protein mutations by retrieving protein data, explaining mutation effects with MutaPLM, predicting structure with ESMFold, and visualizing results. | Verified |
+| mutation-design-aav | Mutation Analysis | Design high-fitness and high-diversity mutants of AAV VP1 capsid protein through multi-round iterative optimization. | To Be Verified |
+| mutation-design-gfp | Mutation Analysis | Design high-fluorescence and high-diversity GFP mutants through multi-round iterative optimization. | To Be Verified |
+| functional-protein-design | Protein Engineering | Generate functional protein sequences using CodeFP with Gene Ontology (GO) tag guidance for de novo protein design. | To Be Verified |
+| similar-protein-retrieval | Data Retrieval | Retrieve proteins with similar structures (FoldSeek) or sequences (MSA) from UniProt, PDB, and AFDB databases. | Verified |
+
+### Structure Prediction & Design Tools
+
+| Name | Category | Usage | Status |
+|------|----------|-------|--------|
+| structure-prediction-boltz-2 | Design Tools | Predict protein complex structures and protein-ligand complexes with binding affinity (IC50) using Boltz-2. | To Be Verified |
+| protein-structure-design-boltzgen | Design Tools | All-atom protein design using BoltzGen diffusion model for binder design, peptide design, and small molecule binding design. | To Be Verified |
+| antibody-structure-prediction-tfold | Design Tools | Predict antibody/nanobody structures and antigen-antibody complex structures using tFold model. | To Be Verified |
+| antibody-design-iggm | Design Tools | Epitope-conditioned de novo antibody design and affinity maturation using IgGM model. | To Be Verified |
+| binding-affinity-prediction-prodigy | Design Tools | Predict binding affinity scores for protein complexes using Prodigy from structure files. | To Be Verified |
+
+### Single-Cell & Transcriptomics
+
+| Name | Category | Usage | Status |
+|------|----------|-------|--------|
+| single-cell-foundation-model-scrna-seq-geneformer | Single-Cell | Geneformer workflows for tokenization, cell/gene classification, embedding extraction, and in silico perturbation analysis. | Verified |
+| single-cell-foundation-model-scrna-seq-langcell | Single-Cell | LangCell for zero-shot and few-shot cell type annotation with multimodal cell-text matching. | Verified |
+| single-cell-foundation-model-scrna-seq-scgpt | Single-Cell | scGPT for preprocessing, binning, cell embedding extraction, fine-tuning, and reference mapping workflows. | Verified |
+| spatial-transcriptomics-foundation-model-stofm | Single-Cell | SToFM for spatial transcriptomics preprocessing, cell embedding generation with SE(2) Transformer, and downstream analysis. | Verified |
+| single-cell-scrna-seq-analysis-scanpy | Bioinformatics | Complete scRNA-seq analysis workflow with Scanpy including QC, normalization, dimensionality reduction, clustering, and marker gene identification. | To Be Verified |
+| single-cell-multi-omics-analysis-scvi | Bioinformatics | Probabilistic deep learning for single-cell multi-omics analysis including scVI, scANVI, totalVI, and spatial deconvolution. | To Be Verified |
+| cellxgene-census-query | Bioinformatics | Query CZ CELLxGENE Census (61M+ cells) for single-cell expression data by cell type, tissue, or disease. | To Be Verified |
+| spatial-transcriptomics-spatial-data-io | Bioinformatics | Load spatial transcriptomics data from Visium, Xenium, MERFISH, Slide-seq, and other platforms using Squidpy and SpatialData. | To Be Verified |
+
+### Data Retrieval & Knowledge
+
+| Name | Category | Usage | Status |
+|------|----------|-------|--------|
+| pubchem-query | Data Retrieval | Query PubChem database for chemical structures, similar compounds (similarity search), and bioactivity data against protein targets. | Verified |
+| biomedical-literature-search | Knowledge Retrieval | Search PubMed and bioRxiv for biomedical research papers with titles, abstracts, and metadata. | Verified |
+
+### Utilities
+
+| Name | Category | Usage | Status |
+|------|----------|-------|--------|
+| biomed-skill-creator | Utilities | Create new biomedical skills or improve existing ones through an interactive validation process with intent capture, workflow design, and evaluation. | Verified |
+
+---
+
+## Notes
+
+- **Verified** skills contain `examples/`, `references/`, or `eval/` directories with supporting documentation and test cases.
+- **To Be Verified** skills lack these directories and require additional documentation and testing.
+- Skills are organized by primary category for easy navigation.
+- Each skill includes a SKILL.md file with detailed workflow documentation, usage examples, and error handling guidelines.
+
+---
+
+## Categories Summary
+
+| Category | Count | Skills |
+|----------|-------|--------|
+| Drug Discovery | 3 | drug-candidate-discovery, drug-lead-analysis, pocket-based-drug-design |
+| ADMET Prediction | 1 | admet-prediction |
+| Mutation Analysis | 3 | protein-mutation-analysis, mutation-design-aav, mutation-design-gfp |
+| Protein Engineering | 1 | functional-protein-design |
+| Design Tools | 5 | structure-prediction-boltz-2, protein-structure-design-boltzgen, antibody-structure-prediction-tfold, antibody-design-iggm, binding-affinity-prediction-prodigy |
+| Single-Cell | 4 | single-cell-foundation-model-scrna-seq-geneformer, single-cell-foundation-model-scrna-seq-langcell, single-cell-foundation-model-scrna-seq-scgpt, spatial-transcriptomics-foundation-model-stofm |
+| Bioinformatics | 4 | single-cell-scrna-seq-analysis-scanpy, single-cell-multi-omics-analysis-scvi, cellxgene-census-query, spatial-transcriptomics-spatial-data-io |
+| Data Retrieval | 2 | pubchem-query, similar-protein-retrieval |
+| Knowledge Retrieval | 1 | biomedical-literature-search |
+| Utilities | 1 | biomed-skill-creator |
+
+---
+
+## Quick Reference by Use Case
+
+| I want to... | Use this skill |
+|--------------|----------------|
+| Design new drug candidates | `drug-candidate-discovery`, `pocket-based-drug-design` |
+| Analyze molecule properties | `drug-lead-analysis`, `admet-prediction` |
+| Find similar compounds | `pubchem-query` |
+| Analyze protein mutations | `protein-mutation-analysis`, `mutation-design-aav`, `mutation-design-gfp` |
+| Predict protein structures | `structure-prediction-boltz-2`, `antibody-structure-prediction-tfold` |
+| Design antibodies | `antibody-design-iggm` |
+| Design proteins | `protein-structure-design-boltzgen`, `functional-protein-design` |
+| Find similar proteins | `similar-protein-retrieval` |
+| Predict binding affinity | `binding-affinity-prediction-prodigy` |
+| Analyze scRNA-seq data | `single-cell-scrna-seq-analysis-scanpy`, `single-cell-multi-omics-analysis-scvi` |
+| Use single-cell foundation models | `single-cell-foundation-model-scrna-seq-geneformer`, `single-cell-foundation-model-scrna-seq-scgpt`, `single-cell-foundation-model-scrna-seq-langcell` |
+| Analyze spatial transcriptomics | `spatial-transcriptomics-foundation-model-stofm`, `spatial-transcriptomics-spatial-data-io` |
+| Query single-cell databases | `cellxgene-census-query` |
+| Search biomedical literature | `biomedical-literature-search` |
+| Create a new skill | `biomed-skill-creator` |
