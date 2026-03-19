@@ -300,8 +300,8 @@ class PubChemBioactivityRequester(Requester):
 
 # TODO: add metadata parser for ChemBL
 class ChemBLRequester(DBRequester):
-    def __init__(self, 
-        db_url: str="https://www.ebi.ac.uk/chembl/api/data/molecule?molecule_chembl_id={accession}&format=json", 
+    def __init__(self,
+        db_url: str="https://www.ebi.ac.uk/chembl/api/data/molecule?molecule_chembl_id={accession}&format=json",
         timeout: int=30
     ) -> None:
         super().__init__(db_url, timeout)
@@ -313,6 +313,259 @@ class ChemBLRequester(DBRequester):
             f.write(obj["molecules"][0]["molecule_structures"]["molfile"])
         molecule = Molecule.from_sdf_file(sdf_file)
         return [molecule], [molecule.save_binary()]
+
+
+class ChEMBLQueryRequester(Requester):
+    """
+    Query ChEMBL database for bioactivity data.
+    Supports:
+    1. Target-based search: Find compounds active against a protein target
+    2. Molecule-based search: Get bioactivity profile for a compound
+    3. Disease/indication search: Find drugs for a therapeutic indication
+    """
+    def __init__(self, timeout: int=30) -> None:
+        super().__init__()
+        self.timeout = timeout
+        self.base_url = "https://www.ebi.ac.uk/chembl/api/data"
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'ChEMBL database query for bioactivity data.',
+            'Inputs:',
+            '  {"query_type": "target", "target_name": "EGFR"} - Find compounds for a target',
+            '  {"query_type": "target", "uniprot_id": "P00533"} - Query by UniProt ID',
+            '  {"query_type": "molecule", "molecule_name": "aspirin"} - Get bioactivity for compound',
+            '  {"query_type": "molecule", "smiles": "CC(=O)Oc1ccccc1C(=O)O"} - Query by SMILES',
+            '  {"query_type": "molecule", "chembl_id": "CHEMBL25"} - Query by ChEMBL ID',
+            '  {"query_type": "indication", "disease": "diabetes"} - Find drugs for disease',
+            'Optional filters: standard_type="IC50", standard_value_lte=1000, max_phase=4',
+            'Outputs: Dict with bioactivity information'
+        ])
+
+    def run(self, query_type: str = "target", **kwargs) -> Tuple[List[Dict], List[str]]:
+        return asyncio.run(self.run_async(query_type, **kwargs))
+
+    @RateLimiter(max_calls=5, period=1)
+    async def run_async(self, query_type: str = "target", **kwargs) -> Tuple[List[Dict], List[str]]:
+        results = []
+
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+            if query_type == "target":
+                results = await self._query_by_target(session, **kwargs)
+            elif query_type == "molecule":
+                results = await self._query_by_molecule(session, **kwargs)
+            elif query_type == "indication":
+                results = await self._query_by_indication(session, **kwargs)
+            else:
+                raise ValueError(f"Unknown query_type: {query_type}. Use 'target', 'molecule', or 'indication'")
+
+        return results, [json.dumps(results, indent=2)]
+
+    async def _query_by_target(self, session, **kwargs) -> List[Dict]:
+        """Find compounds with activity against a target."""
+        target_name = kwargs.get("target_name")
+        uniprot_id = kwargs.get("uniprot_id")
+        target_chembl_id = kwargs.get("target_chembl_id")
+        standard_type = kwargs.get("standard_type", "IC50")
+        standard_value_lte = kwargs.get("standard_value_lte", 10000)  # nM
+        limit = kwargs.get("limit", 50)
+
+        # Step 1: Get target ChEMBL ID if not provided
+        if not target_chembl_id:
+            if uniprot_id:
+                url = f"{self.base_url}/target/search.json?q={uniprot_id}"
+            elif target_name:
+                url = f"{self.base_url}/target/search.json?q={quote(target_name)}"
+            else:
+                raise ValueError("Provide target_name, uniprot_id, or target_chembl_id")
+
+            async with session.get(url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    data = json.loads(content.decode("utf-8"))
+                    targets = data.get("targets", [])
+                    if targets:
+                        # Prefer single protein targets with high confidence
+                        for t in targets:
+                            if t.get("target_type") == "SINGLE PROTEIN":
+                                target_chembl_id = t.get("target_chembl_id")
+                                break
+                        if not target_chembl_id and targets:
+                            target_chembl_id = targets[0].get("target_chembl_id")
+                    logging.info(f"Found target: {target_chembl_id}")
+                else:
+                    logging.warning(f"Target search failed, status {response.status}")
+                    return []
+
+        if not target_chembl_id:
+            logging.warning("No target found in ChEMBL")
+            return []
+
+        # Step 2: Get activities for target
+        url = f"{self.base_url}/activity.json?target_chembl_id={target_chembl_id}&standard_type={standard_type}&standard_value__lte={standard_value_lte}&limit={limit}"
+
+        async with session.get(url) as response:
+            if response.status == 200:
+                content = await response.read()
+                data = json.loads(content.decode("utf-8"))
+                activities = data.get("activities", [])
+
+                results = []
+                for act in activities:
+                    result = {
+                        "molecule_chembl_id": act.get("molecule_chembl_id"),
+                        "molecule_name": act.get("molecule_pref_name"),
+                        "target_chembl_id": act.get("target_chembl_id"),
+                        "target_name": act.get("target_pref_name"),
+                        "standard_type": act.get("standard_type"),
+                        "standard_value": act.get("standard_value"),
+                        "standard_units": act.get("standard_units"),
+                        "pchembl_value": act.get("pchembl_value"),
+                        "assay_chembl_id": act.get("assay_chembl_id"),
+                        "assay_description": act.get("assay_description", "")[:100] if act.get("assay_description") else None,
+                    }
+                    results.append(result)
+                logging.info(f"Found {len(results)} activities for target {target_chembl_id}")
+                return results
+            else:
+                logging.warning(f"Activity query failed, status {response.status}")
+                return []
+
+    async def _query_by_molecule(self, session, **kwargs) -> List[Dict]:
+        """Get bioactivity profile for a molecule."""
+        molecule_name = kwargs.get("molecule_name")
+        smiles = kwargs.get("smiles")
+        chembl_id = kwargs.get("chembl_id")
+        limit = kwargs.get("limit", 50)
+
+        # Step 1: Get molecule ChEMBL ID if not provided
+        if not chembl_id:
+            if molecule_name:
+                url = f"{self.base_url}/molecule/search.json?q={quote(molecule_name)}"
+            elif smiles:
+                # Use filter endpoint with exact SMILES match (more reliable than flexmatch)
+                url = f"{self.base_url}/molecule/filter.json?molecule_structures__canonical_smiles__exact={quote(smiles)}"
+            else:
+                raise ValueError("Provide molecule_name, smiles, or chembl_id")
+
+            async with session.get(url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    data = json.loads(content.decode("utf-8"))
+                    # Search endpoint returns {"molecules": [...]}, filter returns molecule directly
+                    if molecule_name:
+                        molecules = data.get("molecules", [])
+                        if molecules:
+                            chembl_id = molecules[0].get("molecule_chembl_id")
+                    else:
+                        # Filter endpoint returns molecule object directly
+                        chembl_id = data.get("molecule_chembl_id")
+                    logging.info(f"Found molecule: {chembl_id}")
+                else:
+                    logging.warning(f"Molecule search failed, status {response.status}")
+                    return []
+
+        if not chembl_id:
+            logging.warning("No molecule found in ChEMBL")
+            return []
+
+        # Step 2: Get activities for molecule
+        url = f"{self.base_url}/activity.json?molecule_chembl_id={chembl_id}&limit={limit}"
+
+        async with session.get(url) as response:
+            if response.status == 200:
+                content = await response.read()
+                data = json.loads(content.decode("utf-8"))
+                activities = data.get("activities", [])
+
+                results = []
+                for act in activities:
+                    result = {
+                        "molecule_chembl_id": act.get("molecule_chembl_id"),
+                        "molecule_name": act.get("molecule_pref_name"),
+                        "target_chembl_id": act.get("target_chembl_id"),
+                        "target_name": act.get("target_pref_name"),
+                        "target_organism": act.get("target_organism"),
+                        "standard_type": act.get("standard_type"),
+                        "standard_value": act.get("standard_value"),
+                        "standard_units": act.get("standard_units"),
+                        "pchembl_value": act.get("pchembl_value"),
+                        "assay_chembl_id": act.get("assay_chembl_id"),
+                        "assay_description": act.get("assay_description", "")[:100] if act.get("assay_description") else None,
+                    }
+                    results.append(result)
+                logging.info(f"Found {len(results)} activities for molecule {chembl_id}")
+                return results
+            else:
+                logging.warning(f"Activity query failed, status {response.status}")
+                return []
+
+    async def _query_by_indication(self, session, **kwargs) -> List[Dict]:
+        """Find drugs for a disease/therapeutic indication."""
+        disease = kwargs.get("disease")
+        max_phase = kwargs.get("max_phase")  # 0-4, where 4 = approved
+        limit = kwargs.get("limit", 50)
+
+        if not disease:
+            raise ValueError("Provide disease name for indication query")
+
+        # Search drug indications - use simpler search term for better matches
+        # ChEMBL uses MeSH headings, so try searching with key terms
+        search_term = disease.lower().replace("cancer", "neoplasm").replace("tumor", "neoplasm")
+        url = f"{self.base_url}/drug_indication.json?mesh_heading__icontains={quote(search_term)}&limit={limit}"
+
+        async with session.get(url) as response:
+            if response.status == 200:
+                content = await response.read()
+                data = json.loads(content.decode("utf-8"))
+                indications = data.get("drug_indications", [])
+
+                results = []
+                seen_molecules = set()
+
+                for ind in indications:
+                    mol_id = ind.get("molecule_chembl_id")
+                    if mol_id in seen_molecules:
+                        continue
+                    seen_molecules.add(mol_id)
+
+                    # Get phase as integer (API returns strings like "4.0")
+                    phase_val = ind.get("max_phase_for_ind", 0)
+                    try:
+                        phase_int = int(float(phase_val)) if phase_val is not None else 0
+                    except (ValueError, TypeError):
+                        phase_int = 0
+
+                    # Filter by phase if specified
+                    if max_phase is not None and phase_int < max_phase:
+                        continue
+
+                    result = {
+                        "molecule_chembl_id": mol_id,
+                        "molecule_name": ind.get("molecule_pref_name"),
+                        "indication": ind.get("mesh_heading"),
+                        "max_phase_for_ind": phase_int,
+                        "phase_description": self._get_phase_description(phase_int),
+                        "drug_indication_id": ind.get("drug_indication_id"),
+                    }
+                    results.append(result)
+
+                logging.info(f"Found {len(results)} drugs for indication '{disease}'")
+                return results
+            else:
+                logging.warning(f"Indication query failed, status {response.status}")
+                return []
+
+    def _get_phase_description(self, phase: int) -> str:
+        """Convert phase number to description."""
+        phase_map = {
+            0: "Preclinical",
+            1: "Phase I",
+            2: "Phase II",
+            3: "Phase III",
+            4: "Approved",
+        }
+        return phase_map.get(phase, "Unknown")
 
 # TODO: add metadata parser for UniProt
 class UniProtRequester(DBRequester):
@@ -627,6 +880,95 @@ class FoldSeekRequester(MMSeqsRequester):
             tar_gz.extractall(folder_name)
         ret = f"{folder_name}"
         return [ret], [ret]
+
+
+class STRINGRequester(Requester):
+    """
+    Query STRING database for protein-protein interactions.
+    Supports:
+    1. Query by UniProt ID or gene symbol -> get interaction partners with confidence scores
+    2. Configurable confidence threshold (150=low, 400=medium, 700=high, 900=highest)
+    """
+    def __init__(self, timeout: int=30) -> None:
+        super().__init__()
+        self.timeout = timeout
+        self.base_url = "https://string-db.org/api/json"
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'STRING database protein-protein interaction query.',
+            'Inputs:',
+            '  {"uniprot_id": "P04637"} - Query by UniProt ID',
+            '  {"uniprot_id": "P04637", "species": 9606, "required_score": 700, "limit": 50}',
+            'Outputs: Dict with interaction partners and confidence scores'
+        ])
+
+    def run(self, uniprot_id: str, species: int=9606, required_score: int=700, limit: int=50) -> Tuple[List[Dict], List[str]]:
+        return asyncio.run(self.run_async(uniprot_id, species, required_score, limit))
+
+    @RateLimiter(max_calls=5, period=1)
+    async def run_async(self, uniprot_id: str, species: int=9606, required_score: int=700, limit: int=50) -> Tuple[List[Dict], List[str]]:
+        """
+        Query STRING for interaction partners.
+
+        Args:
+            uniprot_id: UniProt accession (e.g., P04637 for TP53)
+            species: NCBI taxonomy ID (default: 9606 for human)
+            required_score: Minimum confidence score (150=low, 400=medium, 700=high, 900=highest)
+            limit: Maximum number of interactors to return
+
+        Returns:
+            List of interaction records with confidence scores
+        """
+        url = f"{self.base_url}/interaction_partners"
+
+        params = {
+            "identifiers": uniprot_id,
+            "species": species,
+            "required_score": required_score,
+            "limit": limit
+        }
+
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+                async with session.get(url, params=params) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        data = json.loads(content.decode("utf-8"))
+                        logging.info(f"Found {len(data)} interactions for {uniprot_id}")
+                    elif response.status == 404:
+                        logging.warning(f"No interactions found for {uniprot_id}")
+                        return [], []
+                    else:
+                        logging.warning(f"STRING query failed, status {response.status}")
+                        raise Exception(f"STRING API returned status {response.status}")
+        except Exception as e:
+            logging.error(f"STRING query failed. Exception: {e}")
+            raise e
+
+        # Parse and format results
+        results = []
+        for interaction in data:
+            result = {
+                "query_protein": interaction.get("preferredName_A"),
+                "partner_string_id": interaction.get("stringId_B"),
+                "partner_gene": interaction.get("preferredName_B"),
+                "combined_score": interaction.get("score"),
+                "scores": {
+                    "experimental": interaction.get("escore"),
+                    "text_mining": interaction.get("tscore"),
+                    "database": interaction.get("dscore"),
+                    "coexpression": interaction.get("ascore"),
+                    "phylogenetic": interaction.get("pscore"),
+                    "gene_fusion": interaction.get("fscore"),
+                    "neighborhood": interaction.get("nscore")
+                },
+                "ncbi_taxon_id": interaction.get("ncbiTaxonId")
+            }
+            results.append(result)
+
+        return results, [json.dumps(results, indent=2)]
+
 
 if __name__ == "__main__":
     logging.basicConfig(

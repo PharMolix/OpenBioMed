@@ -1,0 +1,585 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BCL-2 靶点药物研发进展报告</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --secondary: #64748b;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 3rem 2rem;
+            border-radius: 1rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(37, 99, 235, 0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .header .meta {
+            display: flex;
+            gap: 2rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .header .meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .card-header .icon {
+            font-size: 1.5rem;
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        /* Stats */
+        .stat-card {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 1.5rem;
+            border-radius: 1rem;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .stat-card .label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: var(--bg);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        /* Progress bars */
+        .progress-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-bar .fill.blue { background: var(--primary); }
+        .progress-bar .fill.green { background: var(--success); }
+        .progress-bar .fill.yellow { background: var(--warning); }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .tag.success { background: #dcfce7; color: #166534; }
+        .tag.warning { background: #fef3c7; color: #92400e; }
+        .tag.info { background: #dbeafe; color: #1e40af; }
+        .tag.danger { background: #fee2e2; color: #991b1b; }
+
+        /* Charts placeholder */
+        .chart {
+            height: 200px;
+            background: linear-gradient(180deg, var(--bg) 0%, transparent 100%);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: flex-end;
+            padding: 1rem;
+            gap: 0.5rem;
+        }
+
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 0.25rem 0.25rem 0 0;
+            transition: height 0.3s ease;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--border);
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 0.25rem;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--primary);
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-light);
+            font-size: 0.9rem;
+            border-top: 1px solid var(--border);
+            margin-top: 2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .card {
+                box-shadow: none;
+                border: 1px solid var(--border);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧬 BCL-2 靶点药物研发进展报告</h1>
+            <p class="subtitle">Target Drug Development Progress Report</p>
+            <div class="meta">
+                <span>📅 生成时间: 2026-03-17 09:45</span>
+                <span>📊 数据范围: 1_year</span>
+                <span>📋 分析维度: 7个</span>
+            </div>
+        </div>
+
+        <!-- Executive Summary Stats -->
+        <div class="grid grid-4" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 2rem;">
+            <div class="stat-card">
+                <div class="value">4</div>
+                <div class="label">已上市药物</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">31</div>
+                <div class="label">临床试验项目</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">286</div>
+                <div class="label">相关专利</div>
+            </div>
+            <div class="stat-card">
+                <div class="value">$6.2B</div>
+                <div class="label">市场规模(美元)</div>
+            </div>
+        </div>
+
+        <!-- Target Overview -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">🎯</span>
+                <h2>靶点概况</h2>
+            </div>
+            <div class="grid grid-2">
+                <div>
+                    <h3 style="margin-bottom: 1rem;">基本信息</h3>
+                    <table>
+                        <tr><td><strong>蛋白名称</strong></td><td>B-cell lymphoma 2 protein</td></tr>
+                        <tr><td><strong>基因名称</strong></td><td>BCL2</td></tr>
+                        <tr><td><strong>UniProt ID</strong></td><td>P10415</td></tr>
+                        <tr><td><strong>蛋白功能</strong></td><td>抗凋亡调节蛋白</td></tr>
+                    </table>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 1rem;">相关疾病</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                        
+            <span class="tag danger">慢性淋巴细胞白血病</span>
+            <span class="tag warning">急性髓系白血病</span>
+            <span class="tag info">滤泡性淋巴瘤</span>
+            <span class="tag info">多发性骨髓瘤</span>
+        
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Approved Drugs -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">💊</span>
+                <h2>已上市药物</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>药物名称</th>
+                        <th>研发公司</th>
+                        <th>适应症</th>
+                        <th>批准年份</th>
+                        <th>销售额(2024)</th>
+                        <th>状态</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    
+            <tr>
+                <td><strong>Venetoclax</strong></td>
+                <td>AbbVie/Genentech</td>
+                <td>CLL, AML</td>
+                <td>2016</td>
+                <td>$2.5B</td>
+                <td><span class="tag success">已上市</span></td>
+            </tr>
+        
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Clinical Pipeline -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">🏥</span>
+                <h2>临床管线概览</h2>
+            </div>
+            <div class="grid grid-2">
+                <div>
+                    <h3 style="margin-bottom: 1rem;">各阶段项目分布</h3>
+                    <div class="chart">
+                        
+            <div class="chart-bar" style="height: 25%;"></div>
+            <div class="chart-bar" style="height: 40%;"></div>
+            <div class="chart-bar" style="height: 60%;"></div>
+            <div class="chart-bar" style="height: 35%;"></div>
+            <div class="chart-bar" style="height: 20%;"></div>
+        
+                    </div>
+                    <div style="display: flex; justify-content: space-around; margin-top: 1rem; font-size: 0.85rem; color: var(--text-light);">
+                        <span>临床前</span>
+                        <span>I期</span>
+                        <span>II期</span>
+                        <span>III期</span>
+                        <span>已上市</span>
+                    </div>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 1rem;">在研药物详情</h3>
+                    
+            <table>
+                <tr><td>BGB-11417</td><td>Phase I/II</td><td><span class="tag success">招募中</span></td></tr>
+                <tr><td>APG-2575</td><td>Phase I/II</td><td><span class="tag info">进行中</span></td></tr>
+                <tr><td>Lisaftoclax</td><td>Phase I/II</td><td><span class="tag success">招募中</span></td></tr>
+            </table>
+        
+                </div>
+            </div>
+        </div>
+
+        <!-- Research Trends -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">📚</span>
+                <h2>研究热点</h2>
+            </div>
+            <div class="grid grid-2">
+                <div>
+                    <h3 style="margin-bottom: 1rem;">发表趋势</h3>
+                    <div class="chart">
+                        
+            <div class="chart-bar" style="height: 60%;"></div>
+            <div class="chart-bar" style="height: 70%;"></div>
+            <div class="chart-bar" style="height: 85%;"></div>
+            <div class="chart-bar" style="height: 95%;"></div>
+            <div class="chart-bar" style="height: 90%;"></div>
+        
+                    </div>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 1rem;">研究方向分布</h3>
+                    
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span>选择性抑制剂优化</span><span>35%</span>
+                </div>
+                <div class="progress-bar"><div class="fill blue" style="width: 35%;"></div></div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span>联合疗法探索</span><span>25%</span>
+                </div>
+                <div class="progress-bar"><div class="fill green" style="width: 25%;"></div></div>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span>耐药机制研究</span><span>18%</span>
+                </div>
+                <div class="progress-bar"><div class="fill yellow" style="width: 18%;"></div></div>
+            </div>
+        
+                </div>
+            </div>
+        </div>
+
+        <!-- Patent Landscape -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">📜</span>
+                <h2>专利布局</h2>
+            </div>
+            <div class="grid grid-2">
+                <div>
+                    <h3 style="margin-bottom: 1rem;">专利申请趋势</h3>
+                    <div class="chart">
+                        
+            <div class="chart-bar" style="height: 50%;"></div>
+            <div class="chart-bar" style="height: 60%;"></div>
+            <div class="chart-bar" style="height: 80%;"></div>
+            <div class="chart-bar" style="height: 95%;"></div>
+            <div class="chart-bar" style="height: 85%;"></div>
+        
+                    </div>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 1rem;">主要申请人</h3>
+                    <table>
+                        <thead>
+                            <tr><th>公司/机构</th><th>专利数</th><th>占比</th></tr>
+                        </thead>
+                        <tbody>
+                            
+            <tr><td>AbbVie</td><td>32</td><td>15%</td></tr>
+            <tr><td>Genentech</td><td>28</td><td>13%</td></tr>
+            <tr><td>BMS</td><td>25</td><td>12%</td></tr>
+        
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Analysis -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">📊</span>
+                <h2>市场分析</h2>
+            </div>
+            <div class="grid grid-2">
+                <div>
+                    <h3 style="margin-bottom: 1rem;">市场规模预测</h3>
+                    <table>
+                        <thead>
+                            <tr><th>年份</th><th>市场规模</th><th>增长率</th></tr>
+                        </thead>
+                        <tbody>
+                            
+            <tr><td>2024</td><td>$5.2B</td><td>+15%</td></tr>
+            <tr><td>2025</td><td>$6.1B</td><td>+17%</td></tr>
+            <tr><td>2026</td><td>$7.2B</td><td>+18%</td></tr>
+            <tr><td>2027</td><td>$8.5B</td><td>+18%</td></tr>
+        
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <h3 style="margin-bottom: 1rem;">竞争格局</h3>
+                    <div style="margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                            <span>AbbVie (Venetoclax)</span>
+                            <span>85%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="fill blue" style="width: 85%;"></div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-light); font-size: 0.9rem;">
+                        Venetoclax 占据绝对主导地位，新一代选择性抑制剂有望在耐药市场获得突破。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Investment Outlook -->
+        <div class="card">
+            <div class="card-header">
+                <span class="icon">🔮</span>
+                <h2>投资展望与建议</h2>
+            </div>
+            <div class="grid grid-3">
+                <div>
+                    <h3 style="color: var(--success); margin-bottom: 1rem;">✅ 机遇</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        
+            <li style="margin-bottom: 0.5rem;">• 靶点临床验证充分，市场空间明确</li>
+            <li style="margin-bottom: 0.5rem;">• 新一代选择性抑制剂有望解决耐药问题</li>
+            <li style="margin-bottom: 0.5rem;">• 联合疗法拓展带来新增长点</li>
+        
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="color: var(--warning); margin-bottom: 1rem;">⚠️ 风险</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        
+            <li style="margin-bottom: 0.5rem;">• 已上市药物专利即将到期</li>
+            <li style="margin-bottom: 0.5rem;">• 竞争格局日趋激烈</li>
+            <li style="margin-bottom: 0.5rem;">• 安全性问题需持续关注</li>
+        
+                    </ul>
+                </div>
+                <div>
+                    <h3 style="color: var(--primary); margin-bottom: 1rem;">💡 建议</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        
+            <li style="margin-bottom: 0.5rem;">• 关注差异化竞争优势的企业</li>
+            <li style="margin-bottom: 0.5rem;">• 重点跟踪临床III期项目进展</li>
+            <li style="margin-bottom: 0.5rem;">• 密切关注专利诉讼动态</li>
+        
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>📌 免责声明：本报告仅供参考，不构成投资建议。数据来源于公开渠道，如有遗漏或错误敬请谅解。</p>
+            <p style="margin-top: 0.5rem;">Generated by OpenBioMed Target Drug Report Generator | 2026-03-17 09:45</p>
+        </div>
+    </div>
+</body>
+</html>

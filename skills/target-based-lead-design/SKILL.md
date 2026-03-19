@@ -259,7 +259,13 @@ for idx in selected:
 
 ```python
 import subprocess
-from open_biomed.tools.visualization_tools import MoleculeVisualizer
+from rdkit import Chem
+from plip.structure.preparation import PDBComplex
+from plip.basic.remote import VisualizerData
+from plip.visualization.visualize import visualize_in_pymol
+from plip.basic import config
+from open_biomed.tools.visualization_tools import MoleculeVisualizer, ComplexVisualizer
+from open_biomed.data import Pocket, Protein
 
 # 2D molecule visualization
 mol_vis = MoleculeVisualizer()
@@ -269,22 +275,72 @@ for idx in selected:
         img_file=f'./outputs/mol_2d_{idx}.png')
 
 # 3D rotating complex visualization (requires PyMOL)
+# Full protein view with surface mode
+complex_vis = ComplexVisualizer()
 for idx in selected:
     mol = candidates[idx]
+
+    # Full protein-ligand complex view
+    gif_file = f'./outputs/complex_rotating_{idx}.gif'
+    complex_vis.run(
+        molecule=mol,
+        protein=protein,
+        molecule_config='ball_and_stick',
+        protein_config='surface',
+        img_file=gif_file,
+        rotate=True
+    )
+
+    # Zoomed view: pocket-ligand complex only
+    # Extract pocket around ligand and save as PDB
+    pocket = Pocket.from_protein_ref_ligand(protein, mol, radius=10.0)
+    pocket_pdb_file = pocket.save_pdb(f'./outputs/pocket_{idx}.pdb')
+
+    # Load pocket PDB as Protein for visualization
+    pocket_protein = Protein.from_pdb_file(pocket_pdb_file)
+
+    gif_file_zoomed = f'./outputs/complex_zoomed_{idx}.gif'
+    complex_vis.run(
+        molecule=mol,
+        protein=pocket_protein,
+        molecule_config='ball_and_stick',
+        protein_config='surface',
+        img_file=gif_file_zoomed,
+        rotate=True
+    )
+
+# PLIP interaction visualization (requires PyMOL and PLIP)
+# Shows protein-ligand interactions with annotated H-bonds, hydrophobic contacts, etc.
+for idx in selected:
+    mol = candidates[idx]
+
+    # Create combined complex PDB file for PLIP
     sdf_file = mol.save_sdf(f'./outputs/mol_{idx}.sdf')
     pdb_file = protein.save_pdb(f'./outputs/protein_{idx}.pdb')
-    gif_file = f'./outputs/complex_rotating_{idx}.gif'
 
-    subprocess.run([
-        'python3', 'open_biomed/tools/visualization_tools.py',
-        '--task', 'visualize_complex',
-        '--molecule', sdf_file,
-        '--molecule_config', 'ball_and_stick',
-        '--protein', pdb_file,
-        '--protein_config', 'surface',
-        '--rotate',
-        '--output_file', gif_file
-    ])
+    rdmol = Chem.MolFromMolFile(sdf_file)
+    rdprotein = Chem.MolFromPDBFile(pdb_file, sanitize=False)
+    rdcomplex = Chem.CombineMols(rdmol, rdprotein)
+    complex_pdb_file = f'./outputs/complex_plip_{idx}.pdb'
+    Chem.MolToPDBFile(rdcomplex, complex_pdb_file)
+
+    # Run PLIP analysis and visualization
+    complex_obj = PDBComplex()
+    complex_obj.load_pdb(complex_pdb_file)
+    for ligand in complex_obj.ligands:
+        complex_obj.characterize_complex(ligand)
+    complex_obj.analyze()
+
+    # Generate visualization for each ligand binding site
+    for key in complex_obj.interaction_sets:
+        data = VisualizerData(complex_obj, key)
+        config.PICS = True
+        config.OUTPATH = f'./outputs/plip_viz_{idx}'
+        config.BACKGROUND = "white"
+        config.CARTOON = True
+        config.STICKS = True
+        config.HIDE_WATER = True
+        visualize_in_pymol(data)
 ```
 
 ## Expected Outputs
@@ -296,7 +352,9 @@ for idx in selected:
 | ADMET profile | Table | BBB, side effects per candidate |
 | Interaction reports | List[str] | PLIP analysis for selected leads |
 | 2D structures | PNG files | Molecule diagrams |
-| 3D complexes | GIF files | Rotating protein-ligand visualizations |
+| 3D complexes | GIF files | Rotating protein-ligand visualizations (full view) |
+| 3D zoomed complexes | GIF files | Rotating pocket-ligand visualizations (zoomed view) |
+| PLIP interactions | PNG files | Protein-ligand interactions with annotated H-bonds, hydrophobic contacts, etc. |
 | Summary report | Markdown | Comprehensive lead analysis |
 
 ## Output Interpretation

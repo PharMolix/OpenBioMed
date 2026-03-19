@@ -132,7 +132,7 @@ description: >
   (1) [Use case 1],
   (2) [Use case 2],
   (3) [Use case 3].
-license: [MIT|Apache-2.0|BSD-3-Clause|GPL-3.0|Proprietary]
+license: [MIT|Apache-2.0|BSD-3-Clause|GPL-3.0]
 category: [category from list below]
 tags: [tag1, tag2, tag3]
 ---
@@ -153,8 +153,7 @@ Before finalizing SKILL.md, ask the user to choose a license:
 > 1. **MIT** (Recommended) - Permissive, allows commercial use
 > 2. **Apache-2.0** - Permissive with patent grant
 > 3. **BSD-3-Clause** - Permissive, no endorsement clause
-> 4. **GPL-3.0** - Copyleft, derivatives must be open source
-> 5. **Proprietary** - Restricted use, not open source"
+> 4. **GPL-3.0** - Copyleft, derivatives must be open source"
 
 Default to **MIT** if user doesn't specify.
 

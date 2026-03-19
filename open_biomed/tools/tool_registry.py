@@ -17,9 +17,10 @@ class LazyDictForTool(dict):
             "visualize_molecule", "visualize_protein", "visualize_complex",
             "visualize_protein_pocket", "molecule_name_request", "pubchemid_search",
             "molecule_structure_request", "pubchem_bioactivity", "protein_uniprot_request", "protein_pdb_request",
+            "ppi_string_request",
             "web_search", "import_pocket", "export_molecule", "export_protein",
             "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity",
-            "extract_molecules_from_pdb_file", "summarize_content"
+            "extract_molecules_from_pdb_file", "summarize_content", "chembl_query"
         ]
     
     def __missing__(self, key):
@@ -66,6 +67,8 @@ class LazyDictForTool(dict):
             self[key] = UniProtRequester()
         elif key == "protein_pdb_request":
             self[key] = PDBRequester()
+        elif key == "ppi_string_request":
+            self[key] = STRINGRequester()
         elif key == "extract_molecules_from_pdb_file":
             self[key] = ExtractAllMoleculesFromPDB()
         elif key == "web_search":
@@ -92,6 +95,8 @@ class LazyDictForTool(dict):
             self[key] = MoleculeSimilarityTool()
         elif key == "summarize_content":
             self[key] = LLMSummarize()
+        elif key == "chembl_query":
+            self[key] = ChEMBLQueryRequester()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]
