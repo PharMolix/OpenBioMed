@@ -10,7 +10,7 @@ This document provides a comprehensive overview of all available skills in the O
 
 | Total Skills |
 |--------------|
-| 41 |
+| 45 |
 
 ---
 
@@ -28,6 +28,9 @@ This document provides a comprehensive overview of all available skills in the O
 | iupac-name-identification-biot5 | Drug Discovery | Identify the IUPAC name of a molecule using BioT5 question answering model. | |
 | molecule-biochemical-significance-query-biot5 | Multi-Modal Reasoning | Query a molecule's biochemical significance and roles in biology and chemistry using BioT5 multi-modal model. | |
 | text-based-molecule-editing | Drug Discovery | Modify molecules based on natural language descriptions using MolT5/BioT5 models for property optimization (solubility, potency, drug-likeness). | |
+| target-drug-report | Drug Discovery | Generate comprehensive drug development progress reports for disease therapeutic targets with 7 analysis sections including clinical pipeline, research trends, and patent landscape. | |
+| disease-drug-intelligence | Drug Discovery | Analyze disease-to-innovative-drug relationships by querying multiple databases (ChEMBL, ClinicalTrials) to generate comprehensive Chinese reports on disease-target-drug pipelines. | |
+| drug-drug-interaction-analysis | Safety/Toxicology | Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database with severity levels and mechanism analysis. | |
 
 ### Protein Analysis & Engineering
 
@@ -45,6 +48,7 @@ This document provides a comprehensive overview of all available skills in the O
 | antibody-design-iggm | Antibody Design | Epitope-conditioned de novo antibody design and affinity maturation using IgGM model. | |
 | binding-affinity-prediction-prodigy | Binding Analysis | Predict binding affinity scores for protein complexes using Prodigy from structure files. | Recommended |
 | protein-ligand-binding-analysis-plip | Binding Analysis | Analyze protein-ligand interactions in PDB structures using PLIP for hydrogen bonds, hydrophobic contacts, π-stacking, salt bridges, and visualization. | |
+| protein-subcellular-localization-prediction-biot5 | Protein Engineering | Predict protein subcellular localization (nucleus, cytoplasm, membrane, etc.) from amino acid sequences using BioT5 model. | |
 
 ### Single-Cell Omics Data Analysis
 
@@ -97,8 +101,8 @@ This document provides a comprehensive overview of all available skills in the O
 
 | Category | Count | Skills |
 |----------|-------|--------|
-| Biochemistry & Drug Discovery | 8 | drug-candidate-discovery, drug-lead-analysis, target-based-lead-design, admet-prediction, retrosynthesis-planning, iupac-name-identification-biot5, molecule-biochemical-significance-query-biot5, text-based-molecule-editing |
-| Protein Analysis & Engineering | 12 | protein-mutation-analysis, mutation-design-aav, mutation-design-gfp, functional-protein-design, protein-function-prediction, similar-protein-retrieval, structure-prediction-boltz-2, protein-structure-design-boltzgen, antibody-structure-prediction-tfold, antibody-design-iggm, binding-affinity-prediction-prodigy, protein-ligand-binding-analysis-plip |
+| Biochemistry & Drug Discovery | 11 | drug-candidate-discovery, drug-lead-analysis, target-based-lead-design, admet-prediction, retrosynthesis-planning, iupac-name-identification-biot5, molecule-biochemical-significance-query-biot5, text-based-molecule-editing, target-drug-report, disease-drug-intelligence, drug-drug-interaction-analysis |
+| Protein Analysis & Engineering | 13 | protein-mutation-analysis, mutation-design-aav, mutation-design-gfp, functional-protein-design, protein-function-prediction, similar-protein-retrieval, structure-prediction-boltz-2, protein-structure-design-boltzgen, antibody-structure-prediction-tfold, antibody-design-iggm, binding-affinity-prediction-prodigy, protein-ligand-binding-analysis-plip, protein-subcellular-localization-prediction-biot5 |
 | Single-Cell Omics Data Analysis | 13 | single-cell-foundation-model-scrna-seq-geneformer, single-cell-foundation-model-scrna-seq-langcell, single-cell-foundation-model-scrna-seq-scgpt, spatial-transcriptomics-foundation-model-stofm, single-cell-scrna-seq-analysis-scanpy, single-cell-multi-omics-analysis-scvi, cellxgene-census-query, spatial-transcriptomics-spatial-data-io, single-cell-atac-seq-qc-processing, single-cell-atac-seq-peak-calling-annotaion, single-cell-proteomics-data-processing, single-cell-proteomics-peptide-identification, single-cell-multi-omics-data-harmonization |
 | Data Retrieval & Knowledge | 6 | pubchem-query, uniprot-query, chembl-query, kegg-query, ppi-string-query, biomedical-literature-search |
 | Utilities | 2 | biomed-skill-router, biomed-skill-creator |
@@ -110,7 +114,10 @@ This document provides a comprehensive overview of all available skills in the O
 | I want to... | Use this skill |
 |--------------|----------------|
 | Design new drug candidates | `drug-candidate-discovery`, `target-based-lead-design` |
+| Generate target drug reports | `target-drug-report` |
+| Research disease-drug intelligence | `disease-drug-intelligence` |
 | Analyze molecule properties | `drug-lead-analysis`, `admet-prediction` |
+| Check drug-drug interactions | `drug-drug-interaction-analysis` |
 | Find similar compounds | `pubchem-query` |
 | Query protein database | `uniprot-query` |
 | Analyze protein mutations | `protein-mutation-analysis`, `mutation-design-aav`, `mutation-design-gfp` |
@@ -119,6 +126,7 @@ This document provides a comprehensive overview of all available skills in the O
 | Design proteins | `protein-structure-design-boltzgen`, `functional-protein-design` |
 | Find similar proteins | `similar-protein-retrieval` |
 | Predict binding affinity | `binding-affinity-prediction-prodigy` |
+| Predict protein subcellular localization | `protein-subcellular-localization-prediction-biot5` |
 | Analyze scRNA-seq data | `single-cell-scrna-seq-analysis-scanpy`, `single-cell-multi-omics-analysis-scvi` |
 | Use single-cell foundation models | `single-cell-foundation-model-scrna-seq-geneformer`, `single-cell-foundation-model-scrna-seq-scgpt`, `single-cell-foundation-model-scrna-seq-langcell` |
 | Analyze spatial transcriptomics | `spatial-transcriptomics-foundation-model-stofm`, `spatial-transcriptomics-spatial-data-io` |

@@ -39,6 +39,8 @@ The agent analyzes the user's natural language request and determines the most s
 | target-based-lead-design | Generate diverse lead compounds for a specific protein target using structure-based drug design with MolCraft. |
 | admet-prediction | Predict comprehensive ADMET properties (BBB penetration, side effects, Caco-2 permeability, half-life, LD50 toxicity). |
 | retrosynthesis-planning | Expert-in-the-loop retrosynthetic planning workflow for breaking down target molecules into available starting materials. |
+| drug-drug-interaction-analysis | Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database. |
+| text-based-molecule-editing | Modify molecules based on natural language descriptions using MolT5/BioT5 models. |
 
 ### Protein Analysis & Engineering
 
@@ -54,6 +56,9 @@ The agent analyzes the user's natural language request and determines the most s
 | antibody-structure-prediction-tfold | Predict antibody/nanobody structures and antigen-antibody complex structures. |
 | antibody-design-iggm | Epitope-conditioned de novo antibody design and affinity maturation. |
 | binding-affinity-prediction-prodigy | Predict binding affinity scores for protein complexes using Prodigy. |
+| protein-ligand-binding-analysis-plip | Analyze protein-ligand interactions in PDB structures using PLIP (Protein-Ligand Interaction Profiler). |
+| protein-function-prediction | Predict protein function and properties from amino acid sequence using BioT5. |
+| protein-subcellular-localization-prediction-biot5 | Predict protein subcellular localization from amino acid sequence using BioT5. |
 
 ### Single-Cell Omics Data Analysis
 
@@ -79,6 +84,24 @@ The agent analyzes the user's natural language request and determines the most s
 |-------|-------------|
 | pubchem-query | Query PubChem database for chemical structures, similar compounds, and bioactivity data. |
 | biomedical-literature-search | Search PubMed and bioRxiv for biomedical research papers. |
+| uniprot-query | Query UniProt database for protein sequences, metadata, and search by criteria. |
+| kegg-query | Query KEGG database for drug information, pathway analysis, and disease-drug-target discovery. |
+| ppi-string-query | Query STRING database for protein-protein interactions with confidence scores. |
+| chembl-query | Query ChEMBL database for bioactivity data on drug-like compounds. |
+
+### Molecule Analysis
+
+| Skill | Description |
+|-------|-------------|
+| iupac-name-identification-biot5 | Identify the IUPAC name of a molecule using BioT5 question answering model. |
+| molecule-biochemical-significance-query-biot5 | Query a molecule's biochemical significance and roles in biology and chemistry. |
+
+### Disease & Target Analysis
+
+| Skill | Description |
+|-------|-------------|
+| disease-drug-intelligence | Comprehensive disease-to-innovative-drug analysis: targets, drugs, clinical progress, and mechanism trends. |
+| target-drug-report | Generate comprehensive drug development progress reports for disease therapeutic targets. |
 
 ### Utilities
 

@@ -19,14 +19,16 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 ## News 🎉
 
+- [2026/03/20] 🔥 We release **OpenBioMed Skills**, a comprehensive collection of 45 skills for biomedical research and drug discovery empowered by [Claude Code](https://github.com/anthropics/claude-code). 
+
 - [2026/02/02] 🔥 BioMedGPT-Mol (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-Mol)) has been released.
 
 > BioMedGPT-Mol is a multimodal molecular language model jointly released by PharMolix Inc. and the Institute of AI Industry Research (AIR), Tsinghua University. It is built for both molecular understanding and generation, supporting a wide range of tasks including chemical name conversion, molecular captioning, property prediction, reaction modeling, molecule editing, and property optimization. Trained with a well-structured multi-task curriculum, BioMedGPT-Mol shows strong performance across diverse molecule-centric discovery benchmarks.
 
-- [2025/05/26] 🔥 Our framework has been updated with several new features including new tools, datasets, and models. We implement **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)) and APIs to manipulate cells (See [the Example](./examples/cell_annotation.ipynb)). We also introduce a wider range of tools to calculate molecular properties (ADMET, QED, SA, LogP, Lipinski, Similarity, etc.). 
+- [2025/05/26] Our framework has been updated with several new features including new tools, datasets, and models. We implement **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)) and APIs to manipulate cells (See [the Example](./examples/cell_annotation.ipynb)). We also introduce a wider range of tools to calculate molecular properties (ADMET, QED, SA, LogP, Lipinski, Similarity, etc.). 
 
-- [2025/03/07] 🔥 We present **OpenBioMed Agent Platform** at this [website](http://openbiomed.pharmolix.com) to customize workflows and LLM agents (**AutoPilots**) in solving complicated scientific research tasks. **Tutorials** for using this platform are also [available](https://www.zybuluo.com/icycookies/note/2587490).
-- [2025/03/07] 🔥 Released **OpenBioMed v2**. We present new features including additional downstream biomedical tasks, more flexible data APIs, and advanced models. We also release a preview version of **PharmolixFM** (📃[Paper](https://arxiv.org/abs/2503.21788), 🤖[Model](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/), 📎[Citation](#to-cite-pharmolixfm)). BioMedGPT-R1 inference is currently supported, and fine-tuning will be available in this month!
+- [2025/03/07] We present **OpenBioMed Agent Platform** at this [website](http://openbiomed.pharmolix.com) to customize workflows and LLM agents (**AutoPilots**) in solving complicated scientific research tasks. **Tutorials** for using this platform are also [available](https://www.zybuluo.com/icycookies/note/2587490).
+- [2025/03/07] Released **OpenBioMed v2**. We present new features including additional downstream biomedical tasks, more flexible data APIs, and advanced models. We also release a preview version of **PharmolixFM** (📃[Paper](https://arxiv.org/abs/2503.21788), 🤖[Model](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/), 📎[Citation](#to-cite-pharmolixfm)). BioMedGPT-R1 inference is currently supported, and fine-tuning will be available in this month!
 
 > PharmolixFM is an all-atom molecular foundation model jointly released by PharMolix Inc. and Institute of AI Industry Research (AIR), Tsinghua University. It unifies molecules, antibodies, and proteins by jointly modeling them at atom-level with cutting-edge non-autoregressive multi-modal generative models. PharmolixFM is capable of solving mutiple downstream tasks such as docking, structure-based drug design, peptide design, and molecular conformation generation. PharmolixFM achieves competitive performance with AlphaFold3 (83.9 vs 90.2, RMSD < 2Å) on protein-molecule docking (given pocket).
 
@@ -37,7 +39,7 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 - [2024/05/16] Released implementation of **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 💻[Code](https://github.com/PharMolix/LangCell), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)).
 
-> LangCell is the first "language-cell" multimodal pre-trained model jointly developed by PharMolix and Institute for AI Industry Research (AIR). It effectively enhances the understanding of single-cell transcriptomics by learning knowledge-rich texts containing cell identity information, and addresses the task of cell identity understanding in data-scarce scenarios. LangCell is the only single-cell model capable of effective zero-shot cell identity understanding and has also achieved SOTA in few-shot and fine-tuning scenarios. LangCell will soon be integrated into OpenBioMed. 
+> LangCell is the first "language-cell" multimodal pre-trained model jointly developed by PharMolix and Institute for AI Industry Research (AIR). It effectively enhances the understanding of single-cell transcriptomics by learning knowledge-rich texts containing cell identity information, and addresses the task of cell identity understanding in data-scarce scenarios. LangCell is the only single-cell model capable of effective zero-shot cell identity understanding and has also achieved SOTA in few-shot and fine-tuning scenarios.
 
 
 - [2023/08/14] Released implementation of **BioMedGPT-10B** (📃[Paper](https://arxiv.org/abs/2308.09442v2), 🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F), 📎[Citation](#to-cite-biomedgpt)), **BioMedGPT-LM-7B** (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-LM-7B)) and **DrugFM** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg?pwd=7a6b#list/path=%2F)).
@@ -62,6 +64,7 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 - [Introduction](#introduction)
 - [Installation](#installation)
+- [Quick Start with Claude Code](#quick-start-with-claude-code)
 - [Tutorials](#tutorials)
 - [Previous version](#previous-version)
 - [Limitations](#limitations)
@@ -71,15 +74,16 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 ## Introduction
 
 
-This repository holds OpenBioMed, a Python deep learning toolkit for AI-empowered biomedicine. OpenBioMed provides **flexible APIs to handle multi-modal biomedical data**, including molecules, proteins, single cells, natural language, and knowledge graphs. OpenBioMed builds **20+ tools that covers a wide range of downstream applications**, ranging from traditional AI drug discovery tasks to newly-emerged multi-modal challenges. Moreover, OpenBioMed provides **an easy-to-use interface for building workflows** that connect multiple tools and developing LLM-driven agents for solving complicated biomedical research tasks.
+This repository holds OpenBioMed, a Python deep learning toolkit for AI-empowered biomedicine. The goal of OpenBioMed is to help researchers build and use **AI-powered workflows for solving complicated biomedical research tasks**. OpenBioMed builds **20+ tools that covers a wide range of downstream applications**, ranging from traditional AI drug discovery tasks to newly-emerged multi-modal challenges. Enpowered by Claude Code, OpenBioMed provides **45 skills** that provides end-to-end solutions for complicated biomedical research tasks, and facilates the building of your own skills with a seamless user-agent interactions.
 
 
 OpenBioMed provide researchers with access to:
 
 
-- **4 types of data modalities**:  OpenBioMed provide easy-to-use APIs for researchers to access and process different types of data including molecules, proteins, pockets, and texts. New data structures for DNAs, RNAs, single cells, and knowledge graphs will be available in future versions.
+- **4 types of data modalities**:  OpenBioMed provide easy-to-use APIs for researchers to access and process different types of data including molecules, proteins, pockets, and texts.
 - **20+ tools**, ranging from ML-based prediction models for AIDD tasks including molecule property prediction and protein folding, to visualization tools and web-search APIs. 
 - **20+ deep learning models**, comprising exclusive models such as [PharmolixFM](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/), [BioMedGPT-R1](https://huggingface.co/PharMolix/BioMedGPT-R1), [BioMedGPT](https://ieeexplore.ieee.org/document/10767279/) and [MutaPLM](https://arxiv.org/abs/2410.22949).
+- **45 skills** that provides end-to-end solutions for complicated biomedical research tasks, spanning drug discovery, protein analysis & engineering, single-cell omics data analysis, and data retrieval.
 
 
 Key features of OpenBioMed include:
@@ -87,7 +91,7 @@ Key features of OpenBioMed include:
 
 - **Unified Data Processing Pipeline**: easily load and transform the heterogeneous data from different biomedical entities and modalities into a unified format.
 - **Off-the-shelf Inference**: publicly available pre-trained models and inference demos, readily to be transferred to your own data or task. 
-- **Easy-to-use Interface for Building Workflows and LLM Agents**: flexibly build solutions for complicated research tasks with multi-tool collaborative workflows, and harvest LLMs for simulating trial-and-errors and gaining scientific insights.
+- **Easy-to-use Interface for Building and Using Compliated Workflows**: we provide an autopilot mode for executing complicated workflows with skills, and a [copilot mode](./skills/biomed-skill-creator/) for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits.
 
 
 Here is a list of currently available tools. This is a continuing effort and we are working on further growing the list.
@@ -176,9 +180,23 @@ sh ./scripts/docker_run.sh
 ```
 At the same time, we also provide a pre-built [docker image](https://hub.docker.com/repository/docker/youngking0727/openbiomed_server), which can be pulled and used directly.    
 
+## Quick Start with Claude Code
+
+OpenBioMed Skills requires [Claude Code](https://github.com/anthropics/claude-code) to be installed and running. 
+```bash
+mkdir .claude
+# Install to your workspace skills directory
+cp -r skills/* <your-workspace>/skills/
+claude
+```
+
+- Type /target-based-lead-design: Configure the target protein or disease (e.g. EGFR) and the desired properties of the lead molecule and receive a bunch of diverse lead candidates with a comprehensive report and visualization after a coffee break!
+- Type /functional-protein-design: Give your desired functions (e.g. bacteria degradation), let the model generate a functional protein sequence and its 3D structure.
+- Type /biomed-skill-creator: Condense and streamline your workflow into a skill by chatting with an LLM agent.
+
 ## Tutorials
 
-Checkout our [Jupytor notebooks](./examples/) for a quick start!
+Checkout our [Jupytor notebooks](./examples/) for more tutorials!
 
 | Name                                                         | Description                                                  |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |

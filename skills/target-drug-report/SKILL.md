@@ -106,7 +106,7 @@ When web search is unavailable, uses built-in knowledge for common targets:
 ## Files
 
 ```
-target_drug_report/
+target-drug-report/
 ├── SKILL.md                    # This file
 ├── examples/
 │   └── basic_example.py        # Report generator script
