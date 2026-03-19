@@ -262,8 +262,8 @@ def test_protein_folding(unit_test: bool=True):
 def test_go_guided_protein_generation(unit_test: bool=True):
     pipeline = InferencePipeline(
         task="go_guided_protein_generation",
-        model="codefp",
-        model_ckpt="/AIRvePFS/dair/chenxr-data/repo/cfpgen/byprot-checkpoints/cfpgen_general_dataset_stage1_dplm2_goonly_alldata_dm_ca_me-scale-0.2_weight-headclloss-2.0_sn-pnwandb/checkpoints/step_109999.0-loss_0.89.ckpt",
+        model="codefun",
+        model_ckpt="./checkpoints/codefun/model/checkpoints/model.ckpt",
         device="cuda:1"
     )
     if unit_test:

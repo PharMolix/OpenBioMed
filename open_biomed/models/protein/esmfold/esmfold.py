@@ -64,6 +64,8 @@ class EsmFold(ProteinFoldingModel):
             if hasattr(parent, '_add_task'):
                 parent._add_task(self)
 
+        self.temp_plddt_res = []
+
     def maybe_autocast(self, device="cuda:0", dtype=torch.bfloat16):
         # if on cpu, don't use autocast
         # if on gpu, use autocast with dtype if provided, otherwise use torch.float16
@@ -101,7 +103,8 @@ class EsmFold(ProteinFoldingModel):
         
         # TODO: convert output to open_biomed.data.Protein
         output = self.protein_model.output_to_pdb(output)
-        output = [Protein.from_pdb(item.split("\n")) for item in output]
-        
+        self.temp_plddt_res = output[1]
+        output = [Protein.from_pdb(item.split("\n")) for item in output[0]]
+
         return output
     
