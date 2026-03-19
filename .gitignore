@@ -150,6 +150,8 @@ cython_debug/
 !/checkpoints/.placeholder
 !/datasets/**/.placeholder
 !/third_party/.placeholder
+/outputs/*
+.claude/*
 
 #files
 *.csv

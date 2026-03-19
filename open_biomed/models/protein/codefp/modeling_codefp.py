@@ -16,6 +16,7 @@ from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAtte
 from transformers.models.esm.modeling_esm import *
 from tqdm import tqdm
 import os
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 import random
 
 from dataclasses import dataclass, field

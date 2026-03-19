@@ -1,6 +1,6 @@
 model:
   name: codefp
-  ckpt_path: /AIRvePFS/dair/chenxr-data/repo/cfpgen/byprot-checkpoints/cfpgen_general_dataset_stage1_dplm2_goonly_alldata_dm_ca_me-scale-0.2_weight-headclloss-2.0_sn-pnwandb/checkpoints/step_109999.0-loss_0.89.ckpt
+  ckpt_path: ./checkpoints/codefp/model/checkpoints/model.ckpt
   _target_: cfp_gen_dplm2
   num_diffusion_timesteps: 500
   gradient_ckpt: false
@@ -60,8 +60,8 @@ model:
   use_only_struct: false
 
   # dataset parameters
-  go_mapping_path: /AIRvePFS/dair/chenxr-data/repo/cfpgen/go_mapping.pkl
-  desc_mapping_path: /AIRvePFS/dair/chenxr-data/repo/cfpgen/go_id_mapping.pkl
-  static_mapping_path: /AIRvePFS/dair/chenxr-data/repo/cfpgen/desc2map_dict_statics.pkl
-  cls_emb_path: /AIRvePFS/dair/chenxr-data/repo/cfpgen/data-bin/uniprotKB/cfpgen_general_dataset/train_go_terms_cls_emb.pkl
+  go_mapping_path: ./checkpoints/codefp/mappings/go_mapping.pkl
+  desc_mapping_path: ./checkpoints/codefp/mappings/go_id_mapping.pkl
+  static_mapping_path: ./checkpoints/codefp/mappings/desc2map_dict_statics.pkl
+  cls_emb_path: ./checkpoints/codefp/mappings/train_go_terms_cls_emb.pkl
 

@@ -1,7 +1,9 @@
 ---
-name: codefp-functional-design
+name: functional-protein-design
 description: >
-  Generate functional protein sequences using CodeFP. Use this skill when:  (1) Generating de novo protein sequences guided by specific Gene Ontology (GO) tags.  (2) Exploring sequence space with prior functional constraints.
+  Generate functional protein sequences using CodeFP. Use this skill when:
+  (1) Generating de novo protein sequences guided by specific Gene Ontology (GO) tags.
+  (2) Exploring sequence space with prior functional constraints.
 license: MIT
 category: design-tools
 tags: [protein-design, go-guided, sequence-generation, structure-prediction]
@@ -12,14 +14,14 @@ tags: [protein-design, go-guided, sequence-generation, structure-prediction]
 ## Prerequisites
 
 | Requirement | Details |
-| --- | --- |
+|-------------|---------|
 | Environment | Configured via OpenBioMed: [`README.md`](https://github.com/PharMolix/OpenBioMed/blob/main/README.md) |
 | Hardware | CUDA-compatible GPU (≥ 10GB VRAM) required for both generation and folding |
-| Checkpoints | **1.** Download CodeFP weights & mappings from [Google Drive](https://drive.google.com/drive/folders/1Zqp2uD-f3cSzXeg35ixK-Epf-HpKBQYY?usp=sharing).<br>**2.** Download the ESMFold model for structural completion as instructed in the OpenBioMed [`README.md`](https://github.com/PharMolix/OpenBioMed/blob/main/README.md). |
+| Checkpoints | Download CodeFP weights & mappings from [Google Drive](https://drive.google.com/drive/folders/1Zqp2uD-f3cSzXeg35ixK-Epf-HpKBQYY?usp=sharing). |
 
 ## Data Preparation & Configuration
 
-**1. Directory Structure**
+**Directory Structure**
 Organize your downloaded checkpoints and mapping files as follows:
 
 ```text
@@ -33,27 +35,16 @@ checkpoints/
 │       ├── go_id_mapping.pkl
 │       ├── desc2map_dict_statics.pkl
 │       └── train_go_terms_cls_emb.pkl
-└── server/
-    └── esmfold.ckpt       
-```
 
-**2. Update Configuration**
-Edit the configuration file at `open_biomed/configs/model/codefp.yaml` to point to your local paths:
-
-```yaml
-model:
-  ckpt_path: ./checkpoints/codefp/model/checkpoints/model.ckpt
-  go_mapping_path: ./checkpoints/codefp/mappings/go_mapping.pkl
-  desc_mapping_path: ./checkpoints/codefp/mappings/go_id_mapping.pkl
-  static_mapping_path: ./checkpoints/codefp/mappings/desc2map_dict_statics.pkl
-  cls_emb_path: ./checkpoints/codefp/mappings/train_go_terms_cls_emb.pkl
 ```
 
 ## How to Run
 
-Before getting started, ensure your environment is fully configured, including the OpenBioMed installation and all required model downloads.
+Before getting started, ensure that your environment is fully configured. This includes a successful installation of OpenBioMed and the completion of all required model weight downloads.
 
-Next, search the [Gene Ontology website](https://geneontology.org/docs/ontology-documentation/) to select 1–3 Molecular Function (MF) GO IDs (e.g., `['GO:0004930', 'GO:0004984']`) that best match your functional target.
+Next, search the [Gene Ontology website](https://geneontology.org/docs/ontology-documentation/) to identify 1–3 Molecular Function (MF) GO terms (e.g., ['GO:0004930', 'GO:0004984']) that best align with your functional target.
+
+Note: Please ensure that the selected GO terms are included in go_mapping.pkl, a dictionary whose keys enumerate all supported GO terms (e.g., “GO:0004930”, “GO:0004984”), to ensure compatibility with the model.
 
 ### Python API
 
@@ -79,7 +70,7 @@ seq_only = designed_seqs[0][0]
 folder = InferencePipeline(
     task="protein_folding",
     model="esmfold",
-    model_ckpt="./checkpoints/server/esmfold.ckpt",
+    model_ckpt="./checkpoints/server/esmfold.ckpt", # ESMFold will be downloaded automatically.
     device="cuda:0"
 )
 
@@ -87,6 +78,7 @@ folded_protein = folder.run(protein=seq_only)
 
 # 3. Save output
 folded_protein[0][0].save_pdb("designed.pdb")
+
 ```
 
 ## Expected Deliverables
@@ -99,9 +91,11 @@ Every successful run must yield a report containing:
 
 **Sample Deliverable Report:**
 
-- **Used GO Terms:** `['GO:0004930', 'GO:0004984']`
-- **Descriptions:** * `GO:0004930` — G protein-coupled receptor activity
-- `GO:0004984` — Olfactory receptor activity
+* **Used GO Terms:** `['GO:0004930', 'GO:0004984']`
+* **Descriptions:** * `GO:0004930` — G protein-coupled receptor activity
+* `GO:0004984` — Olfactory receptor activity
+
+
 
 ## Troubleshooting
 
