@@ -91,9 +91,8 @@ OpenBioMed provide researchers with access to:
 
 Here is a list of currently available skills. This is a continuing effort and we are working on further growing the skillset.
 
-#### Biochemistry & Drug Discovery
 <details>
-<summary>Click here to expand the skills list</summary>
+<summary>💊 **Biochemistry & Drug Discovery**: drug discovery, ADMET, retrosynthesis planning, molecule editing, disease drug intelligence, drug-drug interaction analysis. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -110,9 +109,8 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `drug-drug-interaction-analysis` | Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database with severity levels and mechanism analysis. | MVP |
 </details>
 
-#### Protein Analysis & Engineering
 <details>
-<summary>Click here to expand the skills list</summary>
+<summary>🧬 **Protein Analysis & Engineering**: mutation analysis, protein engineering, structure prediction/design, binding & interactions, subcellular localization. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -131,7 +129,9 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `protein-subcellular-localization-prediction-biot5` | Predict protein subcellular localization (nucleus, cytoplasm, membrane, etc.) from amino acid sequences using BioT5 model. | MVP |
 </details>
 
-#### Single-Cell Omics Data Analysis
+<details>
+<summary>🔬 **Single-Cell Omics Data Analysis**: scRNA-seq, scATAC-seq, single-cell multi-omics, spatial transcriptomics, bioinformatics pipelines. </summary>
+
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -152,7 +152,9 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `single-cell-multi-omics-data-harmonization` | Prepare multi-omics datasets (RNA-seq, proteomics, methylation) for joint integration with per-assay normalization, batch correction, feature ID alignment, and missing value handling. | MVP |
 </details>
 
-#### Data Retrieval & Knowledge
+<details>
+<summary>🔍 **Data Retrieval & Knowledge**: PubChem, UniProt, ChEMBL, KEGG, STRING, biomedical literature. </summary>
+
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -166,7 +168,9 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `biomedical-literature-search` | Search PubMed and bioRxiv for biomedical research papers with titles, abstracts, and metadata. | MVP |
 </details>
 
-#### Utilities
+<details>
+<summary>🔧 **Utilities**: skill routing, skill creation. </summary>
+
 <details>
 <summary>Click here to expand the skills list</summary>
 
