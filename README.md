@@ -173,7 +173,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 
 If you are interested in the tools that OpenBioMed skills are built on, please check out the following list.
 <details>
-<summary>🔧<b>OpenBioMed Tools</b></summary>
+<summary>🔧 <b>OpenBioMed Tools</b></summary>
 
 |              Tool              |                       Supported Model                        |                         Description                          |
 | :----------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
