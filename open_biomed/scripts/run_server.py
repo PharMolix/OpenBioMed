@@ -11,9 +11,9 @@ from typing import Optional, List, Dict, Callable, Any, Literal
 
 # import function
 from open_biomed.data import Molecule, Text, Protein, Pocket
-from open_biomed.core.tool_misc import MutationToSequence
+from open_biomed.tools.tool_misc import MutationToSequence
 from open_biomed.core.oss_warpper import oss_warpper
-from open_biomed.core.tool_registry import TOOLS
+from open_biomed.tools.tool_registry import TOOLS
 
 
 app = FastAPI()
@@ -621,11 +621,11 @@ async def web_search(request: SearchRequest):
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
-
+"""
 @app.get("/healthz")
 def ping():
     return "Service available"
-
+"""
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8082)

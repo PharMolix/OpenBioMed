@@ -145,7 +145,7 @@ os.chdir(WORK_DIR)
 os.makedirs("./tmp", exist_ok=True)
 
 # Import OpenBioMed tools
-from open_biomed.core.tool_registry import TOOLS
+from open_biomed.tools.tool_registry import TOOLS
 from open_biomed.data import Protein, Molecule, Pocket
 
 # =============================================================================
@@ -679,7 +679,7 @@ WORK_DIR = "/home/luoyz/projects/OpenBioMed/OpenBioMed_dev"
 sys.path.insert(0, WORK_DIR)
 os.chdir(WORK_DIR)
 
-from open_biomed.core.tool_registry import TOOLS
+from open_biomed.tools.tool_registry import TOOLS
 from rdkit import Chem
 from rdkit.Chem import Draw, AllChem, Descriptors
 

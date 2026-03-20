@@ -8,7 +8,7 @@ import uvicorn
 import asyncio
 
 # import function
-from open_biomed.core.llm_request import ReportGeneratorSBDD, ReportGeneratorGeneral
+from open_biomed.core.llm_provider import ReportGeneratorSBDD, ReportGeneratorGeneral
 
 app = FastAPI()
 
