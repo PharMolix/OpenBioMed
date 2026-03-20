@@ -21,9 +21,14 @@
 
 - [2026/03/20] 🔥 发布 **OpenBioMed Skills**，一套由 [Claude Code](https://github.com/anthropics/claude-code) 驱动的、涵盖 45 项技能的生物医学研究与药物发现技能集。
 
+> OpenBioMed Skills 是由水木分子与清华大学智能产业研究院（AIR）联合发布的一套完整技能集合，为复杂生物医学研究任务提供端到端解决方案，覆盖药物发现、蛋白质分析与设计、单细胞组学数据分析等生物医药热门研究领域。同时，我们提供了 copilot 模式，允许用户通过与 LLM 智能体和 OpenBioMed 工具包交互来创建你自己的技能。欢迎 [快速试用](#claude-code-快速开始) 并 [了解我们的技能](./skills/skills_overview.md)。
+
 - [2026/02/02] 🔥 发布 **BioMedGPT-Mol**（🤗[HuggingFace 模型](https://huggingface.co/PharMolix/BioMedGPT-Mol)）。
 
 > BioMedGPT-Mol 由水木分子与清华大学智能产业研究院（AIR）联合发布的多模态分子语言模型，面向分子理解与生成，支持化学名称转换、分子描述、性质预测、反应建模、分子编辑与性质优化等任务。通过多任务课程训练，在多种分子中心发现基准上表现优异。
+
+<details>
+<summary>发布历史</summary>
 
 - [2025/05/26] 框架更新，包含新工具、数据集与模型。我们实现了 **LangCell**（📃[论文](https://arxiv.org/abs/2405.06708)，🤖[模型](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing)，📎[引用](#to-cite-langcell)）及细胞数据操作接口（见[示例](./examples/cell_annotation.ipynb)），并新增 ADMET、QED、SA、LogP、Lipinski、相似性等分子性质计算工具。
 
@@ -54,6 +59,8 @@
 
 - [2023/04/23] 发布 **BioMedGPT-1.6B**（🤖[模型](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)）与 **OpenBioMed**。
 
+</details>
+
 ## 目录
 
 - [介绍](#介绍)
@@ -81,7 +88,96 @@ OpenBioMed 的主要特点包括：
 - **开箱即用推理**：公开的预训练模型与推理示例，可方便迁移至自有数据或任务。
 - **易用的复杂工作流构建与使用**：提供基于技能执行复杂工作流的 autopilot 模式，以及通过 LLM 智能体与 OpenBioMed 工具包交互、用于创建自定义技能的 [copilot 模式](./skills/biomed-skill-creator/)。
 
-以下为当前支持的工具列表，我们将持续扩展。
+以下为当前支持的技能列表（持续更新）：
+
+- **生物化学与药物发现**: 药物发现, ADMET预测, 逆合成规划, 分子编辑, 疾病药物情报, 药物-药物相互作用分析
+<details>
+<summary>点击展开查看技能列表</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `drug-candidate-discovery` | 针对指定靶点或疾病生成多样的可药性候选分子，使用包含靶点识别、结构检索与分子生成的 AI 药物发现工具。 | MVP |
+| `drug-lead-analysis` | 对药物候选分子进行药物相似性评估（QED、Lipinski）、ADMET 性质、血脑屏障穿透性与安全性画像分析。 | MVP |
+| `target-based-lead-design` | 针对特定蛋白靶点生成多样先导化合物，基于 MolCraft 的基于结构药物设计流程（对接、ADMET 筛选、多样性选择与迭代优化）。 | MVP |
+| `admet-prediction` | 基于 GraphMVP 集成模型预测候选药物的全面 ADMET 性质（血脑屏障穿透性、副作用、Caco-2 穿透性、半衰期、LD50 毒性）。 | MVP |
+| `retrosynthesis-planning` | 面向专家辅助的逆合成规划工作流：将目标分子拆分为可获得的起始原料，并通过 AiZynthFinder 集成设计合成路线。 | MVP |
+| `iupac-name-identification-biot5` | 使用 BioT5 问答模型识别分子的 IUPAC 命名。 | MVP |
+| `molecule-biochemical-significance-query-biot5` | 基于 BioT5 多模态模型查询分子在生物与化学中的生物化学意义与作用。 | MVP |
+| `text-based-molecule-editing` | 使用 MolT5/BioT5 模型根据自然语言描述修改分子，并进行性质优化（溶解度、效力、药物相似性）。 | MVP |
+| `target-drug-report` | 针对疾病治疗靶点生成完整的药物研发进展报告（包含 7 个分析部分，如临床管线、研究趋势与专利格局）。 | MVP |
+| `disease-drug-intelligence` | 通过查询多个数据库（ChEMBL、ClinicalTrials）分析疾病与创新药之间的关系，并生成关于疾病-靶点-药物管线的综合中文报告。 | MVP |
+| `drug-drug-interaction-analysis` | 通过 KEGG DDI 数据库分析最多 5 种药物的潜在药物-药物相互作用（DDI），并给出严重性与作用机制分析。 | MVP |
+</details>
+
+- **蛋白质分析与工程**: 突变分析, 蛋白质结构预测，蛋白质从头设计, 结合与相互作用预测, 蛋白质亚细胞定位
+<details>
+<summary>点击展开查看技能列表</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `protein-mutation-analysis` | 通过检索蛋白数据，对突变效应使用 MutaPLM 进行解释、使用 ESMFold 预测结构并进行可视化展示。 | MVP |
+| `mutation-design-aav` | 通过多轮迭代优化设计高适配性与高多样性的 AAV VP1 胶囊蛋白突变体。 | MVP |
+| `mutation-design-gfp` | 通过多轮迭代优化设计高荧光与高多样性的 GFP 突变体。 | MVP |
+| `functional-protein-design` | 借助 CodeFP 并结合基因本体（GO）标签引导进行去 novo 功能蛋白序列设计。 | MVP |
+| `protein-function-prediction` | 使用 BioT5 从氨基酸序列预测蛋白功能与性质，并进行功能注释与通路分析。 | MVP |
+| `similar-protein-retrieval` | 从 UniProt、PDB 与 AFDB 中基于相似结构（FoldSeek）或相似序列（MSA）检索蛋白。 | MVP |
+| `structure-prediction-boltz-2` | 使用 Boltz-2 预测蛋白复合物结构以及蛋白-配体复合物，并给出结合亲和力（IC50）。 | MVP |
+| `protein-structure-design-boltzgen` | 借助 BoltzGen 扩散模型进行全原子蛋白设计，用于 binder 设计、肽设计与小分子结合设计。 | MVP |
+| `antibody-structure-prediction-tfold` | 使用 tFold 预测抗体/纳米抗体结构及抗原-抗体复合物结构。 | MVP |
+| `antibody-design-iggm` | 基于 IgGM 进行表位条件的去 novo 抗体设计与亲和力成熟。 | MVP |
+| `binding-affinity-prediction-prodigy` | 使用 Prodigy 根据结构文件预测蛋白复合物的结合亲和力评分。 | MVP |
+| `protein-ligand-binding-analysis-plip` | 使用 PLIP 在 PDB 结构中分析蛋白-配体相互作用（氢键、疏水接触、π-堆叠、盐桥）并进行可视化。 | MVP |
+| `protein-subcellular-localization-prediction-biot5` | 使用 BioT5 根据氨基酸序列预测蛋白亚细胞定位（细胞核、细胞质、膜等）。 | MVP |
+</details>
+
+- **单细胞组学数据分析**: scRNA组学分析, scATAC组学分析, 多组学分析， 空间转录组学分析, 生物信息学分析
+<details>
+<summary>点击展开查看技能列表</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `single-cell-foundation-model-scrna-seq-geneformer` | 使用 Geneformer 工作流完成 scRNA-seq 的分词、细胞/基因分类、提取与体外扰动分析。 | MVP |
+| `single-cell-foundation-model-scrna-seq-langcell` | 使用 LangCell 进行基于细胞-文本多模态匹配的零样本与少样本细胞类型标注。 | MVP |
+| `single-cell-foundation-model-scrna-seq-scgpt` | 使用 scGPT 完成 scRNA-seq 预处理、分箱、细胞特征提取、微调与参考映射流程。 | MVP |
+| `spatial-transcriptomics-foundation-model-stofm` | 使用 SToFM 完成空间转录组预处理，并利用 SE(2) Transformer 生成细胞特征以支持下游分析。 | MVP |
+| `single-cell-scrna-seq-analysis-scanpy` | 使用 Scanpy 构建完整 scRNA-seq 分析流程，包括 QC、归一化、降维、聚类与标记基因识别。 | MVP |
+| `single-cell-multi-omics-analysis-scvi` | 使用 scVI/scANVI/totalVI 等概率深度学习方法进行单细胞多组学分析，并支持空间解卷积。 | MVP |
+| `cellxgene-census-query` | 查询 CZ CELLxGENE Census（6100 万+ 细胞）按细胞类型、组织或疾病检索单细胞表达数据。 | MVP |
+| `spatial-transcriptomics-spatial-data-io` | 使用 Squidpy 和 SpatialData 从 Visium、Xenium、MERFISH、Slide-seq 等平台加载空间转录组数据。 | MVP |
+| `single-cell-atac-seq-qc-processing` | 完成 scATAC-seq 的质控处理：去接头、比对、去重与去除线粒体污染，并评估染色质可及性数据质量（包含 TSS 富集评分与片段长度分析）。 | MVP |
+| `single-cell-atac-seq-peak-calling-annotaion` | 使用 MACS2 调用可及染色质峰，对峰进行基因组特征与基因注释，并识别不同条件下的差异可及区域（DARs）。 | MVP |
+| `single-cell-proteomics-data-processing` | 使用 pyOpenMS 加载、检查、质心化并从原始 LC-MS/MS 数据中提取特征，并包含 TIC 绘图、特征检测与格式转换。 | MVP |
+| `single-cell-proteomics-peptide-identification` | 使用 MSFragger/Comet 在蛋白数据库中检索 MS2 谱，进行目标-反目标 FDR 过滤，并基于最大简并原则进行蛋白推断。 | MVP |
+| `single-cell-multi-omics-data-harmonization` | 准备多组学数据（RNA-seq、蛋白组学、甲基化）以进行联合整合：支持按实验归一化、批次校正、特征 ID 对齐与缺失值处理。 | MVP |
+</details>
+
+- **数据检索与知识**: PubChem, UniProt, ChEMBL, KEGG, STRING, 文献检索
+<details>
+<summary>点击展开查看技能列表</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `pubchem-query` | 在 PubChem 中检索化学结构、相似化合物（相似性检索）以及针对蛋白靶点的生物活性数据。 | MVP |
+| `uniprot-query` | 在 UniProt 中检索蛋白序列与完整元数据（功能、结构域、疾病），并可通过基因名、物种或关键词进行搜索。 | MVP |
+| `chembl-query` | 在 ChEMBL 中按靶点/分子/适应症检索药物活性数据。 | MVP |
+| `kegg-query` | 查询 KEGG 获取药物信息，支持通路分析以及疾病-药物-靶点发现。 | MVP |
+| `ppi-string-query` | 查询 STRING 的蛋白-蛋白相互作用（PPI），基于置信度分数进行网络分析。 | MVP |
+| `biomedical-literature-search` | 在 PubMed 与 bioRxiv 中检索生物医学论文，并返回标题、摘要与元数据。 | MVP |
+</details>
+
+- **工具**: 技能检索，技能创建
+<details>
+<summary>点击展开查看技能列表</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `biomed-skill-router` | 通过分析用户请求并匹配可用能力，为给定生物医学任务寻找最合适的技能。 | MVP |
+| `biomed-skill-creator` | 通过与 LLM 智能体的交互式验证流程创建或改进新的生物医学技能（意图捕获、工作流设计与评估）。 | MVP |
+</details>
+
+以下为当前支持的工具列表：
+<details>
+<summary>点击展开查看工具列表</summary>
 
 |              工具              |                           支持模型                           |                              描述                              |
 | :----------------------------: | :----------------------------------------------------------: | :------------------------------------------------------------: |
@@ -103,6 +199,8 @@ OpenBioMed 的主要特点包括：
 | 复合物可视化                    |                             N/A                              | 蛋白质-分子复合物可视化                                        |
 | 口袋可视化                      |                             N/A                              | 蛋白质内口袋可视化                                             |
 | 网络检索                        |                             N/A                              | 通过网络搜索获取信息                                           |
+
+</details>
 
 ## 环境搭建
 
@@ -165,7 +263,7 @@ sh ./scripts/docker_run.sh
 
 我们也提供预构建的 [Docker 镜像](https://hub.docker.com/repository/docker/youngking0727/openbiomed_server)，可直接拉取使用。
 
-## Claude Code 快速开始
+## 使用 Claude Code 快速开始
 
 OpenBioMed Skills 需要先安装并运行 [Claude Code](https://github.com/anthropics/claude-code)。
 
@@ -176,7 +274,7 @@ cp -r skills/* <your-workspace>/skills/
 claude
 ```
 
-- 输入 `/target-based-lead-design`：配置目标蛋白或疾病（如 EGFR）与先导分子所需性质，稍等片刻即可获得多样先导候选及报告与可视化。
+- 输入 `/target-based-lead-design`：配置目标蛋白或疾病（如 EGFR）与先导分子所需性质，稍等片刻即可获得多样先导候选及报告与可视化结果。
 - 输入 `/functional-protein-design`：给出期望功能（如 溶菌酶），由模型生成具有该功能的蛋白质序列及其三维结构。
 - 输入 `/biomed-skill-creator`：通过与 LLM 智能体对话，将你的工作流整理并固化为一项技能。
 
@@ -199,6 +297,11 @@ claude
 
 ```bash
 git checkout v1.0
+```
+
+我们在一个 nightly 分支上提供了 MCP 支持，可以尝试运行以下命令：
+```bash
+git checkout mcp
 ```
 
 ## 局限性

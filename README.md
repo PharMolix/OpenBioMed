@@ -21,9 +21,14 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 - [2026/03/20] 🔥 We release **OpenBioMed Skills**, a comprehensive collection of 45 skills for biomedical research and drug discovery empowered by [Claude Code](https://github.com/anthropics/claude-code). 
 
+> OpenBioMed Skills is a comprehensive skill set released jointly by PharMolix and Institute of AI Industry Research (AIR), Tsinghua University. It provides users with end-to-end solutions for complicated biomedical research tasks spanning drug discovery, protein analysis & engineering, and single-cell omics data analysis. It also presents a copilot mode for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits. Feel free to have [a quick try](#quick-start-with-claude-code) and [investigate our skills](./skills/skills_overview.md).
+
 - [2026/02/02] 🔥 BioMedGPT-Mol (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-Mol)) has been released.
 
 > BioMedGPT-Mol is a multimodal molecular language model jointly released by PharMolix Inc. and the Institute of AI Industry Research (AIR), Tsinghua University. It is built for both molecular understanding and generation, supporting a wide range of tasks including chemical name conversion, molecular captioning, property prediction, reaction modeling, molecule editing, and property optimization. Trained with a well-structured multi-task curriculum, BioMedGPT-Mol shows strong performance across diverse molecule-centric discovery benchmarks.
+
+<details>
+<summary>Release History</summary>
 
 - [2025/05/26] Our framework has been updated with several new features including new tools, datasets, and models. We implement **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)) and APIs to manipulate cells (See [the Example](./examples/cell_annotation.ipynb)). We also introduce a wider range of tools to calculate molecular properties (ADMET, QED, SA, LogP, Lipinski, Similarity, etc.). 
 
@@ -55,6 +60,7 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 > CellLM is the first large-scale cell representation learning model trained on both normal cells and cancer cells with divide-and-conquer contrastive learning. CellLM beats ScBERT on cell type annotation (71.8 vs 68.8), few-shot single-cell drug sensitivity prediction (88.9 vs 80.6) and single-omics cell line drug sensitivity prediction (93.4 vs 87.2).
 
+</details>
 
 - [2023/04/23] Released implementation of **BioMedGPT-1.6B** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)) and **OpenBioMed**.
 
@@ -74,7 +80,7 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 ## Introduction
 
 
-This repository holds OpenBioMed, a Python deep learning toolkit for AI-empowered biomedicine. The goal of OpenBioMed is to help researchers build and use **AI-powered workflows for solving complicated biomedical research tasks**. OpenBioMed builds **20+ tools that covers a wide range of downstream applications**, ranging from traditional AI drug discovery tasks to newly-emerged multi-modal challenges. Enpowered by Claude Code, OpenBioMed provides **45 skills** that provides end-to-end solutions for complicated biomedical research tasks, and facilates the building of your own skills with a seamless user-agent interactions.
+This repository holds OpenBioMed, a comprehensive skillset and deep learning toolkit for biomedical discovery. The goal of OpenBioMed is to help researchers build and use **AI-driven workflows for solving complicated biomedical research tasks**. Enpowered by Claude Code, OpenBioMed provides **45 skills** that provides end-to-end solutions for complicated biomedical research tasks. OpenBioMed builds **20+ tools that covers a wide range of downstream applications**, facilitating the construction of your own skills with a seamless user-agent interactions. 
 
 
 OpenBioMed provide researchers with access to:
@@ -94,8 +100,96 @@ Key features of OpenBioMed include:
 - **Easy-to-use Interface for Building and Using Compliated Workflows**: we provide an autopilot mode for executing complicated workflows with skills, and a [copilot mode](./skills/biomed-skill-creator/) for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits.
 
 
-Here is a list of currently available tools. This is a continuing effort and we are working on further growing the list.
+Here is a list of currently available skills. This is a continuing effort and we are working on further growing the skillset.
 
+- **Biochemistry & Drug Discovery**: drug discovery, ADMET, retrosynthesis planning, molecule editing, disease drug intelligence, drug-drug interaction analysis.
+<details>
+<summary>Click here to expand the skills list</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `drug-candidate-discovery` | Generate diverse druggable molecules for a given target or disease using AI-powered drug discovery tools including target identification, structure retrieval, and molecule generation. | MVP |
+| `drug-lead-analysis` | Analyze drug candidate molecules for drug-likeness (QED, Lipinski), ADMET properties, BBB penetration, and safety profiles. | MVP |
+| `target-based-lead-design` | Generate diverse lead compounds for a specific protein target using structure-based drug design with MolCraft. Includes docking, ADMET filtering, diversity selection, and iterative refinement. | Refined |
+| `admet-prediction` | Predict comprehensive ADMET properties (BBB penetration, side effects, Caco-2 permeability, half-life, LD50 toxicity) for drug candidates using GraphMVP ensemble models. | MVP |
+| `retrosynthesis-planning` | Expert-in-the-loop retrosynthetic planning workflow for breaking down target molecules into available starting materials and designing synthetic routes with AiZynthFinder integration. | Refined |
+| `iupac-name-identification-biot5` | Identify the IUPAC name of a molecule using BioT5 question answering model. | MVP |
+| `molecule-biochemical-significance-query-biot5` | Query a molecule's biochemical significance and roles in biology and chemistry using BioT5 multi-modal model. | MVP |
+| `text-based-molecule-editing` | Modify molecules based on natural language descriptions using MolT5/BioT5 models for property optimization (solubility, potency, drug-likeness). | MVP |
+| `target-drug-report` | Generate comprehensive drug development progress reports for disease therapeutic targets with 7 analysis sections including clinical pipeline, research trends, and patent landscape. | Refined |
+| `disease-drug-intelligence` | Analyze disease-to-innovative-drug relationships by querying multiple databases (ChEMBL, ClinicalTrials) to generate comprehensive Chinese reports on disease-target-drug pipelines. | MVP |
+| `drug-drug-interaction-analysis` | Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database with severity levels and mechanism analysis. | MVP |
+</details>
+
+- **Protein Analysis & Engineering**: mutation analysis, structure prediction, protein design, binding & interactions, subcellular localization.
+<details>
+<summary>Click here to expand the skills list</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `protein-mutation-analysis` | Analyze protein mutations by retrieving protein data, explaining mutation effects with MutaPLM, predicting structure with ESMFold, and visualizing results. | Refined |
+| `mutation-design-aav` | Design high-fitness and high-diversity mutants of AAV VP1 capsid protein through multi-round iterative optimization. | MVP |
+| `mutation-design-gfp` | Design high-fluorescence and high-diversity GFP mutants through multi-round iterative optimization. | MVP |
+| `functional-protein-design` | Generate functional protein sequences using CodeFP with Gene Ontology (GO) tag guidance for de novo protein design. | Refined |
+| `protein-function-prediction` | Predict protein function and properties from amino acid sequences using BioT5 for functional annotation and pathway analysis. | MVP |
+| `similar-protein-retrieval` | Retrieve proteins with similar structures (FoldSeek) or sequences (MSA) from UniProt, PDB, and AFDB databases. | MVP |
+| `structure-prediction-boltz-2` | Predict protein complex structures and protein-ligand complexes with binding affinity (IC50) using Boltz-2. | MVP |
+| `protein-structure-design-boltzgen` | All-atom protein design using BoltzGen diffusion model for binder design, peptide design, and small molecule binding design. | MVP |
+| `antibody-structure-prediction-tfold` | Predict antibody/nanobody structures and antigen-antibody complex structures using tFold model. | MVP |
+| `antibody-design-iggm` | Epitope-conditioned de novo antibody design and affinity maturation using IgGM model. | MVP |
+| `binding-affinity-prediction-prodigy` | Predict binding affinity scores for protein complexes using Prodigy from structure files. | MVP |
+| `protein-ligand-binding-analysis-plip` | Analyze protein-ligand interactions in PDB structures using PLIP for hydrogen bonds, hydrophobic contacts, π-stacking, salt bridges, and visualization. | MVP |
+| `protein-subcellular-localization-prediction-biot5` | Predict protein subcellular localization (nucleus, cytoplasm, membrane, etc.) from amino acid sequences using BioT5 model. | MVP |
+</details>
+
+- **Single-Cell Omics Data Analysis**: scRNA-seq, scATAC-seq, single-cell multi-omics, spatial transcriptomics, bioinformatics pipelines.
+<details>
+<summary>Click here to expand the skills list</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `single-cell-foundation-model-scrna-seq-geneformer` | Geneformer workflows for tokenization, cell/gene classification, embedding extraction, and in silico perturbation analysis. | MVP |
+| `single-cell-foundation-model-scrna-seq-langcell` | LangCell for zero-shot and few-shot cell type annotation with multimodal cell-text matching. | MVP |
+| `single-cell-foundation-model-scrna-seq-scgpt` | scGPT for preprocessing, binning, cell embedding extraction, fine-tuning, and reference mapping workflows. | MVP |
+| `spatial-transcriptomics-foundation-model-stofm` | SToFM for spatial transcriptomics preprocessing, cell embedding generation with SE(2) Transformer, and downstream analysis. | MVP |
+| `single-cell-scrna-seq-analysis-scanpy` | Complete scRNA-seq analysis workflow with Scanpy including QC, normalization, dimensionality reduction, clustering, and marker gene identification. | MVP |
+| `single-cell-multi-omics-analysis-scvi` | Probabilistic deep learning for single-cell multi-omics analysis including scVI, scANVI, totalVI, and spatial deconvolution. | MVP |
+| `cellxgene-census-query` | Query CZ CELLxGENE Census (61M+ cells) for single-cell expression data by cell type, tissue, or disease. | MVP |
+| `spatial-transcriptomics-spatial-data-io` | Load spatial transcriptomics data from Visium, Xenium, MERFISH, Slide-seq, and other platforms using Squidpy and SpatialData. | MVP |
+| `single-cell-atac-seq-qc-processing` | Trim adapters, align reads, remove duplicates and mitochondrial contamination, and evaluate chromatin accessibility data quality, including TSS enrichment scoring and fragment size analysis. | MVP |
+| `single-cell-atac-seq-peak-calling-annotaion` | Call accessible chromatin peaks with MACS2, annotate peaks to genomic features and genes, and identify differentially accessible regions (DARs) between conditions. | MVP |
+| `single-cell-proteomics-data-processing` | Load, inspect, centroid, and extract features from raw LC-MS/MS data files using pyOpenMS, including TIC plotting, feature detection, and format conversion. | MVP |
+| `single-cell-proteomics-peptide-identification` | Search MS2 spectra against protein databases with MSFragger/Comet, apply target-decoy FDR filtering, and perform protein inference with parsimony principle. | MVP |
+| `single-cell-multi-omics-data-harmonization` | Prepare multi-omics datasets (RNA-seq, proteomics, methylation) for joint integration with per-assay normalization, batch correction, feature ID alignment, and missing value handling. | MVP |
+</details>
+
+- **Data Retrieval & Knowledge**: PubChem, UniProt, ChEMBL, KEGG, STRING, biomedical literature.
+<details>
+<summary>Click here to expand the skills list</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `pubchem-query` | Query PubChem database for chemical structures, similar compounds (similarity search), and bioactivity data against protein targets. | MVP |
+| `uniprot-query` | Query UniProt database for protein sequences, comprehensive metadata (function, domains, diseases), and search by gene name, organism, or keywords. | MVP |
+| `chembl-query` | Query ChEMBL database for bioactivity data on drug-like compounds by target, molecule, or disease indication. | MVP |
+| `kegg-query` | Query KEGG database for drug information, pathway analysis, and disease-drug-target discovery. | MVP |
+| `ppi-string-query` | Query STRING database for protein-protein interactions with confidence scores for network analysis. | MVP |
+| `biomedical-literature-search` | Search PubMed and bioRxiv for biomedical research papers with titles, abstracts, and metadata. | MVP |
+</details>
+
+- **Utilities**: skill routing, skill creation.
+<details>
+<summary>Click here to expand the skills list</summary>
+
+| Skill | Description | Status |
+|---|---|---|
+| `biomed-skill-router` | Find the most suitable skill for a given biomedical task by analyzing user requests and matching against available skill capabilities. | MVP |
+| `biomed-skill-creator` | Create new biomedical skills or improve existing ones through an interactive validation process with intent capture, workflow design, and evaluation. | Refined |
+</details>
+
+If you are interested in the tools that OpenBioMed skills are built on, please check out the following list.
+<details>
+<summary>Click here to expand the tools list</summary>
 
 |              Tool              |                       Supported Model                        |                         Description                          |
 | :----------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |
@@ -117,6 +211,7 @@ Here is a list of currently available tools. This is a continuing effort and we 
 |     Complex Visualization      |                             N/A                              |             Visualize a protein-molecule complex             |
 |      Pocket Visualization      |                             N/A                              |             Visualize a pocket within a protein              |
 |          Web Request           |                             N/A                              |             Obtaining information by web search              |
+</details>
 
 ## Installation
 
@@ -207,12 +302,17 @@ Checkout our [Jupytor notebooks](./examples/) for more tutorials!
 | [Workflow Construction](./examples/workflow.ipynb)           | Examples of building and executing workflows and developing LLM agents for complicated scientific tasks. |
 | [Model Customization](./examples/model_customization.ipynb)  | Tutorials on how to customize your own model and data using OpenBioMed training pipelines. |
 
-## Previous Version
+## Other Versions
 
 If you hope to use the features of the previous version, please switch to the `v1.0` branch of this repository by running the following command:
 
 ```bash
 git checkout v1.0
+```
+
+We have also provided a nightly version of OpenBioMed with MCP support. You can try it by running the following command:
+```bash
+git checkout mcp
 ```
 
 ## Limitations
