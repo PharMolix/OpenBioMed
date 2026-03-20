@@ -163,7 +163,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 </details>
 
 <details>
-<summary>🔧 <b>Utilities</b>: skill routing, skill creation. </summary>
+<summary>💡 <b>Utilities</b>: skill routing, skill creation. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -173,7 +173,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 
 If you are interested in the tools that OpenBioMed skills are built on, please check out the following list.
 <details>
-<summary>Click here to expand the tools list</summary>
+<summary>🔧<b>OpenBioMed Tools</b></summary>
 
 |              Tool              |                       Supported Model                        |                         Description                          |
 | :----------------------------: | :----------------------------------------------------------: | :----------------------------------------------------------: |

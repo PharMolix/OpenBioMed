@@ -83,9 +83,8 @@ OpenBioMed 为研究者提供：
 
 以下为当前支持的技能列表（持续更新）：
 
-#### 生物化学与药物发现
 <details>
-<summary>点击展开查看技能列表</summary>
+<summary>💊 <b>生物化学与药物发现</b>: 先导化合物设计, ADMET预测, 逆合成规划, 分子编辑, 疾病药物情报, 药物-药物相互作用分析. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -102,9 +101,8 @@ OpenBioMed 为研究者提供：
 | `drug-drug-interaction-analysis` | 通过 KEGG DDI 数据库分析最多 5 种药物的潜在药物-药物相互作用（DDI），并给出严重性与作用机制分析。 | MVP |
 </details>
 
-#### 蛋白质分析与工程
 <details>
-<summary>点击展开查看技能列表</summary>
+<summary>🧬 <b>蛋白质分析与设计</b>: 突变分析, 蛋白质从头设计, 结构预测, 结合与相互作用预测, 蛋白质亚细胞定位. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -123,9 +121,8 @@ OpenBioMed 为研究者提供：
 | `protein-subcellular-localization-prediction-biot5` | 使用 BioT5 根据氨基酸序列预测蛋白亚细胞定位（细胞核、细胞质、膜等）。 | MVP |
 </details>
 
-#### 单细胞组学数据分析
 <details>
-<summary>点击展开查看技能列表</summary>
+<summary>🔬 <b>单细胞组学数据分析</b>: RNA组学分析, ATAC组学分析, 多组学数据分析, 空间转录组学分析, 生物信息学分析. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -144,9 +141,8 @@ OpenBioMed 为研究者提供：
 | `single-cell-multi-omics-data-harmonization` | 准备多组学数据（RNA-seq、蛋白组学、甲基化）以进行联合整合：支持按实验归一化、批次校正、特征 ID 对齐与缺失值处理。 | MVP |
 </details>
 
-#### 数据检索与知识
 <details>
-<summary>点击展开查看技能列表</summary>
+<summary>🔍 <b>数据与知识检索</b>: PubChem, UniProt, ChEMBL, KEGG, STRING, 文献检索. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -158,9 +154,8 @@ OpenBioMed 为研究者提供：
 | `biomedical-literature-search` | 在 PubMed 与 bioRxiv 中检索生物医学论文，并返回标题、摘要与元数据。 | MVP |
 </details>
 
-#### 工具
 <details>
-<summary>点击展开查看技能列表</summary>
+<summary>💡 <b>元技能</b>: 技能检索, 技能创建. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -170,7 +165,7 @@ OpenBioMed 为研究者提供：
 
 以下为当前支持的工具列表：
 <details>
-<summary>点击展开查看工具列表</summary>
+<summary>🔧<b>OpenBioMed 工具</b></summary>
 
 |              工具              |                           支持模型                           |                              描述                              |
 | :----------------------------: | :----------------------------------------------------------: | :------------------------------------------------------------: |
