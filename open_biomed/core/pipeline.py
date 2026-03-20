@@ -14,7 +14,7 @@ import pytz
 import torch
 from tqdm import tqdm
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data import Molecule, Protein, Pocket
 from open_biomed.tasks import TASK_REGISTRY
 from open_biomed.utils.callbacks import RecoverCallback, GradientClip
@@ -241,7 +241,7 @@ class InferencePipeline(Pipeline, Tool):
     def __init__(self, 
         task: str="",
         model: str="",
-        model_ckpt: str="",
+        model_ckpt: Optional[str]=None,
         additional_config: Optional[str]=None,
         logging_level: str="info",
         device: str="cpu",
@@ -267,10 +267,8 @@ class InferencePipeline(Pipeline, Tool):
             raise NotImplementedError(f"{self.cfg.task} has not been implemented! Current tasks are {[task for task in TASK_REGISTRY]}")
         self.task = TASK_REGISTRY[self.cfg.task]
 
-        # Prepare logging
-        self.setup_infra()
-        # Prepare model
-        self.setup_model()
+        self.infra_ready = False
+        self.model_ready = False
 
     def setup_infra(self) -> None:
         logging.basicConfig(
@@ -283,22 +281,29 @@ class InferencePipeline(Pipeline, Tool):
     def setup_model(self):
         self.model = self.task.get_model_wrapper(self.cfg.model, None)
         self.featurizer, self.collator = self.model.get_featurizer()
-        if os.path.exists(self.cfg.model_ckpt):
-            logging.info(f"Loading model from {self.cfg.model_ckpt}")
-            state_dict = torch.load(open(self.cfg.model_ckpt, "rb"), map_location="cpu")
-            if "state_dict" in state_dict:
-                state_dict = state_dict["state_dict"]
-            if hasattr(self.model.model, "load_ckpt"):
-                self.model.model.load_ckpt(state_dict)
-            else:
-                self.model.load_state_dict(state_dict, strict=False)
-        self.model.model.eval()
-        self.model.to(self.cfg.device)
+        if self.cfg.model_ckpt is not None:
+            if os.path.exists(self.cfg.model_ckpt):
+                logging.info(f"Loading model from {self.cfg.model_ckpt}")
+                state_dict = torch.load(open(self.cfg.model_ckpt, "rb"), map_location="cpu")
+                if "state_dict" in state_dict:
+                    state_dict = state_dict["state_dict"]
+                if hasattr(self.model.model, "load_ckpt"):
+                    self.model.model.load_ckpt(state_dict)
+                else:
+                    self.model.load_state_dict(state_dict, strict=False)
+            self.model.model.eval()
+            self.model.to(self.cfg.device)
 
     def print_usage(self):
         return self.task.print_usage()
 
     def run(self, batch_size: Union[int, str]="max", *args, **kwargs) -> Any:
+        if not self.infra_ready:
+            self.setup_infra()
+            self.infra_ready = True
+        if not self.model_ready:
+            self.setup_model()
+            self.model_ready = True
         logging.debug(f"Input: {kwargs}")
         for key in kwargs:
             if not isinstance(kwargs[key], list):

@@ -1,0 +1,26 @@
+{
+  "skill_name": "drug-candidate-discovery",
+  "evals": [
+    {
+      "id": 1,
+      "name": "alzheimers_bace1_discovery",
+      "prompt": "Generate 3 drug candidates for Alzheimer's disease targeting BACE1. Use device cuda:0. Property constraints: LogP between 0 and 3, QED > 0.5, Vina docking score < -7 kcal/mol.",
+      "expected_output": "Should produce 3 SDF files, protein-ligand complex visualizations, and a markdown report describing BACE1, Alzheimer's disease, the drug discovery process, and analysis of the generated candidates.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "btk_inhibitor_design",
+      "prompt": "Find potential drug molecules for BTK (Bruton's tyrosine kinase) for treating B-cell malignancies. Generate 2 candidates with good drug-likeness properties.",
+      "expected_output": "Should identify BTK as the target, find its PDB structure with ligand, generate 2 candidate molecules, and produce visualizations and a comprehensive report.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "kras_g12c_targeted_therapy",
+      "prompt": "Design drug candidates for KRAS G12C mutant protein for cancer therapy. I need 2 molecules with high binding affinity. Use device cuda:1 if available.",
+      "expected_output": "Should identify KRAS G12C as an important cancer target, find co-crystal structures (e.g., with sotorasib or adagrasib), generate candidates targeting the mutant-specific pocket, and produce detailed analysis.",
+      "files": []
+    }
+  ]
+}

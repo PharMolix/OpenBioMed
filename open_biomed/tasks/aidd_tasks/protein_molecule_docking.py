@@ -1,4 +1,4 @@
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Union, Dict, Any, Tuple
 
 import contextlib
 import copy
@@ -8,9 +8,10 @@ from tqdm import tqdm
 import sys
 import pytorch_lightning as pl
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data import Molecule, Protein, calc_mol_rmsd, mol_array_to_conformer
 from open_biomed.tasks.base_task import BaseTask, DefaultDataModule, DefaultModelWrapper
+from open_biomed.tools.base_tool import serial_exec
 from open_biomed.utils.collator import Collator
 from open_biomed.utils.config import Config, Struct
 from open_biomed.utils.featurizer import Featurizer
@@ -23,8 +24,8 @@ class PocketMoleculeDocking(BaseTask):
     def print_usage() -> str:
         return "\n".join([
             'Ligand-pocket docking.',
-            'Inputs: {"molecule": the ligand, "pocket": the pocket}',
-            "Outputs: A new molecule with 3D coordinates indicating the binding pose."
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "pocket": Pocket (an OpenBioMed Pocket object)}',
+            "Outputs: Molecule (an OpenBioMed Molecule object with 3D coordinates indicating the binding pose, which could be accessed by .conformer as a numpy array)"
         ])
 
     @staticmethod
@@ -214,9 +215,7 @@ class DockingPoseBustersEvaluationCallback(pl.Callback):
         self.on_validation_epoch_end(trainer, pl_module)
 
 class VinaDockTask(Tool):
-    def __init__(self, mode: str="dock") -> None:
-        self.mode = mode
-        
+    def __init__(self) -> None:
         python_path = sys.executable
         conda_env_root = os.path.dirname(os.path.dirname(python_path))
         self.pdb2pqr_path = os.path.join(conda_env_root, 'bin', 'pdb2pqr30')
@@ -224,11 +223,21 @@ class VinaDockTask(Tool):
     def print_usage(self) -> str:
         return "\n".join([
             'Ligand-receptor docking.',
-            'Inputs: {"molecule": the ligand, "protein": the receptor}',
-            "Outputs: A float number indicating the AutoDockVina score of the binding."
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "protein": Protein (an OpenBioMed Protein object), "mode": str (the mode of the docking, one of "dock", "score", "min")}',
+            "Outputs: Tuple[float, Molecule] (a float number indicating the AutoDockVina score of the binding, and a Molecule object with 3D coordinates indicating the binding pose, which could be accessed by .conformer as a numpy array)"
         ])
 
-    def run(self, molecule: Molecule, protein: Protein) -> Union[List[float], List[str]]:
+    @serial_exec
+    def run(self, molecule: Molecule, protein: Protein, mode: str="dock") -> Tuple[List[Tuple[float, Molecule]], List[str]]:
+        if molecule.conformer is None:
+            molecule._add_rdmol()
+            molecule._add_conformer(mode="3D")
+            pocket_center = protein.conformer.mean(0)
+            molecule.conformer = molecule.conformer + pocket_center
+            conf = molecule.rdmol.GetConformer()
+            for i in range(molecule.conformer.shape[0]):
+                conf.SetAtomPosition(i, molecule.conformer[i])
+        
         sdf_file = molecule.save_sdf()
         pdb_file = protein.save_pdb()
         pos = np.array(molecule.conformer)
@@ -264,19 +273,20 @@ class VinaDockTask(Tool):
             v.set_receptor(prot_pdbqt)
             v.set_ligand_from_file(lig_pdbqt)
             v.compute_vina_maps(center=center, box_size=size)
-            if self.mode == "min":
+            if mode == "min":
                 score = v.optimize()[0]
-                pose_file = f"./tmp/{molecule.name}_{protein.name}_pose"
-                with open(pose_file, "w") as f:
-                    v.write_pose(pose_file, overwrite=True)
-            elif self.mode == 'dock':
+                return (score, molecule), f"The Vina {mode} score of the molecule is {score:.3f}."
+            elif mode == 'dock':
+                print("Docking...")
                 v.dock(exhaustiveness=8, n_poses=1)
                 score = v.energies(n_poses=1)[0][0]
-                pose_file = "None"
-            elif self.mode == 'score':
+            elif mode == 'score':
                 score = v.score()[0]
-                pose_file = "None"
-            return [score], [pose_file]
+                return (score, molecule), f"The Vina {mode} score of the molecule is {score:.3f}."
+            pose_file = f"./tmp/{molecule.name}_docked.pdbqt"
+            with open(pose_file, "w") as f:
+                v.write_pose(pose_file, overwrite=True)
+            return (score, Molecule.from_pdbqt_file(pose_file)), f"The Vina {mode} score of the molecule is {score:.3f}."
         except ImportError:
-            print("AutoDockVina not installed. This function return 0.0.")
-            return [0.0], ["0.0"]
+            print("AutoDockVina not installed. This function return nan.")
+            return (np.nan, molecule), "AutoDockVina not installed, the score is nan."

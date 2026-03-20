@@ -25,8 +25,8 @@ class CellAnnotation(BaseTask):
     def print_usage():
         return "\n".join([
             'Cell annotation.',
-            'Inputs: {"cell": a cell. "class_texts": text descriptions of the cell types.}',
-            "Outputs: A classification result in Int."
+            'Inputs: {"cell": Cell (an OpenBioMed Cell object), "class_texts": List[Text] (text descriptions of the cell types)}',
+            "Outputs: int (the index of the predicted cell type)"
         ])
 
     @staticmethod

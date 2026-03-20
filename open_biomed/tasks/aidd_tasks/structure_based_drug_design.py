@@ -23,8 +23,8 @@ class StructureBasedDrugDesign(BaseTask):
     def print_usage() -> str:
         return "\n".join([
             'Structure-based drug design.',
-            'Inputs: {"pocket": a protein pocket}',
-            "Outputs: A small molecule that is likely to bind with the pocket."
+            'Inputs: {"pocket": Pocket (an OpenBioMed Pocket object)} REMARK: we recommend using Pocket.from_protein_ref_ligand(protein, ligand) to construct the pocket object so that the generation is more likely to succeed. The ligand should be a reference molecule that is already bound to the protein and should NOT be constructed from scratch.',
+            "Outputs: Molecule (an OpenBioMed Molecule object that is likely to bind with the pocket)"
         ])
 
     @staticmethod
@@ -46,7 +46,39 @@ class StructureBasedDrugDesign(BaseTask):
             output_str="-{val_vina_score_med:.4f}",
             mode="min",
         )
-    
+
+class StructureTextBasedMoleculeOptimization(BaseTask):
+    def __init__(self) -> None:
+        super().__init__()
+
+    @staticmethod
+    def print_usage() -> str:
+        return "\n".join([
+            'Structure-text-based molecule optimization.',
+            'Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "pocket": Pocket (an OpenBioMed Pocket object), "text": Text (an OpenBioMed Text object, describing the optimization goal)}',
+            "Outputs: Molecule (an OpenBioMed Molecule object that is likely to bind with the pocket and achieve the desired property)"
+        ])
+
+    @staticmethod
+    def get_datamodule(dataset_cfg: Config, featurizer: Featurizer, collator: Collator) -> pl.LightningDataModule:
+        return DefaultDataModule("structure_text_based_molecule_optimization", dataset_cfg, featurizer, collator)
+
+    @staticmethod
+    def get_model_wrapper(model_cfg: Config, train_cfg: Config) -> pl.LightningModule:
+        return DefaultModelWrapper("structure_text_based_molecule_optimization", model_cfg, train_cfg)
+
+    @staticmethod
+    def get_callbacks(callback_cfg: Optional[Config]=None) -> pl.Callback:
+        return StructureBasedDrugDesignEvaluationCallback()
+
+    @staticmethod
+    def get_monitor_cfg() -> Struct:
+        return Struct(
+            name="val/vina_score/median",
+            output_str="-{val_vina_score_med:.4f}",
+            mode="min",
+        )
+
 def calc_vina_molecule_metrics(molecule: Molecule, protein: Protein, calculate_vina_dock: bool=True) -> Dict[str, float]:
     metrics = {}
 
@@ -54,8 +86,8 @@ def calc_vina_molecule_metrics(molecule: Molecule, protein: Protein, calculate_v
     from open_biomed.tasks.aidd_tasks.protein_molecule_docking import VinaDockTask
     modes = ["min", "dock", "score"] if calculate_vina_dock else ["min", "score"]
     for mode in modes:
-        vina_task = VinaDockTask(mode=mode)
-        metrics[f"vina_{mode}"] = vina_task.run(molecule, protein)[0][0]
+        vina_task = VinaDockTask()
+        metrics[f"vina_{mode}"] = vina_task.run(molecule=molecule, protein=protein, mode=mode)[0][0][0]
 
     # Molecule property metrics
     molecule._add_smiles()

@@ -1,0 +1,7 @@
+protein:
+  show: [surface]
+  color: grey
+  transparency: 0.3
+  surface_quality: 1
+  surface_color: white
+  surface_mode: 0

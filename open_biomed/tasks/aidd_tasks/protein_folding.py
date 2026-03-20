@@ -15,8 +15,8 @@ class ProteinFolding(BaseTask):
     def print_usage():
         return "\n".join([
             'Protein folding prediction.',
-            'Inputs: {"protein": a protein sequence}',
-            "Outputs: A protein object with 3D structure available."
+            'Inputs: {"protein": Protein (an OpenBioMed Protein object)}',
+            "Outputs: Protein (an OpenBioMed Protein object with 3D structure available)"
         ])
 
     

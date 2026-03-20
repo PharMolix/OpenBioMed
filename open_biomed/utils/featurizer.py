@@ -30,6 +30,17 @@ class Featurizer(ABC):
     def get_attrs(self) -> List[str]:
         raise NotImplementedError
 
+class IdenticalFeaturizer(Featurizer):
+    def __init__(self, attrs: List[str]) -> None:
+        super().__init__()
+        self.attrs = attrs
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+        return args[0]
+
+    def get_attrs(self) -> List[str]:
+        return self.attrs
+
 class MoleculeFeaturizer(Featurizer):
     def __init__(self) -> None:
         super().__init__()

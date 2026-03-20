@@ -1,0 +1,67 @@
+model:
+  name: codefun
+  ckpt_path: ./checkpoints/codefun/model/checkpoints/model.ckpt
+  _target_: cfp_gen_dplm2
+  num_diffusion_timesteps: 500
+  gradient_ckpt: false
+  training_stage: continue_train_from_dplm2
+  single_modality_ratio: 0.25
+  folding_loss_ratio: 0.25
+  inverse_folding_loss_ratio: 0.25
+  joint_loss_ratio: 0.25
+  independent_loss_ratio: 0.0
+  rdm_couple: false
+  cond:
+    use_go: true
+    go_num: 375
+    go_drop: 0.5
+    use_ipr: false
+    ipr_num: 1154
+    ipr_drop: 0.5
+    use_ec: false
+    ec_num: 661
+    ec_drop: 0
+    use_seq_motif: false
+    motif_min_len: 10
+    motif_max_len: 30
+  lora:
+    lora: false
+    lora_rank: 16
+    lora_dropout: 0.1
+    lora_target_module: (esm.encoder.layer.[0-9]*.attention.(self.query|self.key|self.value|output.dense).*|esm.encoder.layer.[0-9]*.(
+    modules_to_save: lm_head,esm.embeddings
+  net:
+    arch_type: func_esm_dplm2
+    name: airkingbd/dplm_650m
+    dropout: 0.1
+    pretrain: true
+    pretrained_model_name_or_path: airkingbd/dplm2_650m
+  self_mixup:
+    enable: false
+    with_original_loss: false
+  tokenizer:
+    vocab_file: airkingbd/dplm2_650m
+    vocab_size: 8229
+  struct_tokenizer:
+    exp_path: airkingbd/struct_tokenizer
+  use_diff_modulation: true
+  use_func_cross_attn: true
+  use_diff_ce: false
+  use_motif_struct_emb: true
+  use_static_scale: true
+  use_attention_store: false
+  use_go_null_token: false
+  use_motif_head: true
+
+  # Generation parameters
+  seq_lens: [200, 400]
+  sampling_strategy: "annealing@2.0:1.0"
+  max_iter: 500
+  use_only_struct: false
+
+  # dataset parameters
+  go_mapping_path: ./checkpoints/codefun/mappings/go_mapping.pkl
+  desc_mapping_path: ./checkpoints/codefun/mappings/go_id_mapping.pkl
+  static_mapping_path: ./checkpoints/codefun/mappings/desc2map_dict_statics.pkl
+  cls_emb_path: ./checkpoints/codefun/mappings/train_go_terms_cls_emb.pkl
+

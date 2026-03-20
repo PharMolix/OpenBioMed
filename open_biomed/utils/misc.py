@@ -60,6 +60,22 @@ def collate_objects_as_list(inputs: List[Dict[str, Any]]) -> Dict[str, Any]:
             outputs[k].append(v)
     return outputs
 
+def wrap_outputs(outputs: Any) -> Dict[str, Any]:
+    if isinstance(outputs, list):
+        output_check = outputs[0]
+    else:
+        output_check = outputs
+    if isinstance(output_check, Molecule):
+        return {"molecule": outputs}
+    elif isinstance(output_check, Protein):
+        return {"protein": outputs}
+    elif isinstance(output_check, Pocket):
+        return {"pocket": outputs}
+    elif isinstance(output_check, Text):
+        return {"text": outputs}
+    else:
+        return {"output": outputs}
+
 def wrap_and_select_outputs(outputs: Any, context: Optional[TextIO]=None) -> Dict[str, Any]:
     if isinstance(outputs, tuple):
         outputs = outputs[0]

@@ -12,7 +12,7 @@ except ImportError:
     raise ImportError("Install scanpy to use cell APIs: pip install scanpy")
 import re
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data.text import Text
 
 class Cell:

@@ -5,9 +5,9 @@ import torch
 
 from open_biomed.data import Molecule, Text
 from open_biomed.models.base_model import BaseModel
-from open_biomed.utils.collator import EnsembleCollator
+from open_biomed.utils.collator import EnsembleCollator, ListCollator
 from open_biomed.utils.config import Config
-from open_biomed.utils.featurizer import EnsembleFeaturizer, Featurized
+from open_biomed.utils.featurizer import EnsembleFeaturizer, IdenticalFeaturizer, Featurized
 from open_biomed.utils.misc import sub_dict
 
 class TextBasedMoleculeEditingModel(BaseModel, ABC):

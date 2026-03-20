@@ -4,19 +4,20 @@ from typing_extensions import Self
 import copy
 from datetime import datetime
 import gzip
+import logging
 import math
 import numpy as np
 import os
 import pickle
 from rdkit import Chem, DataStructs, RDLogger
 RDLogger.DisableLog("rdApp.*")
-from rdkit.Chem import AllChem, MACCSkeys, rdMolDescriptors, Descriptors, Lipinski
+from rdkit.Chem import AllChem, BRICS,MACCSkeys, rdMolDescriptors, Descriptors, Lipinski
 from rdkit.Chem.AllChem import RWMol
 from rdkit.six import iteritems
 from rdkit.six.moves import cPickle
 import re
 
-from open_biomed.core.tool import Tool
+from open_biomed.tools.base_tool import Tool
 from open_biomed.data.text import Text
 from open_biomed.utils.exception import MoleculeConstructError
 
@@ -44,7 +45,7 @@ class Molecule:
         # initialize a molecule with a SMILES string
         molecule = cls()
         molecule.smiles = smiles
-        # molecule._add_rdmol(base="smiles")
+        molecule._add_rdmol(base="smiles")
         return molecule
 
     @classmethod
@@ -67,13 +68,22 @@ class Molecule:
         return molecule
 
     @classmethod
+    def from_pdb(cls, pdb_lines: List[str]) -> Self:
+        # initialize a molecule with pdb lines
+        path = os.path.join(os.path.abspath(os.path.dirname(__file__)).replace("/open_biomed/data", ""), "tmp", "molecule.pdb")
+        with open(path, "w") as f:
+            f.write(pdb_lines)
+        return cls.from_pdb_file(path)
+
+    @classmethod
     def from_pdb_file(cls, pdb_file: str) -> Self:
-        # initialize a molecule with a pdb file
-        pass
+        # initialize a molecule with a .pdb file
+        rdmol = Chem.MolFromPDBFile(pdb_file)
+        return cls.from_rdmol(rdmol)
 
     @classmethod
     def from_sdf_file(cls, sdf_file: str) -> Self:
-        # initialize a molecule with a sdf file
+        # initialize a molecule with a .sdf file
         loader = Chem.SDMolSupplier(sdf_file)
         for mol in loader:
             if mol is not None:
@@ -82,6 +92,49 @@ class Molecule:
                 molecule.conformer = np.array(conformer.GetPositions())
         molecule.name = sdf_file.split("/")[-1].strip(".sdf")
         return molecule
+
+    @classmethod
+    def from_pdbqt_file(cls, pdbqt_file: str) -> Self:
+        # initialize a molecule with a .pdbqt file
+        try:
+            # import pdb; pdb.set_trace()
+            from openbabel import pybel
+            from openbabel import openbabel as ob
+            sdf_file = pdbqt_file.replace(".pdbqt", ".sdf")
+            mol = next(pybel.readfile("pdbqt", pdbqt_file))
+
+            def fixup(mol):
+                mol.OBMol.BeginModify()
+                for atom in ob.OBMolAtomIter(mol.OBMol):
+                    if atom.GetAtomicNum() == 7 and atom.IsInRing() and atom.GetExplicitValence() > 3:
+                        # Find all rings in the molecule that contain this atom and set all atoms and bonds in those rings as aromatic
+                        # ob.OBRingFinder does not exist. Instead, ensure ring perception is performed with OBMol.FindRingAtomsAndBonds()
+                        mol.OBMol.FindRingAtomsAndBonds()
+                        for ring in ob.OBMol.GetSSSR(mol.OBMol):  # SSSR expects an OBMol argument
+                            if atom.GetIdx() in ring._path:
+                                logging.info(f"Setting ring containing atom {atom.GetIdx()} as aromatic: {ring._path}")
+                                for idx in ring._path:
+                                    ring_atom = mol.OBMol.GetAtom(idx)
+                                    ring_atom.SetAromatic(True)
+                                for i in range(len(ring._path)):
+                                    idx1 = ring._path[i]
+                                    idx2 = ring._path[(i + 1) % len(ring._path)]
+                                    bond = mol.OBMol.GetBond(mol.OBMol.GetAtom(idx1), mol.OBMol.GetAtom(idx2))
+                                    if bond:
+                                        bond.SetAromatic(True)
+                                        bond.SetBondOrder(1)
+                mol.OBMol.SetAromaticPerceived(True)
+                mol.OBMol.EndModify()
+                mol.OBMol.PerceiveBondOrders()
+                return mol
+
+            mol = fixup(mol)
+            mol.OBMol.DeleteHydrogens()
+            mol.write("sdf", sdf_file, overwrite=True)
+            return cls.from_sdf_file(sdf_file)
+        except ImportError:
+            logging.warning("OpenBabel not installed. This function return None.")
+            return None
 
     @classmethod
     def from_image_file(cls, image_file: str) -> Self:
@@ -140,6 +193,7 @@ class Molecule:
                 self.rdmol = Chem.AddHs(self.rdmol)
                 AllChem.EmbedMolecule(self.rdmol)
                 AllChem.MMFFOptimizeMolecule(self.rdmol)
+                self.rdmol = Chem.RemoveHs(self.rdmol)
             conformer = self.rdmol.GetConformer()
             self.conformer = np.array(conformer.GetPositions())
     
@@ -184,11 +238,14 @@ class Molecule:
         except Exception:
             return 0.0
 
-    def calc_sa(self) -> float:
+    def calc_sa(self, normalize: bool=False) -> float:
         self._add_rdmol()
         sa = calc_sa_score(self.rdmol)
-        sa_norm = round((10 - sa) / 9, 2)
-        return sa_norm
+        if normalize:
+            sa_norm = round((10 - sa) / 9, 2)
+            return sa_norm
+        else:
+            return sa
 
     def calc_logp(self) -> float:
         from rdkit.Chem.Crippen import MolLogP
@@ -205,8 +262,9 @@ class Molecule:
             rule_3 = Lipinski.NumHAcceptors(mol) <= 10
             logp = self.calc_logp()
             rule_4 = (logp >= -2) & (logp <= 5)
-            rule_5 = Chem.rdMolDescriptors.CalcNumRotatableBonds(mol) <= 10
-            return np.sum([int(a) for a in [rule_1, rule_2, rule_3, rule_4, rule_5]])
+            #rule_5 = Chem.rdMolDescriptors.CalcNumRotatableBonds(mol) <= 10
+            #return np.sum([int(a) for a in [rule_1, rule_2, rule_3, rule_4, rule_5]])
+            return np.sum([int(a) for a in [rule_1, rule_2, rule_3, rule_4]])
         except Exception:
             return 0.0
 
@@ -380,46 +438,192 @@ def calc_mol_rmsd(mol1: Molecule, mol2: Molecule) -> float:
     except Exception:
         return 1e4
 
+def calc_mol_reasonable(mol: Molecule) -> Tuple[bool, float]:
+    # Calculate if a molecule is reasonable (https://arxiv.org/abs/2503.01376)
+    groups = []
+    ring_info = mol.rdmol.GetRingInfo()
+    ring_atoms = ring_info.AtomRings()
+    group_indices = [-1] * len(ring_atoms)
+    for ring_idx in range(len(ring_atoms)):
+        if group_indices[ring_idx] == -1:
+            group_indices[ring_idx] = len(groups)
+            groups.append([ring_atoms[ring_idx]])
+        stack = [ring_idx]
+        while len(stack) > 0:
+            ring_idx = stack.pop()
+            for ring_idx2 in range(len(ring_atoms)):
+                if group_indices[ring_idx2] == -1 and set(ring_atoms[ring_idx]).intersection(set(ring_atoms[ring_idx2])):
+                    group_indices[ring_idx2] = group_indices[ring_idx]
+                    stack.append(ring_idx2)
+                    groups[group_indices[ring_idx]].append(ring_atoms[ring_idx2])
+    reasonable = True
+    unreasonable_atom_count = 0
+    for group in groups:
+        if len(group) > 1:
+            no_sp2 = True
+            for ring in group:
+                for atom_idx in ring:
+                    atom = mol.rdmol.GetAtomWithIdx(atom_idx)
+                    if atom.GetSymbol() == 'C' and atom.GetHybridization() == Chem.rdchem.HybridizationType.SP2:
+                        no_sp2 = False
+                        break
+                if not no_sp2:
+                    break
+            if no_sp2:
+                reasonable = False
+                unreasonable_atom_count += sum(len(ring) for ring in group)
+    if not reasonable:
+        return False, unreasonable_atom_count / mol.get_num_atoms()
+    
+    co_cn_ids = set()
+    for bond in mol.rdmol.GetBonds():
+        if bond.GetBondType() == Chem.rdchem.BondType.DOUBLE:
+            atom1, atom2 = bond.GetBeginAtom(), bond.GetEndAtom()
+            if atom1.GetSymbol() == 'C' and (atom2.GetSymbol() == 'N' or atom2.GetSymbol() == 'O'):
+                co_cn_ids.add(atom1.GetIdx())
+            elif atom2.GetSymbol() == 'C' and (atom1.GetSymbol() == 'N' or atom1.GetSymbol() == 'O'):
+                co_cn_ids.add(atom2.GetIdx())
+   
+    for group in groups:
+        verified_sp2 = set()
+        verified_non_sp2 = set()
+        remaining_rings = group
+        while len(remaining_rings) > 0:
+            new_sp2, new_non_sp2 = set(), set()
+            for ring in remaining_rings:
+                remaining_atoms = set(ring) - verified_sp2 - verified_non_sp2
+                is_sp2 = all(
+                    mol.rdmol.GetAtomWithIdx(atom_idx).GetHybridization() == Chem.rdchem.HybridizationType.SP2
+                    for atom_idx in remaining_atoms if atom_idx not in co_cn_ids and mol.rdmol.GetAtomWithIdx(atom_idx).GetSymbol() == 'C'
+                )
+                is_non_sp2 = all(
+                    mol.rdmol.GetAtomWithIdx(atom_idx).GetHybridization() != Chem.rdchem.HybridizationType.SP2
+                    for atom_idx in remaining_atoms if atom_idx not in co_cn_ids and mol.rdmol.GetAtomWithIdx(atom_idx).GetSymbol() == 'C'
+                )
+                if is_sp2:
+                    new_sp2.update(remaining_atoms)
+                    remaining_rings.remove(ring)
+                elif is_non_sp2:
+                    new_non_sp2.update(remaining_atoms)
+                    remaining_rings.remove(ring)
+            if len(new_sp2) == 0 and len(new_non_sp2) == 0:
+                break
+
+            verified_sp2.update(new_sp2)
+            verified_non_sp2.update(new_non_sp2)
+            
+        if remaining_rings:
+            reasonable = False
+            unreasonable_atom_count += sum(len(ring) for ring in remaining_rings)
+    return reasonable, unreasonable_atom_count / mol.get_num_atoms()
+
+def calc_mol_fragment(mol: Molecule) -> List[int]:
+    # Calculate the fragment indices for each atom in a molecule
+    res = []
+    for bond in BRICS.FindBRICSBonds(mol.rdmol):
+        res.append(bond)
+    cut_bonds = [list(ele[0]) for ele in res]
+    cut_graph = [[] for _ in range(mol.get_num_atoms())]
+    for bond in mol.rdmol.GetBonds():
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        if [i, j] not in cut_bonds and [j, i] not in cut_bonds:
+            cut_graph[i].append(j)
+            cut_graph[j].append(i)
+    
+    frag_idx = [-1] * mol.get_num_atoms()
+    cur_frag_idx = 0
+
+    def dfs(u: int):
+        frag_idx[u] = cur_frag_idx
+        for v in cut_graph[u]:
+            if frag_idx[v] == -1:
+                dfs(v)
+
+    for i in range(mol.get_num_atoms()):
+        if frag_idx[i] == -1:
+            dfs(i)
+            cur_frag_idx += 1
+    return frag_idx
+
 class MoleculeQEDTool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the drug-likeness (QED score) of a molecule"
+        return """
+Calculate the drug-likeness (QED score) of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the QED score of the molecule)
+"""
 
     def run(self, molecule: Molecule) -> float:
-        return molecule.calc_qed()
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_qed())
+            messages.append(f"The molecule has a QED score of {scores[-1]}")
+        return scores, messages
 
 class MoleculeSATool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the synthetic accessibility (SA score) of a molecule"
+        return """
+Calculate the synthetic accessibility (SA score) of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object), "normalize": bool (whether to normalize the SA score to range [0, 1], default: False)}
+Outputs: float (the SA score of the molecule)
+"""
 
-    def run(self, molecule: Molecule) -> float:
-        return molecule.calc_sa()
+    def run(self, molecule: Union[Molecule, List[Molecule]], normalize: bool=False) -> float:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_sa(normalize))
+            messages.append(f"The molecule has a SA score of {scores[-1]}")
+        return scores, messages
 
 class MoleculeLogPTool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the solubility (LogP score) of a molecule"
+        return """
+Calculate the solubility (LogP score) of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the LogP score of the molecule)
+"""
 
-    def run(self, molecule: Molecule) -> float:
-        return molecule.calc_logp()
+    def run(self, molecule: Union[Molecule, List[Molecule]]) -> float:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_logp())
+            messages.append(f"The molecule has a LogP score of {scores[-1]}")
+        return scores, messages
 
 class MoleculeLipinskiTool(Tool):
     def __init__(self) -> None:
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the number of lipinski rules that a molecule satisfies"
+        return """
+Calculate the number of lipinski rules that a molecule satisfies
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the number of lipinski rules that the molecule satisfies)
+"""
 
-    def run(self, molecule: Molecule) -> float:
-        return molecule.calc_lipinski()
-
+    def run(self, molecule: Union[Molecule, List[Molecule]]) -> float:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(mol.calc_lipinski())
+            messages.append(f"The molecule satisfies {scores[-1]} lipinski rules")
+        return scores, messages
 
 class MoleculePropertyCalculationTool:
     def __init__(self):
@@ -454,8 +658,66 @@ class MoleculeSimilarityTool(Tool):
         super().__init__()
 
     def print_usage(self) -> str:
-        return "Calculate the Morgan fingerprint similarity of two molecules"
+        return """
+Calculate the Morgan fingerprint similarity of two molecules
+Inputs: {"molecule_1": Molecule (an OpenBioMed Molecule object), "molecule_2": Molecule (an OpenBioMed Molecule object)}
+Outputs: float (the Morgan fingerprint similarity of the two molecules)
+"""
 
-    def run(self, molecule_1: Molecule, molecule_2: Molecule) -> float:
-        return molecule_fingerprint_similarity(molecule_1, molecule_2, fingerprint_type="morgan")
+    def run(self, molecule_1: Union[Molecule, List[Molecule]], molecule_2: Union[Molecule, List[Molecule]]) -> Tuple[List[float], List[str]]:
+        if isinstance(molecule_1, Molecule):
+            molecule_1 = [molecule_1]
+        if isinstance(molecule_2, Molecule):
+            molecule_2 = [molecule_2]
+        scores, messages = [], []
+        for idx, mol1 in enumerate(molecule_1):
+            mol2 = molecule_2[idx]
+            scores.append(molecule_fingerprint_similarity(mol1, mol2, fingerprint_type="morgan"))
+            messages.append(f"The Morgan fingerprint similarity of the two molecules is {scores[-1]}")
+        return scores, messages
         
+
+class MoleculeReasonableTool(Tool):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def print_usage(self) -> str:
+        return """
+Calculate if a molecule is reasonable
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: Tuple[bool, float] (whether the molecule is reasonable, the percentage of unreasonable atoms)
+"""
+
+    def run(self, molecule: Union[Molecule, List[Molecule]]) -> Tuple[List[bool], List[str]]:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        scores, messages = [], []
+        for mol in molecule:
+            scores.append(calc_mol_reasonable(mol))
+            messages.append(f"The molecule is reasonable: {scores[-1][0]}, the percentage of unreasonable atoms is {scores[-1][1]}")
+        return scores, messages
+
+
+class MoleculeFragmentTool(Tool):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def print_usage(self) -> str:
+        return """
+Obtain the BRICS fragment of a molecule
+Inputs: {"molecule": Molecule (an OpenBioMed Molecule object)}
+Outputs: List[str] (the SMILES strings of the BRICS fragments)
+"""
+
+    def run(self, molecule: Union[Molecule, List[Molecule]]) -> Tuple[List[str], List[str]]:
+        if isinstance(molecule, Molecule):
+            molecule = [molecule]
+        frag_smiles, messages = [], []
+        for mol in molecule:
+            atom2frag = np.array(calc_mol_fragment(mol))
+            for i in range(np.max(frag_idx) + 1):
+                frag_idx = np.where(atom2frag == i)[0]
+                frag_smiles.append(Chem.MolFragmentToSmiles(mol.rdmol, frag_idx.tolist(), kekuleSmiles=True))
+            frag_smiles.append(calc_mol_fragment(mol))
+            messages.append(f"The BRICS fragments of the molecule are {frag_smiles[-1]}")
+        return frag_smiles, messages
