@@ -339,6 +339,9 @@ If you find our open-sourced code and models helpful to your research, please co
 }
 ```
 
+<details>
+<summary>📎 <b>Cite other works</b></summary>
+
 ##### To cite PharmolixFM:
 
 ```
