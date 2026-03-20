@@ -49,7 +49,7 @@ The agent analyzes the user's natural language request and determines the most s
 | protein-mutation-analysis | Analyze protein mutations by retrieving protein data, explaining mutation effects with MutaPLM, and predicting structure. |
 | mutation-design-aav | Design high-fitness and high-diversity mutants of AAV VP1 capsid protein. |
 | mutation-design-gfp | Design high-fluorescence and high-diversity GFP mutants. |
-| functional-protein-design | Generate functional protein sequences using CodeFP with Gene Ontology (GO) tag guidance. |
+| functional-protein-design | Generate functional protein sequences using CodeFun with Gene Ontology (GO) tag guidance. |
 | similar-protein-retrieval | Retrieve proteins with similar structures or sequences from UniProt, PDB, and AFDB databases. |
 | structure-prediction-boltz-2 | Predict protein complex structures and protein-ligand complexes with binding affinity using Boltz-2. |
 | protein-structure-design-boltzgen | All-atom protein design using BoltzGen diffusion model for binder design and peptide design. |

@@ -87,7 +87,7 @@ class LoRAConfig:
     )
 
 @dataclass
-class CodeFPConfig:
+class CodeFunConfig:
     ## DPLM model
     num_diffusion_timesteps: int = field(default=500)
     tokenizer: TokenizerConfig = field(default=TokenizerConfig())
@@ -638,7 +638,7 @@ class AGFMOutput(EsmOutput):
         return hidden_states
 
 
-class AGFMAttentionCodeFP(nn.Module):
+class AGFMAttentionCodeFun(nn.Module):
 
     def __init__(self, config):
         super().__init__()
@@ -705,11 +705,11 @@ class AGFMAttentionCodeFP(nn.Module):
         return outputs
 
 
-class AGFMLayerCodeFP(nn.Module):
+class AGFMLayerCodeFun(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.seq_len_dim = 1
-        self.attention = AGFMAttentionCodeFP(config)
+        self.attention = AGFMAttentionCodeFun(config)
         self.intermediate = EsmIntermediate(config)
         self.output = AGFMOutput(config)
 
@@ -942,7 +942,7 @@ class FuncTagEmbedder(nn.Module):
         return embeddings
 
 
-class CodeFPEncoder(EsmEncoder):
+class CodeFunEncoder(EsmEncoder):
     def __init__(self, config):
         nn.Module.__init__(self)
         self.config = config
@@ -977,13 +977,13 @@ class CodeFPEncoder(EsmEncoder):
             self.ec_embedder = FuncTagEmbedder(config.ec_num, config.hidden_size)
             self.ec_embedder.apply(_init_module_weights)
 
-        self.layer = nn.ModuleList([AGFMLayerCodeFP(deepcopy(config)) for _ in range(config.num_hidden_layers)])
+        self.layer = nn.ModuleList([AGFMLayerCodeFun(deepcopy(config)) for _ in range(config.num_hidden_layers)])
 
         if config.use_seq_motif and False:
             self.copy_blocks_num = config.num_hidden_layers//2
             self.anno_dropout = 0.5
             self.seq_controlnet = nn.ModuleList(
-                [RCFEBlock(AGFMLayerCodeFP(deepcopy(config)), i, config.hidden_size) for i in range(self.copy_blocks_num)]
+                [RCFEBlock(AGFMLayerCodeFun(deepcopy(config)), i, config.hidden_size) for i in range(self.copy_blocks_num)]
             )
         else:
             self.seq_controlnet = None
@@ -1258,13 +1258,13 @@ class CodeFPEncoder(EsmEncoder):
         )
 
 
-class ModifiedEsmModelCodeFP(EsmModel):
+class ModifiedEsmModelCodeFun(EsmModel):
     def __init__(self, config, add_pooling_layer=True):
         EsmPreTrainedModel.__init__(self, config)
         self.config = config
 
         self.embeddings = EsmEmbeddings(config)
-        self.encoder = CodeFPEncoder(config)
+        self.encoder = CodeFunEncoder(config)
 
         self.pooler = EsmPooler(config) if add_pooling_layer else None
 
@@ -1409,14 +1409,14 @@ class ModifiedEsmModelCodeFP(EsmModel):
         )
 
 
-class EsmForCodeFP(EsmForMaskedLM):
+class EsmForCodeFun(EsmForMaskedLM):
     def __init__(self, config, dropout=0.1):
         # print(f"Loading model from {config._name_or_path}")
         tokenizer = AutoTokenizer.from_pretrained(config._name_or_path)
         config.hidden_dropout_prob = dropout
         
         EsmPreTrainedModel.__init__(self, config)
-        self.esm = ModifiedEsmModelCodeFP(config, add_pooling_layer=False)
+        self.esm = ModifiedEsmModelCodeFun(config, add_pooling_layer=False)
         self.lm_head = EsmLMHead(config)
 
         self.init_weights()
@@ -1489,7 +1489,7 @@ def get_net(cfg):
         cond = getattr(cfg, "cond", None)
         if cond is not None:
             config.update(cond.todict() if hasattr(cond, "todict") else cond)
-        net = EsmForCodeFP(config, dropout=cfg.net.dropout)
+        net = EsmForCodeFun(config, dropout=cfg.net.dropout)
     else:
         raise NotImplementedError
         
@@ -1603,8 +1603,8 @@ class MotifLabelHead(nn.Module):
         logits = self.classifier(cls_hidden_state) # [B, num_motif_labels]
         return logits
 
-class CodeFPFunctionalProteinDesignModel(nn.Module):
-    _default_cfg = CodeFPConfig()
+class CodeFunFunctionalProteinDesignModel(nn.Module):
+    _default_cfg = CodeFunConfig()
     
     def __init__(self, cfg, net=None):
         # print("init cdplm2")
@@ -1613,6 +1613,7 @@ class CodeFPFunctionalProteinDesignModel(nn.Module):
         # print(str(cfg))
         self._update_cfg(cfg)
         # print("init cdplm2")
+        os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
         self.tokenizer = DPLM2Tokenizer.from_pretrained(
             self.cfg.tokenizer.vocab_file,
         )

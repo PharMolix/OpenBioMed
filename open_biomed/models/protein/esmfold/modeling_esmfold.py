@@ -2286,17 +2286,24 @@ class EsmForProteinFolding(EsmPreTrainedModel):
         )
 
     @staticmethod
-    def output_to_pdb(output: Dict) -> List[str]:
+    def output_to_pdb(output: Dict) -> Tuple[List[str], List[np.ndarray]]:
         """Returns the pbd (file) string from the model given the model output."""
         output = {k: v.to("cpu").numpy() for k, v in output.items()}
         pdbs = []
+        plddts = []
         final_atom_positions = atom14_to_atom37(output["positions"][-1], output)
         final_atom_mask = output["atom37_atom_exists"]
+
+        # print(output["aatype"].shape)
+
         for i in range(output["aatype"].shape[0]):
-            aa = output["aatype"][i]
+
+            aa = output["aatype"][i]  
             pred_pos = final_atom_positions[i]
             mask = final_atom_mask[i]
             resid = output["residue_index"][i] + 1
+            # Compute average pLDDT across all existing atoms for each residue.
+            plddt_per_residue = (output["plddt"][i] * mask).sum(axis=-1) / (mask.sum(axis=-1) + 1e-8)
             pred = OFProtein(
                 aatype=aa,
                 atom_positions=pred_pos,
@@ -2305,15 +2312,16 @@ class EsmForProteinFolding(EsmPreTrainedModel):
                 b_factors=output["plddt"][i],
             )
             pdbs.append(to_pdb(pred))
-        return pdbs
+            plddts.append(plddt_per_residue)
+        return pdbs, plddts
 
     def infer_pdb(self, seqs, *args, **kwargs) -> str:
         """Returns the pdb (file) string from the model given an input sequence."""
         assert type(seqs) is str
         output = self.infer(seqs, *args, **kwargs)
-        return self.output_to_pdb(output)[0]
+        return self.output_to_pdb(output)[0][0]
 
     def infer_pdbs(self, seqs: List[str], *args, **kwargs) -> List[str]:
         """Returns the pdb (file) string from the model given an input sequence."""
         output = self.infer(seqs, *args, **kwargs)
-        return self.output_to_pdb(output)
+        return self.output_to_pdb(output)[0]
