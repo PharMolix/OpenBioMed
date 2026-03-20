@@ -77,20 +77,13 @@
 
 OpenBioMed 为研究者提供：
 
+- **45 项技能**：提供复杂生物医学研究任务的端到端解决方案，覆盖药物发现、蛋白质分析与工程、单细胞组学数据分析以及数据检索与知识。
 - **4 类数据模态**：分子、蛋白质、口袋与文本的易用访问与处理接口。
-- **20+ 工具**：涵盖 AIDD 中的分子性质预测、蛋白质折叠等 ML 预测模型，以及可视化与网络检索接口。
-- **20+ 深度学习模型**：包括 [PharmolixFM](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/)、[BioMedGPT-R1](https://huggingface.co/PharMolix/BioMedGPT-R1)、[BioMedGPT](https://ieeexplore.ieee.org/document/10767279/) 与 [MutaPLM](https://arxiv.org/abs/2410.22949) 等自研模型。
-- **45 项技能**：覆盖药物发现、蛋白质分析与工程、单细胞组学分析与数据检索等复杂生物医学任务的端到端解决方案。
-
-OpenBioMed 的主要特点包括：
-
-- **统一数据处理流程**：便捷加载并将不同生物医学实体与模态的异构数据转换为统一格式。
-- **开箱即用推理**：公开的预训练模型与推理示例，可方便迁移至自有数据或任务。
-- **易用的复杂工作流构建与使用**：提供基于技能执行复杂工作流的 autopilot 模式，以及通过 LLM 智能体与 OpenBioMed 工具包交互、用于创建自定义技能的 [copilot 模式](./skills/biomed-skill-creator/)。
+- **20+ 工具（由深度学习模型驱动）**：包含如 [PharmolixFM](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/)、[BioMedGPT-R1](https://huggingface.co/PharMolix/BioMedGPT-R1)、[BioMedGPT](https://ieeexplore.ieee.org/document/10767279/) 与 [MutaPLM](https://arxiv.org/abs/2410.22949) 等自研模型。
 
 以下为当前支持的技能列表（持续更新）：
 
-- **生物化学与药物发现**: 药物发现, ADMET预测, 逆合成规划, 分子编辑, 疾病药物情报, 药物-药物相互作用分析
+#### 生物化学与药物发现
 <details>
 <summary>点击展开查看技能列表</summary>
 
@@ -98,27 +91,27 @@ OpenBioMed 的主要特点包括：
 |---|---|---|
 | `drug-candidate-discovery` | 针对指定靶点或疾病生成多样的可药性候选分子，使用包含靶点识别、结构检索与分子生成的 AI 药物发现工具。 | MVP |
 | `drug-lead-analysis` | 对药物候选分子进行药物相似性评估（QED、Lipinski）、ADMET 性质、血脑屏障穿透性与安全性画像分析。 | MVP |
-| `target-based-lead-design` | 针对特定蛋白靶点生成多样先导化合物，基于 MolCraft 的基于结构药物设计流程（对接、ADMET 筛选、多样性选择与迭代优化）。 | MVP |
+| `target-based-lead-design` | 针对特定蛋白靶点生成多样先导化合物，基于 MolCraft 的基于结构药物设计流程（对接、ADMET 筛选、多样性选择与迭代优化）。 | 高质量 |
 | `admet-prediction` | 基于 GraphMVP 集成模型预测候选药物的全面 ADMET 性质（血脑屏障穿透性、副作用、Caco-2 穿透性、半衰期、LD50 毒性）。 | MVP |
-| `retrosynthesis-planning` | 面向专家辅助的逆合成规划工作流：将目标分子拆分为可获得的起始原料，并通过 AiZynthFinder 集成设计合成路线。 | MVP |
+| `retrosynthesis-planning` | 面向专家辅助的逆合成规划工作流：将目标分子拆分为可获得的起始原料，并通过 AiZynthFinder 集成设计合成路线。 | 高质量 |
 | `iupac-name-identification-biot5` | 使用 BioT5 问答模型识别分子的 IUPAC 命名。 | MVP |
 | `molecule-biochemical-significance-query-biot5` | 基于 BioT5 多模态模型查询分子在生物与化学中的生物化学意义与作用。 | MVP |
 | `text-based-molecule-editing` | 使用 MolT5/BioT5 模型根据自然语言描述修改分子，并进行性质优化（溶解度、效力、药物相似性）。 | MVP |
-| `target-drug-report` | 针对疾病治疗靶点生成完整的药物研发进展报告（包含 7 个分析部分，如临床管线、研究趋势与专利格局）。 | MVP |
+| `target-drug-report` | 针对疾病治疗靶点生成完整的药物研发进展报告（包含 7 个分析部分，如临床管线、研究趋势与专利格局）。 | 高质量 |
 | `disease-drug-intelligence` | 通过查询多个数据库（ChEMBL、ClinicalTrials）分析疾病与创新药之间的关系，并生成关于疾病-靶点-药物管线的综合中文报告。 | MVP |
 | `drug-drug-interaction-analysis` | 通过 KEGG DDI 数据库分析最多 5 种药物的潜在药物-药物相互作用（DDI），并给出严重性与作用机制分析。 | MVP |
 </details>
 
-- **蛋白质分析与工程**: 突变分析, 蛋白质结构预测，蛋白质从头设计, 结合与相互作用预测, 蛋白质亚细胞定位
+#### 蛋白质分析与工程
 <details>
 <summary>点击展开查看技能列表</summary>
 
 | Skill | Description | Status |
 |---|---|---|
-| `protein-mutation-analysis` | 通过检索蛋白数据，对突变效应使用 MutaPLM 进行解释、使用 ESMFold 预测结构并进行可视化展示。 | MVP |
+| `protein-mutation-analysis` | 通过检索蛋白数据，对突变效应使用 MutaPLM 进行解释、使用 ESMFold 预测结构并进行可视化展示。 | 高质量 |
 | `mutation-design-aav` | 通过多轮迭代优化设计高适配性与高多样性的 AAV VP1 胶囊蛋白突变体。 | MVP |
 | `mutation-design-gfp` | 通过多轮迭代优化设计高荧光与高多样性的 GFP 突变体。 | MVP |
-| `functional-protein-design` | 借助 CodeFP 并结合基因本体（GO）标签引导进行去 novo 功能蛋白序列设计。 | MVP |
+| `functional-protein-design` | 借助 CodeFP 并结合基因本体（GO）标签引导进行去 novo 功能蛋白序列设计。 | 高质量 |
 | `protein-function-prediction` | 使用 BioT5 从氨基酸序列预测蛋白功能与性质，并进行功能注释与通路分析。 | MVP |
 | `similar-protein-retrieval` | 从 UniProt、PDB 与 AFDB 中基于相似结构（FoldSeek）或相似序列（MSA）检索蛋白。 | MVP |
 | `structure-prediction-boltz-2` | 使用 Boltz-2 预测蛋白复合物结构以及蛋白-配体复合物，并给出结合亲和力（IC50）。 | MVP |
@@ -130,7 +123,7 @@ OpenBioMed 的主要特点包括：
 | `protein-subcellular-localization-prediction-biot5` | 使用 BioT5 根据氨基酸序列预测蛋白亚细胞定位（细胞核、细胞质、膜等）。 | MVP |
 </details>
 
-- **单细胞组学数据分析**: scRNA组学分析, scATAC组学分析, 多组学分析， 空间转录组学分析, 生物信息学分析
+#### 单细胞组学数据分析
 <details>
 <summary>点击展开查看技能列表</summary>
 
@@ -151,7 +144,7 @@ OpenBioMed 的主要特点包括：
 | `single-cell-multi-omics-data-harmonization` | 准备多组学数据（RNA-seq、蛋白组学、甲基化）以进行联合整合：支持按实验归一化、批次校正、特征 ID 对齐与缺失值处理。 | MVP |
 </details>
 
-- **数据检索与知识**: PubChem, UniProt, ChEMBL, KEGG, STRING, 文献检索
+#### 数据检索与知识
 <details>
 <summary>点击展开查看技能列表</summary>
 
@@ -165,14 +158,14 @@ OpenBioMed 的主要特点包括：
 | `biomedical-literature-search` | 在 PubMed 与 bioRxiv 中检索生物医学论文，并返回标题、摘要与元数据。 | MVP |
 </details>
 
-- **工具**: 技能检索，技能创建
+#### 工具
 <details>
 <summary>点击展开查看技能列表</summary>
 
 | Skill | Description | Status |
 |---|---|---|
 | `biomed-skill-router` | 通过分析用户请求并匹配可用能力，为给定生物医学任务寻找最合适的技能。 | MVP |
-| `biomed-skill-creator` | 通过与 LLM 智能体的交互式验证流程创建或改进新的生物医学技能（意图捕获、工作流设计与评估）。 | MVP |
+| `biomed-skill-creator` | 通过与 LLM 智能体的交互式验证流程创建或改进新的生物医学技能（意图捕获、工作流设计与评估）。 | 高质量 |
 </details>
 
 以下为当前支持的工具列表：

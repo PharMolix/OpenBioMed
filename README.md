@@ -60,10 +60,9 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 > CellLM is the first large-scale cell representation learning model trained on both normal cells and cancer cells with divide-and-conquer contrastive learning. CellLM beats ScBERT on cell type annotation (71.8 vs 68.8), few-shot single-cell drug sensitivity prediction (88.9 vs 80.6) and single-omics cell line drug sensitivity prediction (93.4 vs 87.2).
 
-</details>
-
 - [2023/04/23] Released implementation of **BioMedGPT-1.6B** (🤖[Model](https://pan.baidu.com/s/1iAMBkuoZnNAylhopP5OgEg)) and **OpenBioMed**.
 
+</details>
 
 ## Table of contents
 
@@ -85,24 +84,14 @@ This repository holds OpenBioMed, a comprehensive skillset and deep learning too
 
 OpenBioMed provide researchers with access to:
 
-
+- **45 skills** that provides end-to-end solutions for complicated biomedical research tasks, spanning drug discovery, protein analysis & engineering, single-cell omics data analysis, and data retrieval & knowledge.
 - **4 types of data modalities**:  OpenBioMed provide easy-to-use APIs for researchers to access and process different types of data including molecules, proteins, pockets, and texts.
-- **20+ tools**, ranging from ML-based prediction models for AIDD tasks including molecule property prediction and protein folding, to visualization tools and web-search APIs. 
-- **20+ deep learning models**, comprising exclusive models such as [PharmolixFM](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/), [BioMedGPT-R1](https://huggingface.co/PharMolix/BioMedGPT-R1), [BioMedGPT](https://ieeexplore.ieee.org/document/10767279/) and [MutaPLM](https://arxiv.org/abs/2410.22949).
-- **45 skills** that provides end-to-end solutions for complicated biomedical research tasks, spanning drug discovery, protein analysis & engineering, single-cell omics data analysis, and data retrieval.
-
-
-Key features of OpenBioMed include:
-
-
-- **Unified Data Processing Pipeline**: easily load and transform the heterogeneous data from different biomedical entities and modalities into a unified format.
-- **Off-the-shelf Inference**: publicly available pre-trained models and inference demos, readily to be transferred to your own data or task. 
-- **Easy-to-use Interface for Building and Using Compliated Workflows**: we provide an autopilot mode for executing complicated workflows with skills, and a [copilot mode](./skills/biomed-skill-creator/) for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits.
+- **20+ tools powered by deep learning models**, comprising exclusive models such as [PharmolixFM](https://cloud.tsinghua.edu.cn/f/8f337ed5b58f45138659/), [BioMedGPT-R1](https://huggingface.co/PharMolix/BioMedGPT-R1), [BioMedGPT](https://ieeexplore.ieee.org/document/10767279/) and [MutaPLM](https://arxiv.org/abs/2410.22949).
 
 
 Here is a list of currently available skills. This is a continuing effort and we are working on further growing the skillset.
 
-- **Biochemistry & Drug Discovery**: drug discovery, ADMET, retrosynthesis planning, molecule editing, disease drug intelligence, drug-drug interaction analysis.
+#### Biochemistry & Drug Discovery
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -121,7 +110,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `drug-drug-interaction-analysis` | Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database with severity levels and mechanism analysis. | MVP |
 </details>
 
-- **Protein Analysis & Engineering**: mutation analysis, structure prediction, protein design, binding & interactions, subcellular localization.
+#### Protein Analysis & Engineering
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -142,7 +131,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `protein-subcellular-localization-prediction-biot5` | Predict protein subcellular localization (nucleus, cytoplasm, membrane, etc.) from amino acid sequences using BioT5 model. | MVP |
 </details>
 
-- **Single-Cell Omics Data Analysis**: scRNA-seq, scATAC-seq, single-cell multi-omics, spatial transcriptomics, bioinformatics pipelines.
+#### Single-Cell Omics Data Analysis
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -163,7 +152,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `single-cell-multi-omics-data-harmonization` | Prepare multi-omics datasets (RNA-seq, proteomics, methylation) for joint integration with per-assay normalization, batch correction, feature ID alignment, and missing value handling. | MVP |
 </details>
 
-- **Data Retrieval & Knowledge**: PubChem, UniProt, ChEMBL, KEGG, STRING, biomedical literature.
+#### Data Retrieval & Knowledge
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -177,7 +166,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 | `biomedical-literature-search` | Search PubMed and bioRxiv for biomedical research papers with titles, abstracts, and metadata. | MVP |
 </details>
 
-- **Utilities**: skill routing, skill creation.
+#### Utilities
 <details>
 <summary>Click here to expand the skills list</summary>
 
@@ -357,12 +346,14 @@ If you find our open-sourced code and models helpful to your research, please co
 
 ##### To cite PharmolixFM:
 
+```
 @article{luo2025pharmolixfm,
   title={PharMolixFM: All-Atom Foundation Models for Molecular Modeling and Generation},
   author={Luo, Yizhen and Wang, Jiashuo and Fan, Siqi and Nie, Zaiqing},
   journal={arXiv preprint arXiv:2503.21788},
   year={2025}
 }
+```
 
 ##### To cite MolFM:
 
