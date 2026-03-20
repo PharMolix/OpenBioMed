@@ -1,9 +1,14 @@
-# Use the Ubuntu 20.04 image of NVIDIA CUDA 11.7.1 and cuDNN as the base image
+# ------------------------------
+# Base image: CUDA 11.7 + Ubuntu 20.04
+# ------------------------------
 FROM nvidia/cuda:11.7.1-devel-ubuntu20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/opt/conda/bin:$PATH"
 
-# Install necessary packages
+# ------------------------------
+# Install system dependencies
+# ------------------------------
 RUN apt-get update && apt-get install -y \
     libxrender1 \
     wget \
@@ -15,46 +20,68 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# isntall Miniconda
+# ------------------------------
+# Install Miniconda
+# ------------------------------
 RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh \
-    && bash /tmp/miniconda.sh -b -p /root/miniconda3 \
-    && rm /tmp/miniconda.sh
+    && bash /tmp/miniconda.sh -b -p /opt/conda \
+    && rm /tmp/miniconda.sh \
+    && conda clean -afy
 
-# init Miniconda and create conda env
-ENV PATH="/root/miniconda3/bin:$PATH"
-RUN conda init bash \
-    && . /root/.bashrc \
-    && conda create -n OpenBioMed python=3.9 -y \
-    && conda activate OpenBioMed \
-    && pip install --upgrade pip setuptools
+# ------------------------------
+# Accept TOS and create conda environment
+# ------------------------------
+RUN conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
+    && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
 
-# Installing PyTorch and torchvision
-RUN pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117 \
-    && pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.1+cu117.html \
-    && pip install pytorch_lightning==2.0.8 peft==0.9.0 accelerate==1.3.0 --no-deps -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN /opt/conda/bin/conda create -n OpenBioMed python=3.9 -y \
+    && /opt/conda/bin/conda clean -afy
 
-# Install additional packages from requirements.txt
-RUN pip install -r requirements.txt
+# ------------------------------
+# Install PyTorch 1.13.1 + CUDA 11.7 in the environment
+# ------------------------------
+RUN /opt/conda/bin/conda install -n OpenBioMed \
+    pytorch=1.13.1 torchvision=0.14.1 torchaudio=0.13.1 cudatoolkit=11.7 -c pytorch -c nvidia \
+    && /opt/conda/bin/conda clean -afy
 
-# Install visualization tools
-RUN conda install -c conda-forge pymol-open-source -y \
-    && pip install imageio
+# ------------------------------
+# Install PyG (torch_scatter, etc.) using environment pip
+# ------------------------------
+RUN /opt/conda/envs/OpenBioMed/bin/pip install --no-build-isolation \
+    pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 
-# Install AutoDockVina tools
-RUN git config --global http.proxy http://100.68.173.241:3128 \
-    && git config --global https.proxy http://100.68.173.241:3128 \
-    && pip install meeko==0.1.dev3 pdb2pqr vina==1.2.2 \
-    && pip install git+https://github.com/Valdes-Tresanco-MS/AutoDockTools_py3
+# ------------------------------
+# Install other Python packages
+# ------------------------------
+COPY requirements.txt . 
+RUN /opt/conda/envs/OpenBioMed/bin/pip install \
+    pytorch_lightning==2.0.8 peft==0.9.0 accelerate==1.3.0 --no-deps -i https://mirrors.aliyun.com/pypi/simple \
+    && /opt/conda/envs/OpenBioMed/bin/pip install -r requirements.txt
 
-# Install NLTK
-RUN pip install spacy rouge_score nltk \
-    && python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4')"
+# ------------------------------
+# Visualization & NLTK
+# ------------------------------
+RUN /opt/conda/bin/conda install -n OpenBioMed -c conda-forge pymol-open-source -y \
+    && /opt/conda/envs/OpenBioMed/bin/pip install imageio spacy rouge_score nltk  -i https://mirrors.aliyun.com/pypi/simple \
+    && /opt/conda/envs/OpenBioMed/bin/python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4')"
 
+# ------------------------------
+# AutoDock Vina tools
+# ------------------------------
+RUN /opt/conda/envs/OpenBioMed/bin/pip install meeko==0.1.dev3 pdb2pqr vina==1.2.2 \
+    && /opt/conda/envs/OpenBioMed/bin/pip install git+https://github.com/Valdes-Tresanco-MS/AutoDockTools_py3
+
+# ------------------------------
 # Set working directory
+# ------------------------------
 WORKDIR /app
 
-# Activate the OpenBioMed environment by default
-RUN echo "source activate OpenBioMed" >> ~/.bashrc
+# ------------------------------
+# Activate conda environment by default
+# ------------------------------
+RUN echo "source /opt/conda/bin/activate OpenBioMed" >> ~/.bashrc
 
-# Set default command
+# ------------------------------
+# Default entrypoint
+# ------------------------------
 ENTRYPOINT ["./scripts/run_server.sh"]
