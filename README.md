@@ -92,7 +92,7 @@ OpenBioMed provide researchers with access to:
 Here is a list of currently available skills. This is a continuing effort and we are working on further growing the skillset.
 
 <details>
-<summary>💊 **Biochemistry & Drug Discovery**: drug discovery, ADMET, retrosynthesis planning, molecule editing, disease drug intelligence, drug-drug interaction analysis. </summary>
+<summary>💊 <b>Biochemistry & Drug Discovery</b>: drug discovery, ADMET, retrosynthesis planning, molecule editing, disease drug intelligence, drug-drug interaction analysis. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -110,7 +110,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 </details>
 
 <details>
-<summary>🧬 **Protein Analysis & Engineering**: mutation analysis, protein engineering, structure prediction/design, binding & interactions, subcellular localization. </summary>
+<summary>🧬 <b>Protein Analysis & Engineering</b>: mutation analysis, protein engineering, structure prediction/design, binding & interactions, subcellular localization. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -130,10 +130,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 </details>
 
 <details>
-<summary>🔬 **Single-Cell Omics Data Analysis**: scRNA-seq, scATAC-seq, single-cell multi-omics, spatial transcriptomics, bioinformatics pipelines. </summary>
-
-<details>
-<summary>Click here to expand the skills list</summary>
+<summary>🔬 <b>Single-Cell Omics Data Analysis</b>: scRNA-seq, scATAC-seq, single-cell multi-omics, spatial transcriptomics, bioinformatics pipelines. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -153,10 +150,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 </details>
 
 <details>
-<summary>🔍 **Data Retrieval & Knowledge**: PubChem, UniProt, ChEMBL, KEGG, STRING, biomedical literature. </summary>
-
-<details>
-<summary>Click here to expand the skills list</summary>
+<summary>🔍 <b>Data Retrieval & Knowledge</b>: PubChem, UniProt, ChEMBL, KEGG, STRING, biomedical literature. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
@@ -169,10 +163,7 @@ Here is a list of currently available skills. This is a continuing effort and we
 </details>
 
 <details>
-<summary>🔧 **Utilities**: skill routing, skill creation. </summary>
-
-<details>
-<summary>Click here to expand the skills list</summary>
+<summary>🔧 <b>Utilities</b>: skill routing, skill creation. </summary>
 
 | Skill | Description | Status |
 |---|---|---|
