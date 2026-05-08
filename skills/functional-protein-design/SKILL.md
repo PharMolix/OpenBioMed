@@ -18,7 +18,7 @@ tags: [protein-design, go-guided, sequence-generation, structure-prediction]
 |-------------|---------|
 | Environment | Configured via OpenBioMed: [`README.md`](https://github.com/PharMolix/OpenBioMed/blob/main/README.md) |
 | Hardware | CUDA-compatible GPU (≥ 10GB VRAM) required for both generation and folding |
-| Checkpoints | Download CodeFun weights & mappings from [Google Drive](https://drive.google.com/drive/folders/1Zqp2uD-f3cSzXeg35ixK-Epf-HpKBQYY?usp=sharing). |
+| Checkpoints | Download CodeFP weights & mappings from [Google Drive](https://drive.google.com/drive/folders/1Zqp2uD-f3cSzXeg35ixK-Epf-HpKBQYY?usp=sharing). |
 
 ## Data Preparation & Configuration
 
@@ -27,7 +27,7 @@ Organize your downloaded checkpoints and mapping files as follows:
 
 ```text
 checkpoints/
-├── codefun/
+├── codefp/
 │   ├── model/
 │   │   └── checkpoints/
 │   │       └── model.ckpt
@@ -60,8 +60,8 @@ from open_biomed.data import Protein
 # 1. GO-guided sequence generation
 generator = InferencePipeline(
     task="go_guided_protein_generation",
-    model="codefun",
-    model_ckpt="./checkpoints/codefun/model/checkpoints/model.ckpt",
+    model="codefp",
+    model_ckpt="./checkpoints/codefp/model/checkpoints/model.ckpt",
     device="cuda:0"
 )
 
@@ -250,5 +250,4 @@ Every successful run must yield a report containing:
 | Error / Warning | Cause | Fix |
 | --- | --- | --- |
 | `Warning: "GO ID {go_id} not found in mapping, using hash instead."` | Target GO ID is not supported in `go_mapping.pkl`. | **1.** Find the closest alternative GO combination in `go_mapping.pkl`.<br>**2.** Rerun with the alternative.<br>**3.** Explicitly report the substituted GO combination to the user. |
-| `FileNotFoundError` or Checkpoint fails to load | Incorrect paths in `codefun.yaml`. | Verify file paths match the actual directory structure. |
-
+| `FileNotFoundError` or Checkpoint fails to load | Incorrect paths in `codefp.yaml`. | Verify file paths match the actual directory structure. |

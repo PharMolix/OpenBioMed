@@ -4,7 +4,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 import numpy as np
 import os
-from .modeling_codefun import CodeFunFunctionalProteinDesignModel
+from .modeling_codefp import CodeFPFunctionalProteinDesignModel
 from open_biomed.data.protein import Protein
 from open_biomed.utils.config import Config
 from open_biomed.models.task_models.go_guided_protein_generation import GoGuidedProteinGenerationModel
@@ -126,12 +126,12 @@ class GoTermsFeaturizer(Featurizer):
         return ["go_terms"]
 
 
-class CodeFun(GoGuidedProteinGenerationModel):
+class CodeFP(GoGuidedProteinGenerationModel):
 
     def __init__(self, model_cfg: Config) -> None:
         super().__init__(model_cfg)
         # print(model_cfg.todict())
-        self.model = CodeFunFunctionalProteinDesignModel.from_pretrained(model_cfg['ckpt_path'])
+        self.model = CodeFPFunctionalProteinDesignModel.from_pretrained(model_cfg['ckpt_path'])
         # exit()
         self.go_featurizer = GOFeaturizer(model_cfg)
         self._add_task()
@@ -159,7 +159,7 @@ class CodeFun(GoGuidedProteinGenerationModel):
         go_terms: List[List[str]], 
     ) -> List[Protein]:
 
-        # log.warning("CodeFun only support one protein generation for now.")
+        # log.warning("CodeFP only support one protein generation for now.")
 
         self.model.eval()
         device = self.model.device

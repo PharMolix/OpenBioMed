@@ -23,12 +23,19 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 > OpenBioMed Skills is a comprehensive skill set released jointly by PharMolix and Institute of AI Industry Research (AIR), Tsinghua University. It provides users with end-to-end solutions for complicated biomedical research tasks spanning drug discovery, protein analysis & engineering, and single-cell omics data analysis. It also presents a copilot mode for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits. Feel free to have [a quick try](#quick-start-with-claude-code) and [investigate our skills](./skills/skills_overview.md).
 
+- [2026/04/05] 🔥 **CodeFP** (📃[Paper](http://arxiv.org/abs/2605.00948)) has been released.
+
+> CodeFP is a co-generative PLM framework jointly released by PharMolix Inc. and the Institute of AI Industry Research (AIR), Tsinghua University. It unifies sequence and structure generation to advance de novo functional protein design. Empirical evaluations demonstrate that CodeFP achieves state-of-the-art performance in both functional consistency and structural foldability on de novo functional protein design benchmarks.
+
+> Feel free to try out the [`functional-protein-design`](./skills/functional-protein-design/SKILL.md) skill to experience CodeFP.
+
+<details>
+<summary>Release History</summary>
+
 - [2026/02/02] 🔥 BioMedGPT-Mol (🤗[HuggingFace Model](https://huggingface.co/PharMolix/BioMedGPT-Mol)) has been released.
 
 > BioMedGPT-Mol is a multimodal molecular language model jointly released by PharMolix Inc. and the Institute of AI Industry Research (AIR), Tsinghua University. It is built for both molecular understanding and generation, supporting a wide range of tasks including chemical name conversion, molecular captioning, property prediction, reaction modeling, molecule editing, and property optimization. Trained with a well-structured multi-task curriculum, BioMedGPT-Mol shows strong performance across diverse molecule-centric discovery benchmarks.
 
-<details>
-<summary>Release History</summary>
 
 - [2025/05/26] Our framework has been updated with several new features including new tools, datasets, and models. We implement **LangCell** (📃[Paper](https://arxiv.org/abs/2405.06708), 🤖[Model](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing), 📎[Citation](#to-cite-langcell)) and APIs to manipulate cells (See [the Example](./examples/cell_annotation.ipynb)). We also introduce a wider range of tools to calculate molecular properties (ADMET, QED, SA, LogP, Lipinski, Similarity, etc.). 
 
