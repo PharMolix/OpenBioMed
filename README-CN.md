@@ -19,15 +19,15 @@
 
 ## 更新信息 🎉
 
-- [2026/03/20] 🔥 发布 **OpenBioMed Skills**，一套由 [Claude Code](https://github.com/anthropics/claude-code) 驱动的、涵盖 45 项技能的生物医学研究与药物发现技能集。
-
-> OpenBioMed Skills 是由水木分子与清华大学智能产业研究院（AIR）联合发布的一套技能集，为复杂生物医学研究任务提供端到端解决方案，覆盖药物发现、蛋白质分析与设计、单细胞组学数据分析等生物医药热门研究领域。同时，我们提供了 copilot 模式，允许用户通过与 LLM 智能体和 OpenBioMed 工具包交互来创建你自己的技能。欢迎 [快速试用](#claude-code-快速开始) 并 [了解我们的技能](./skills/skills_overview.md)。
-
-- [2026/04/05] 🔥 发布 **CodeFP** (📃[论文](http://arxiv.org/abs/2605.00948)) 。
+- [2026/05/01] 🔥 发布 **CodeFP** (📃[论文](http://arxiv.org/abs/2605.00948)) 。
 
 > CodeFP 是由水木分子与清华大学智能产业研究院（AIR）联合发布的一个序列-结构联合生成蛋白质语言模型框架，通过统一序列与结构的生成以推进功能蛋白质的从头设计。基准测试的评估表明，CodeFP 在功能蛋白质的从头设计任务上的功能一致性与结构可折叠性方面均达到了SOTA水平。
 
 > 欢迎使用 [`functional-protein-design`](./skills/functional-protein-design/SKILL.md) 技能来尝试 CodeFP。
+
+- [2026/03/20] 🔥 发布 **OpenBioMed Skills**，一套由 [Claude Code](https://github.com/anthropics/claude-code) 驱动的、涵盖 45 项技能的生物医学研究与药物发现技能集。
+
+> OpenBioMed Skills 是由水木分子与清华大学智能产业研究院（AIR）联合发布的一套技能集，为复杂生物医学研究任务提供端到端解决方案，覆盖药物发现、蛋白质分析与设计、单细胞组学数据分析等生物医药热门研究领域。同时，我们提供了 copilot 模式，允许用户通过与 LLM 智能体和 OpenBioMed 工具包交互来创建你自己的技能。欢迎 [快速试用](#claude-code-快速开始) 并 [了解我们的技能](./skills/skills_overview.md)。
 
 <details>
 <summary>发布历史</summary>

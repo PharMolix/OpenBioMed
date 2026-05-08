@@ -19,15 +19,15 @@ Feel free to use our **Agent Platform for Biomedicine and Life Science** at this
 
 ## News 🎉
 
-- [2026/03/20] 🔥 We release **OpenBioMed Skills**, a comprehensive collection of 45 skills for biomedical research and drug discovery empowered by [Claude Code](https://github.com/anthropics/claude-code). 
-
-> OpenBioMed Skills is a comprehensive skill set released jointly by PharMolix and Institute of AI Industry Research (AIR), Tsinghua University. It provides users with end-to-end solutions for complicated biomedical research tasks spanning drug discovery, protein analysis & engineering, and single-cell omics data analysis. It also presents a copilot mode for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits. Feel free to have [a quick try](#quick-start-with-claude-code) and [investigate our skills](./skills/skills_overview.md).
-
-- [2026/04/05] 🔥 **CodeFP** (📃[Paper](http://arxiv.org/abs/2605.00948)) has been released.
+- [2026/05/01] 🔥 **CodeFP** (📃[Paper](http://arxiv.org/abs/2605.00948)) has been released.
 
 > CodeFP is a co-generative PLM framework jointly released by PharMolix Inc. and the Institute of AI Industry Research (AIR), Tsinghua University. It unifies sequence and structure generation to advance de novo functional protein design. Empirical evaluations demonstrate that CodeFP achieves state-of-the-art performance in both functional consistency and structural foldability on de novo functional protein design benchmarks.
 
 > Feel free to try out the [`functional-protein-design`](./skills/functional-protein-design/SKILL.md) skill to experience CodeFP.
+
+- [2026/03/20] 🔥 We release **OpenBioMed Skills**, a comprehensive collection of 45 skills for biomedical research and drug discovery empowered by [Claude Code](https://github.com/anthropics/claude-code). 
+
+> OpenBioMed Skills is a comprehensive skill set released jointly by PharMolix and Institute of AI Industry Research (AIR), Tsinghua University. It provides users with end-to-end solutions for complicated biomedical research tasks spanning drug discovery, protein analysis & engineering, and single-cell omics data analysis. It also presents a copilot mode for creating your own skills by interacting with an LLM agent and the OpenBioMed toolkits. Feel free to have [a quick try](#quick-start-with-claude-code) and [investigate our skills](./skills/skills_overview.md).
 
 <details>
 <summary>Release History</summary>
