@@ -39,7 +39,7 @@ This document provides a comprehensive overview of all available skills in the O
 | protein-mutation-analysis | Mutation Analysis | Analyze protein mutations by retrieving protein data, explaining mutation effects with MutaPLM, predicting structure with ESMFold, and visualizing results. | Recommended |
 | mutation-design-aav | Mutation Analysis | Design high-fitness and high-diversity mutants of AAV VP1 capsid protein through multi-round iterative optimization. | |
 | mutation-design-gfp | Mutation Analysis | Design high-fluorescence and high-diversity GFP mutants through multi-round iterative optimization. | |
-| functional-protein-design | Protein Engineering | Generate functional protein sequences using CodeFun with Gene Ontology (GO) tag guidance for de novo protein design. | |
+| functional-protein-design | Protein Engineering | Generate functional protein sequences using CodeFP with Gene Ontology (GO) tag guidance for de novo protein design. | |
 | protein-function-prediction | Protein Engineering | Predict protein function and properties from amino acid sequences using BioT5 for functional annotation and pathway analysis. | |
 | similar-protein-retrieval | Data Retrieval | Retrieve proteins with similar structures (FoldSeek) or sequences (MSA) from UniProt, PDB, and AFDB databases. | Recommended |
 | structure-prediction-boltz-2 | Structure Prediction | Predict protein complex structures and protein-ligand complexes with binding affinity (IC50) using Boltz-2. | |

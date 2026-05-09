@@ -19,16 +19,22 @@
 
 ## 更新信息 🎉
 
+- [2026/05/01] 🔥 发布 **CodeFP** (📃[论文](http://arxiv.org/abs/2605.00948)) 。
+
+> CodeFP 是由水木分子与清华大学智能产业研究院（AIR）联合发布的一个序列-结构联合生成蛋白质语言模型框架，通过统一序列与结构的生成以推进功能蛋白质的从头设计。基准测试的评估表明，CodeFP 在功能蛋白质的从头设计任务上的功能一致性与结构可折叠性方面均达到了SOTA水平。
+
+> 欢迎使用 [`functional-protein-design`](./skills/functional-protein-design/SKILL.md) 技能来尝试 CodeFP。
+
 - [2026/03/20] 🔥 发布 **OpenBioMed Skills**，一套由 [Claude Code](https://github.com/anthropics/claude-code) 驱动的、涵盖 45 项技能的生物医学研究与药物发现技能集。
 
 > OpenBioMed Skills 是由水木分子与清华大学智能产业研究院（AIR）联合发布的一套技能集，为复杂生物医学研究任务提供端到端解决方案，覆盖药物发现、蛋白质分析与设计、单细胞组学数据分析等生物医药热门研究领域。同时，我们提供了 copilot 模式，允许用户通过与 LLM 智能体和 OpenBioMed 工具包交互来创建你自己的技能。欢迎 [快速试用](#claude-code-快速开始) 并 [了解我们的技能](./skills/skills_overview.md)。
 
+<details>
+<summary>发布历史</summary>
+
 - [2026/02/02] 🔥 发布 **BioMedGPT-Mol**（🤗[HuggingFace 模型](https://huggingface.co/PharMolix/BioMedGPT-Mol)）。
 
 > BioMedGPT-Mol 由水木分子与清华大学智能产业研究院（AIR）联合发布的多模态分子语言模型，面向分子理解与生成，支持化学名称转换、分子描述、性质预测、反应建模、分子编辑与性质优化等任务。通过多任务课程训练，在多种分子相关任务上表现优异。
-
-<details>
-<summary>发布历史</summary>
 
 - [2025/05/26] 框架更新，包含新工具、数据集与模型。我们实现了 **LangCell**（📃[论文](https://arxiv.org/abs/2405.06708)，🤖[模型](https://drive.google.com/drive/folders/1cuhVG9v0YoAnjW-t_WMpQQguajumCBTp?usp=sharing)，📎[引用](#to-cite-langcell)）及细胞数据操作接口（见[示例](./examples/cell_annotation.ipynb)），并新增 ADMET、QED、SA、LogP、Lipinski、相似性等分子性质计算工具。
 

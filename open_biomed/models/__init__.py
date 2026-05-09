@@ -9,7 +9,7 @@ from open_biomed.models.foundation_models.pharmolix_fm import PharmolixFM
 from open_biomed.models.protein.mutaplm.mutaplm import MutaPLM
 from open_biomed.models.task_models.protein_text_translation import EnsembleTextBasedProteinGenerationModel
 from open_biomed.models.protein.esmfold.esmfold import EsmFold
-from open_biomed.models.protein.codefun.codefun import CodeFun
+from open_biomed.models.protein.codefp.codefp import CodeFP
 
 MODEL_REGISTRY = {
     "text_based_molecule_editing": {
@@ -19,7 +19,7 @@ MODEL_REGISTRY = {
         "llm4molopt": TextBasedMoleculeEditingAgent,
     },
     "go_guided_protein_generation": {
-        "codefun": CodeFun,
+        "codefp": CodeFP,
     },
     "structure_text_based_molecule_optimization": {
         "llm4molopt": TextBasedMoleculeEditingAgent,
@@ -67,9 +67,6 @@ MODEL_REGISTRY = {
     },
     "protein_folding": {
         "esmfold": EsmFold,
-    },
-    "go_guided_protein_generation": {
-        "codefun": CodeFun,
     },
 }
 
