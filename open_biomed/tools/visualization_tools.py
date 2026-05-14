@@ -42,8 +42,10 @@ def visualize_complex_3D(
         
         if ligand_file is not None:
             cmd.load(ligand_file, "ligand")
-            for elem in config.molecule.show:
-                cmd.show(elem, "ligand")
+            # 防御性编程：检查 molecule.show 属性是否存在
+            if hasattr(config.molecule, 'show'):
+                for elem in config.molecule.show:
+                    cmd.show(elem, "ligand")
             for elem in config.molecule.__dict__.keys():
                 if elem not in ["show", "mode"]:
                     cmd.set(elem, config.molecule.__dict__[elem], "ligand")
@@ -51,8 +53,10 @@ def visualize_complex_3D(
         if protein_file is not None:
             cmd.load(protein_file, "protein")
             cmd.hide("everything", "protein")
-            for elem in config.protein.show:
-                cmd.show(elem, "protein")
+            # 防御性编程：检查 protein.show 属性是否存在
+            if hasattr(config.protein, 'show'):
+                for elem in config.protein.show:
+                    cmd.show(elem, "protein")
             for elem in config.protein.__dict__.keys():
                 if elem not in ["color", "show", "cnc"]:
                     cmd.set(elem, config.protein.__dict__[elem], "protein")

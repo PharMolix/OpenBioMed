@@ -159,3 +159,5 @@ cython_debug/
 *.txt
 !requirements.txt
 *.pth
+.claude
+*.conf

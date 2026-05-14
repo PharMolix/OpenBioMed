@@ -184,7 +184,7 @@ def handle_visualize_molecule(request: TaskRequest, pipeline):
     #ligand = Molecule.from_binary_file(request.molecule)
     #outputs = pipeline.run(ligand, config="ball_and_stick", rotate=False)
     vis_process = [
-                    "python3", "./open_biomed/core/visualize.py", 
+                    "python3", "./open_biomed/tools/visualization_tools.py",
                     "--task", "visualize_molecule",
                     "--molecule_config", request.visualize,
                     "--save_output_filename", "./tmp/molecule_visualization_file.txt",
@@ -201,7 +201,7 @@ def handle_visualize_complex(request: TaskRequest, pipeline):
     #protein = Protein.from_pdb_file(request.protein)
     #outputs = pipeline.run(molecule=ligand, protein=protein, rotate=True)
     vis_process = [
-                    "python3", "./open_biomed/core/visualize.py", 
+                    "python3", "./open_biomed/tools/visualization_tools.py",
                     "--task", "visualize_complex",
                     "--save_output_filename", "./tmp/complex_visualization_file.txt",
                     "--molecule", request.molecule,
@@ -240,7 +240,7 @@ def handle_protein_folding(request: TaskRequest, pipeline):
 
 # Handlers for web_search
 async def handle_molecule_name_request(request: SearchRequest, requester):
-    outputs = await requester.run(request.query)
+    outputs = await requester.run_async(request.query)
     smiles = outputs[0][0].smiles
     output = outputs[1][0]
     return {"task": request.task, "molecule": output, "molecule_preview": smiles}
@@ -253,7 +253,7 @@ def handle_web_search(request: SearchRequest, requester):
 async def handle_molecule_structure_request(request: SearchRequest, requester):
     molecule = IO_Reader.get_molecule(request.molecule)
     threshold = request.threshold
-    outputs = await requester.run(molecule, threshold=float(threshold), max_records=1)
+    outputs = await requester.run_async(molecule, threshold=float(threshold), max_records=1)
     # Pick a random molecule
     index = random.randint(0, len(outputs[1])-1)
     molecule = outputs[1][index]
@@ -262,7 +262,7 @@ async def handle_molecule_structure_request(request: SearchRequest, requester):
 
 
 async def handle_protein_uniprot_request(request: SearchRequest, requester):
-    outputs = await requester.run(request.query)
+    outputs = await requester.run_async(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
@@ -270,7 +270,7 @@ async def handle_protein_uniprot_request(request: SearchRequest, requester):
 
 
 async def handle_protein_pdb_request(request: SearchRequest, requester):
-    outputs = await requester.run(request.query)
+    outputs = await requester.run_async(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
@@ -322,7 +322,7 @@ def handle_visualize_protein(request: TaskRequest, pipeline):
     required_inputs = ["protein"]
     protein = IO_Reader.get_protein(request.protein)
     vis_process = [
-                    "python3", "./open_biomed/core/visualize.py", 
+                    "python3", "./open_biomed/tools/visualization_tools.py",
                     "--task", "visualize_protein",
                     "--protein_config", request.visualize,
                     "--save_output_filename", "./tmp/protein_visualization_file.txt",
@@ -339,7 +339,7 @@ def handle_visualize_protein_pocket(request: TaskRequest, pipeline):
     protein = IO_Reader.get_protein(request.protein)
     pocket = IO_Reader.get_pocket(request.pocket)
     vis_process = [
-                    "python3", "./open_biomed/core/visualize.py", 
+                    "python3", "./open_biomed/tools/visualization_tools.py",
                     "--task", "visualize_protein_pocket",
                     "--save_output_filename", "./tmp/protein_pocket_visualization_file.txt",
                     "--protein", request.protein,
@@ -621,11 +621,9 @@ async def web_search(request: SearchRequest):
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
-"""
 @app.get("/healthz")
 def ping():
     return "Service available"
-"""
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8082)
