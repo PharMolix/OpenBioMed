@@ -5,7 +5,6 @@ import subprocess
 import glob
 import logging
 import random
-import pandas as pd
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -58,22 +57,51 @@ class ProteinBindingSitePrediction(Tool):
 
             
             file = output_path + "/" + pdb_name + ".pdb_predictions.csv"
-            pocket_df = pd.read_csv(file)
-            
+            # 手动读取CSV，避免pandas版本兼容性问题
+            with open(file, 'r') as f:
+                lines = f.readlines()
+
             pocket_residues = []
-            for index, row in pocket_df.iterrows():
-                pocket_name = row['name     ']
-                residue_ids = row[' residue_ids'].split()  # Split a string into a list by space
-                pocket_residues.append([int(i.split("_")[1]) for i in residue_ids])
+            for line in lines[1:]:  # 跳过header
+                values = line.strip().split(',')
+                if len(values) >= 10:
+                    residue_ids_str = values[9]  # residue_ids列
+                    residue_ids = residue_ids_str.split()
+                    parsed_residues = []
+                    for i in residue_ids:
+                        try:
+                            parts = i.split("_")
+                            if len(parts) >= 2:
+                                parsed_residues.append(int(parts[1]))
+                        except (ValueError, IndexError):
+                            pass
+                    if parsed_residues:
+                        pocket_residues.append(parsed_residues)
 
             
             protein = Protein.from_pdb_file(pdb_file)
-            random.shuffle(pocket_residues)
+            # 创建PDB编号到residue索引的映射
+            res_id_to_idx = {res.res_id: i for i, res in enumerate(protein.residues)}
+
+            # 将PDB原始编号转换为protein.residues的索引
+            pocket_indices = []
+            for pdb_ids in pocket_residues:
+                indices = []
+                for pdb_id in pdb_ids:
+                    idx = res_id_to_idx.get(pdb_id)
+                    if idx is not None:
+                        indices.append(idx)
+                    else:
+                        logging.warning(f"Residue {pdb_id} not found in protein")
+                if indices:
+                    pocket_indices.append(indices)
+
+            random.shuffle(pocket_indices)
 
             pockets, pocket_paths = [], []
-            for pocket_residue in pocket_residues:
+            for pocket_idx in pocket_indices:
                 try:
-                    pocket = Pocket.from_protein_subseq(protein, pocket_residue)
+                    pocket = Pocket.from_protein_subseq(protein, pocket_idx)
                     pocket_path = pocket.save_binary()
                     pockets.append(pocket)
                     pocket_paths.append(pocket_path)
