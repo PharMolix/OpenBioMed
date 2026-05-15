@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
     git \
+    openjdk-17-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------
@@ -56,13 +57,13 @@ RUN /opt/conda/envs/OpenBioMed/bin/pip install --no-build-isolation \
 COPY requirements.txt . 
 RUN /opt/conda/envs/OpenBioMed/bin/pip install \
     pytorch_lightning==2.0.8 peft==0.9.0 accelerate==1.3.0 --no-deps -i https://mirrors.aliyun.com/pypi/simple \
-    && /opt/conda/envs/OpenBioMed/bin/pip install -r requirements.txt
+    && /opt/conda/envs/OpenBioMed/bin/pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple
 
 # ------------------------------
 # Visualization & NLTK
 # ------------------------------
 RUN /opt/conda/bin/conda install -n OpenBioMed -c conda-forge pymol-open-source -y \
-    && /opt/conda/envs/OpenBioMed/bin/pip install imageio spacy rouge_score nltk  -i https://mirrors.aliyun.com/pypi/simple \
+    && /opt/conda/envs/OpenBioMed/bin/pip install imageio rouge_score nltk alibabacloud_iqs20241111 alibabacloud_tea_openapi -i https://mirrors.aliyun.com/pypi/simple \
     && /opt/conda/envs/OpenBioMed/bin/python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4')"
 
 # ------------------------------
