@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import os
 import sys
 import requests
+import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import aiohttp
@@ -18,6 +19,79 @@ import xml.etree.ElementTree as ET
 
 from open_biomed.data import Molecule, Protein
 from open_biomed.tools.base_tool import Tool
+
+# ==================== IQS Client (Module-level singleton) ====================
+
+class IQSClientWrapper:
+    """Alibaba Cloud IQS client wrapper (singleton pattern)"""
+    def __init__(self):
+        self.client = None
+        self.iqs_models = None
+        self._try_init()
+
+    def _try_init(self):
+        """Initialize IQS client"""
+        try:
+            from alibabacloud_iqs20241111 import models as iqs_models
+            from alibabacloud_iqs20241111.client import Client
+            from alibabacloud_tea_openapi import models as open_api_models
+
+            self.iqs_models = iqs_models
+            self.open_api_models = open_api_models
+
+            ak = os.environ.get("ALIYUN_AK")
+            sk = os.environ.get("ALIYUN_SK")
+            endpoint = os.environ.get("ALIYUN_ENDPOINT", "iqs.cn-zhangjiakou.aliyuncs.com")
+
+            if ak and sk:
+                config = open_api_models.Config(
+                    access_key_id=ak,
+                    access_key_secret=sk
+                )
+                config.endpoint = endpoint
+                config.read_timeout = 30000    # 30 seconds
+                config.connect_timeout = 10000  # 10 seconds
+                self.client = Client(config)
+            else:
+                logging.warning("ALIYUN_AK or ALIYUN_SK not set, IQS client disabled")
+        except ImportError:
+            logging.warning("alibabacloud_iqs20241111 not installed, IQS client disabled")
+
+    async def search(self, query: str, search_size: int = 10):
+        """Call IQS search API"""
+        from Tea.exceptions import TeaException
+
+        if not self.client:
+            return []
+
+        request = self.iqs_models.UnifiedSearchRequest(
+            body=self.iqs_models.UnifiedSearchInput(
+                query=query,
+                time_range="NoLimit",
+                contents=self.iqs_models.RequestContents(
+                    summary=False,
+                    main_text=True,
+                )
+            )
+        )
+
+        try:
+            response = await self.client.unified_search_async(request)
+            results = []
+            for item in response.body.page_items:
+                results.append({
+                    "title": item.title,
+                    "text": item.main_text,
+                    "url": item.link,
+                    "channel": "WebSearch"
+                })
+            return results[:search_size]
+        except TeaException as e:
+            logging.error(f"IQS search error: {e}")
+            return []
+
+# Module-level singleton
+_iqs_client = IQSClientWrapper()
 
 class Requester(Tool):
     def __init__(self) -> None:
@@ -41,19 +115,26 @@ class DBRequester(Requester):
     @RateLimiter(max_calls=5, period=1)
     async def run_async(self, accession: Any, **kwargs) -> Any:
         url = self._determine_query_url(accession, **kwargs)
+        logging.info(f"[DBRequester] Querying: {url} (timeout={self.timeout}s)")
+        start_time = time.time()
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
                 async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.read()
                         content = content.decode("utf-8")
-                        logging.info("Downloaded results successfully")
+                        elapsed = time.time() - start_time
+                        logging.info(f"[DBRequester] Downloaded results successfully in {elapsed:.2f}s")
                     else:
                         logging.warning(f"HTTP request failed, status {response.status}")
-                        raise Exception()
+                        raise Exception(f"HTTP {response.status}")
+        except asyncio.TimeoutError as e:
+            elapsed = time.time() - start_time
+            logging.error(f"[DBRequester] TIMEOUT: {url} after {elapsed:.2f}s (timeout setting: {self.timeout}s)")
+            raise asyncio.TimeoutError(f"Request to {url} timed out after {elapsed:.2f}s")
         except Exception as e:
-            content = None
-            logging.error(f"Download failed. Exception: {e}")
+            elapsed = time.time() - start_time
+            logging.error(f"[DBRequester] FAILED: {url} in {elapsed:.2f}s - {e}")
             raise e
         return self._parse_and_save_outputs(accession, content, **kwargs)
 
@@ -638,61 +719,37 @@ class WebSearchRequester(Tool):
             "Outputs: str (returned results from the search engine)"
         ])
 
-    def run(self, query: str) -> Tuple[List[str], List[str]]:
+    async def run_async(self, query: str) -> Tuple[List[str], List[str]]:
+        """Async web search using IQS client"""
+        logging.info(f"[WebSearchRequester] Searching for: {query}")
+        start_time = time.time()
 
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer 1234567890'
-        }
-        query_url = "https://staging.chatdd.pharmolix.com/v2/api/deepinsight/generate_query"
-        data = {
-            'chat_session_id': "FwAalhadkajhddkaadfwes",
-            'action': False,
-            'chat_messages': [
-                {"role": "user", "content": f'<p>{query}</p><p><br></p>'}
-            ]
-        }
-        response = requests.post(query_url, headers=headers, json=data)
-        question = response.json()
+        # Use module-level singleton IQS client
+        results = await _iqs_client.search(query, search_size=10)
 
-        rag_url = "http://101.200.137.30:1112/rag/v1/common_rag"
+        elapsed = time.time() - start_time
+        logging.info(f"[WebSearchRequester] Got {len(results)} results in {elapsed:.2f}s")
 
-        if not question['query_list']:
-            question['query_list'] = []
-        question["recall_params"] = {
-            "PaperDB": [
-                "meeting",
-                "pubmed_abstract",
-                "pubmed_full_text"
-            ],
-            "NewsDB": [
-                "press",
-                "media",
-                "wechat",
-                "wechat_realtime",
-                "press_realtime"
-            ],
-            "WebSearch": None,
-            "Clinicaltrial_DB": [
-                "clinicaltrials"
-            ],
-            "Policy_DB": [
-                "policy"
-            ],
-            "Principle_DB": [
-                "principle"
-            ],
-            "PatentLaw_DB": [
-                "patentlaw"
-            ]
-        }
-        question["top_k"] = 5
-        res = requests.post(rag_url, json=question)
-        #result = {"query": [query] + question['query_list'],
-        #          "result": res.json()["data"]}
-        #result = {"result": [i["text"] for i in res.json()["data"]]}
-        result = "\n\n\n".join([i["text"] for i in res.json()["data"]])
+        # Deduplicate by url
+        seen_urls = set()
+        result_texts = []
+        for item in results:
+            if item["url"] not in seen_urls:
+                if item["text"] is not None:
+                    result_texts.append(item["text"])
+                else:
+                    logging.warning(f"[WebSearchRequester] Skipping result with None text: {item['url']}")
+                seen_urls.add(item["url"])
+
+        result = "\n\n\n".join(result_texts) if result_texts else ""
+        logging.info(f"[WebSearchRequester] Returning {len(result_texts)} unique results")
         return [result], [result]
+
+    def run(self, query: str) -> Tuple[List[str], List[str]]:
+        """Sync wrapper for run_async"""
+        import warnings
+        warnings.warn("WebSearchRequester.run() is deprecated, use run_async()", DeprecationWarning)
+        return asyncio.run(self.run_async(query))
 
 
 class MMSeqsRequester(Requester):
