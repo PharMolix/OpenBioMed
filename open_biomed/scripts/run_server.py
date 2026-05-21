@@ -117,6 +117,17 @@ class TaskRequest(BaseModel):
     molecule_2: Optional[str] = None
     similarity: Optional[float] = None
     value: Optional[str] = None
+    # ChEMBL query extension
+    query_type: Optional[str] = None
+    target_name: Optional[str] = None
+    uniprot_id: Optional[str] = None
+    molecule_name: Optional[str] = None
+    chembl_id: Optional[str] = None
+    disease: Optional[str] = None
+    standard_type: Optional[str] = None
+    standard_value_lte: Optional[int] = None
+    max_phase: Optional[int] = None
+    limit: Optional[int] = None
 
 
 class SearchRequest(BaseModel):
@@ -410,6 +421,17 @@ def handle_drug_lead_analysis(request: TaskRequest, pipeline):
     return {"task": request.task, "model": request.model, "report": outputs[0]}
 
 
+async def handle_chembl_query(request: TaskRequest, requester):
+    kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
+    # Remove non-ChEMBL fields that may have been populated
+    for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
+                "text", "dataset", "query", "mutation", "indices", "property",
+                "molecule_1", "molecule_2", "similarity", "value"]:
+        kwargs.pop(key, None)
+    results, messages = await requester.run_async(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
 TASK_CONFIGS = [
     {
         "task_name": "text_based_molecule_editing",
@@ -592,6 +614,13 @@ TASK_CONFIGS = [
         "pipeline_key": "drug_lead_analysis",
         "handler_function": handle_drug_lead_analysis,
         "is_async": False
+    },
+    {
+        "task_name": "chembl_query", # 27
+        "required_inputs": ["query_type"],
+        "pipeline_key": "chembl_query",
+        "handler_function": handle_chembl_query,
+        "is_async": True
     }
     
 
@@ -633,7 +662,10 @@ async def run_pipeline(request: TaskRequest):
         task_config.validate_inputs(request.model_dump())
         pipeline = TOOLS[task_config.pipeline_key]
         logger.info(f"[EXEC] Running pipeline...")
-        output = task_config.handler_function(request, pipeline)
+        if task_config.is_async:
+            output = await task_config.handler_function(request, pipeline)
+        else:
+            output = task_config.handler_function(request, pipeline)
         elapsed = time.time() - start_time
         logger.info(f"[DONE] Task: {task_name} completed in {elapsed:.2f}s")
         logger.info(f"[OUTPUT] Response: {output}")
