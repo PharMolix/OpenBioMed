@@ -270,21 +270,21 @@ def handle_protein_folding(request: TaskRequest, pipeline):
 
 
 # Handlers for web_search
-async def handle_molecule_name_request(request: SearchRequest, requester):
-    outputs = await requester.run_async(request.query)
+def handle_molecule_name_request(request: SearchRequest, requester):
+    outputs = requester.run(request.query)
     smiles = outputs[0][0].smiles
     output = outputs[1][0]
     return {"task": request.task, "molecule": output, "molecule_preview": smiles}
 
-async def handle_web_search(request: SearchRequest, requester):
-    outputs = await requester.run_async(request.query)
+def handle_web_search(request: SearchRequest, requester):
+    outputs = requester.run(request.query)
     outputs = outputs[0][0]
     return {"task": request.task, "text": outputs}
 
-async def handle_molecule_structure_request(request: SearchRequest, requester):
+def handle_molecule_structure_request(request: SearchRequest, requester):
     molecule = IO_Reader.get_molecule(request.molecule)
     threshold = request.threshold
-    outputs = await requester.run_async(molecule, threshold=float(threshold), max_records=1)
+    outputs = requester.run(molecule, threshold=float(threshold), max_records=1)
     # Pick a random molecule
     index = random.randint(0, len(outputs[1])-1)
     molecule = outputs[1][index]
@@ -292,16 +292,16 @@ async def handle_molecule_structure_request(request: SearchRequest, requester):
     return {"task": request.task, "molecule": molecule, "molecule_preview": molecule_preview}
 
 
-async def handle_protein_uniprot_request(request: SearchRequest, requester):
-    outputs = await requester.run_async(request.query)
+def handle_protein_uniprot_request(request: SearchRequest, requester):
+    outputs = requester.run(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
     return {"task": request.task, "protein": outputs, "protein_preview": protein_preview}
 
 
-async def handle_protein_pdb_request(request: SearchRequest, requester):
-    outputs = await requester.run_async(request.query)
+def handle_protein_pdb_request(request: SearchRequest, requester):
+    outputs = requester.run(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
@@ -550,35 +550,35 @@ TASK_CONFIGS = [
         "required_inputs": ["query"],
         "pipeline_key": "molecule_name_request",
         "handler_function": handle_molecule_name_request,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "web_search",
         "required_inputs": ["query"],
         "pipeline_key": "web_search",
         "handler_function": handle_web_search,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "molecule_structure_request",
         "required_inputs": ["molecule", "threshold"],
         "pipeline_key": "molecule_structure_request",
         "handler_function": handle_molecule_structure_request,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "protein_uniprot_request",
         "required_inputs": ["query"],
         "pipeline_key": "protein_uniprot_request",
         "handler_function": handle_protein_uniprot_request,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "protein_pdb_request",
         "required_inputs": ["query"],
         "pipeline_key": "protein_pdb_request",
         "handler_function": handle_protein_pdb_request,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "mutation_explanation",
@@ -630,42 +630,42 @@ TASK_CONFIGS = [
         "is_async": False
     },
     {
-        "task_name": "molecule_similarity", # 25
+        "task_name": "molecule_similarity",
         "required_inputs": ["molecule_1", "molecule_2"],
         "pipeline_key": "molecule_similarity",
         "handler_function": handle_molecule_similarity,
         "is_async": False
     },
     {
-        "task_name": "molecule_property_calculation", # 25
+        "task_name": "molecule_property_calculation",
         "required_inputs": ["molecule", "property"],
         "pipeline_key": "molecule_property_calculation",
         "handler_function": handle_molecule_property_calculation,
         "is_async": False
     },
     {
-        "task_name": "drug_lead_analysis", # 26
+        "task_name": "drug_lead_analysis",
         "required_inputs": ["molecule"],
         "pipeline_key": "drug_lead_analysis",
         "handler_function": handle_drug_lead_analysis,
         "is_async": False
     },
     {
-        "task_name": "chembl_query", # 27
+        "task_name": "chembl_query",
         "required_inputs": ["query_type"],
         "pipeline_key": "chembl_query",
         "handler_function": handle_chembl_query,
         "is_async": False
     },
     {
-        "task_name": "kegg_query", # 28
+        "task_name": "kegg_query",
         "required_inputs": ["query_type"],
         "pipeline_key": "kegg_query",
         "handler_function": handle_kegg_query,
         "is_async": False
     },
     {
-        "task_name": "ppi_string_request", # 29
+        "task_name": "ppi_string_request",
         "required_inputs": ["uniprot_id"],
         "pipeline_key": "ppi_string_request",
         "handler_function": handle_ppi_string_request,
@@ -677,6 +677,15 @@ TASK_CONFIGS = [
 
 
 task_loader = TaskLoader()
+
+for task_config in TASK_CONFIGS:
+    task_loader.register_task(TaskConfig(
+        task_name=task_config["task_name"],
+        required_inputs=task_config["required_inputs"],
+        pipeline_key=task_config["pipeline_key"],
+        handler_function=task_config["handler_function"],
+        is_async=task_config["is_async"]
+    ))
 
 for task_config in TASK_CONFIGS:
     task_loader.register_task(TaskConfig(
