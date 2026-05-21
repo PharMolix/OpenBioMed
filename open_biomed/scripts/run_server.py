@@ -4,11 +4,8 @@ import torch.nn.functional as F
 import uvicorn
 import random
 import copy
-import asyncio
 import logging
 import subprocess
-import time
-import uuid
 from typing import Optional, List, Dict, Callable, Any, Literal
 
 # import function
@@ -702,64 +699,21 @@ for task_config in TASK_CONFIGS:
 @app.post("/run_pipeline/")
 async def run_pipeline(request: TaskRequest):
     task_name = request.task.lower()
-    request_id = str(uuid.uuid4())[:8]
-    start_time = time.time()
-
-    # Log request details
-    logger.info("=" * 80)
-    logger.info(f"[TASK] {task_name} | RequestID: {request_id}")
-    logger.info(f"[INPUT] Request details:")
-    request_dict = request.model_dump()
-    for key, value in request_dict.items():
-        if value is not None:
-            logger.info(f"  - {key}: {value}")
-    logger.info(f"[START] Task: {task_name}, Model: {request.model}")
-
+    logging.info(request)
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
         pipeline = TOOLS[task_config.pipeline_key]
-        logger.info(f"[EXEC] Running pipeline...")
-        if task_config.is_async:
-            output = await task_config.handler_function(request, pipeline)
-        else:
-            output = task_config.handler_function(request, pipeline)
-        elapsed = time.time() - start_time
-        logger.info(f"[DONE] Task: {task_name} completed in {elapsed:.2f}s")
-        logger.info(f"[OUTPUT] Response: {output}")
-        logger.info("=" * 80)
+        output = task_config.handler_function(request, pipeline)
         return output
-    except asyncio.TimeoutError as e:
-        elapsed = time.time() - start_time
-        import traceback
-        error_traceback = traceback.format_exc()
-        logger.error(f"[TIMEOUT] Task: {task_name} after {elapsed:.2f}s")
-        logger.error(f"[ERROR] {e}\n{error_traceback}")
-        logger.info("=" * 80)
-        raise HTTPException(status_code=504, detail=f"Request timeout after {elapsed:.2f}s: {str(e)}")
     except Exception as e:
-        elapsed = time.time() - start_time
-        import traceback
-        error_traceback = traceback.format_exc()
-        logger.error(f"[FAILED] Task: {task_name} in {elapsed:.2f}s")
-        logger.error(f"[ERROR] Exception: {e}")
-        logger.error(f"[TRACEBACK] {error_traceback}")
-        logger.info("=" * 80)
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/web_search/")
 async def web_search(request: SearchRequest):
     task_name = request.task.lower()
-    request_id = str(uuid.uuid4())[:8]
-    start_time = time.time()
-
-    # Log request details
-    logger.info("=" * 80)
-    logger.info(f"[WEB_SEARCH] {task_name} | RequestID: {request_id}")
-    logger.info(f"[INPUT] Query: {request.query}")
-    logger.info(f"[START] Task: {task_name}")
-
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
@@ -769,27 +723,9 @@ async def web_search(request: SearchRequest):
             output = await task_config.handler_function(request, requester)
         else:
             output = task_config.handler_function(request, requester)
-        elapsed = time.time() - start_time
-        logger.info(f"[DONE] Task: {task_name} completed in {elapsed:.2f}s")
-        logger.info(f"[OUTPUT] Response: {output}")
-        logger.info("=" * 80)
         return output
-    except asyncio.TimeoutError as e:
-        elapsed = time.time() - start_time
-        import traceback
-        error_traceback = traceback.format_exc()
-        logger.error(f"[TIMEOUT] Task: {task_name} after {elapsed:.2f}s")
-        logger.error(f"[ERROR] {e}\n{error_traceback}")
-        logger.info("=" * 80)
-        raise HTTPException(status_code=504, detail=f"Request timeout after {elapsed:.2f}s: {str(e)}")
     except Exception as e:
-        elapsed = time.time() - start_time
-        import traceback
-        error_traceback = traceback.format_exc()
-        logger.error(f"[FAILED] Task: {task_name} in {elapsed:.2f}s")
-        logger.error(f"[ERROR] Exception: {e}")
-        logger.error(f"[TRACEBACK] {error_traceback}")
-        logger.info("=" * 80)
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/healthz")
