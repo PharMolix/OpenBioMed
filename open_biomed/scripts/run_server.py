@@ -134,6 +134,9 @@ class TaskRequest(BaseModel):
     entry_id: Optional[str] = None
     target_db: Optional[str] = None
     source_id: Optional[str] = None
+    # PPI STRING query extension
+    species: Optional[int] = None
+    required_score: Optional[int] = None
 
 
 class SearchRequest(BaseModel):
@@ -433,10 +436,21 @@ async def handle_chembl_query(request: TaskRequest, requester):
     for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
                 "text", "dataset", "query", "mutation", "indices", "property",
                 "molecule_1", "molecule_2", "similarity", "value",
-                "database", "option", "entry_id", "target_db", "source_id"]:
+                "database", "option", "entry_id", "target_db", "source_id",
+                "species", "required_score"]:
         kwargs.pop(key, None)
     results, messages = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
+async def handle_ppi_string_request(request: TaskRequest, requester):
+    results, messages = await requester.run_async(
+        uniprot_id=request.uniprot_id,
+        species=request.species or 9606,
+        required_score=request.required_score or 700,
+        limit=request.limit or 50
+    )
+    return {"task": request.task, "uniprot_id": request.uniprot_id, "results": results}
 
 
 async def handle_kegg_query(request: TaskRequest, requester):
@@ -446,7 +460,8 @@ async def handle_kegg_query(request: TaskRequest, requester):
                 "text", "dataset", "mutation", "indices", "property",
                 "molecule_1", "molecule_2", "similarity", "value",
                 "target_name", "uniprot_id", "molecule_name", "chembl_id",
-                "disease", "standard_type", "standard_value_lte", "max_phase", "limit"]:
+                "disease", "standard_type", "standard_value_lte", "max_phase", "limit",
+                "species", "required_score"]:
         kwargs.pop(key, None)
     results, messages = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
@@ -647,6 +662,13 @@ TASK_CONFIGS = [
         "required_inputs": ["query_type"],
         "pipeline_key": "kegg_query",
         "handler_function": handle_kegg_query,
+        "is_async": True
+    },
+    {
+        "task_name": "ppi_string_request", # 29
+        "required_inputs": ["uniprot_id"],
+        "pipeline_key": "ppi_string_request",
+        "handler_function": handle_ppi_string_request,
         "is_async": True
     }
 
