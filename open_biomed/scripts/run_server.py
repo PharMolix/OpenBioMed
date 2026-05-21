@@ -128,6 +128,12 @@ class TaskRequest(BaseModel):
     standard_value_lte: Optional[int] = None
     max_phase: Optional[int] = None
     limit: Optional[int] = None
+    # KEGG query extension
+    database: Optional[str] = None
+    option: Optional[str] = None
+    entry_id: Optional[str] = None
+    target_db: Optional[str] = None
+    source_id: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -426,7 +432,21 @@ async def handle_chembl_query(request: TaskRequest, requester):
     # Remove non-ChEMBL fields that may have been populated
     for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
                 "text", "dataset", "query", "mutation", "indices", "property",
-                "molecule_1", "molecule_2", "similarity", "value"]:
+                "molecule_1", "molecule_2", "similarity", "value",
+                "database", "option", "entry_id", "target_db", "source_id"]:
+        kwargs.pop(key, None)
+    results, messages = await requester.run_async(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
+async def handle_kegg_query(request: TaskRequest, requester):
+    kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
+    # Remove non-KEGG fields
+    for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
+                "text", "dataset", "mutation", "indices", "property",
+                "molecule_1", "molecule_2", "similarity", "value",
+                "target_name", "uniprot_id", "molecule_name", "chembl_id",
+                "disease", "standard_type", "standard_value_lte", "max_phase", "limit"]:
         kwargs.pop(key, None)
     results, messages = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
@@ -621,8 +641,15 @@ TASK_CONFIGS = [
         "pipeline_key": "chembl_query",
         "handler_function": handle_chembl_query,
         "is_async": True
+    },
+    {
+        "task_name": "kegg_query", # 28
+        "required_inputs": ["query_type"],
+        "pipeline_key": "kegg_query",
+        "handler_function": handle_kegg_query,
+        "is_async": True
     }
-    
+
 
 ]
 

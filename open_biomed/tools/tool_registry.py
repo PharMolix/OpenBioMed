@@ -5,6 +5,7 @@ from open_biomed.tools.third_party_tools import *
 from open_biomed.data.molecule import *
 from open_biomed.scripts.inference import *
 from open_biomed.tools.drug_lead_analysis_tool import DrugLeadAnalysisTool
+from open_biomed.tools.kegg_query_tool import KEGGQueryRequester
 
 
 # TODO: Add pocket prediction as a tool
@@ -22,7 +23,8 @@ class LazyDictForTool(dict):
             "web_search", "import_pocket", "export_molecule", "export_protein",
             "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity",
             "drug_lead_analysis",
-            "extract_molecules_from_pdb_file", "summarize_content", "chembl_query"
+            "extract_molecules_from_pdb_file", "summarize_content", "chembl_query",
+            "kegg_query"
         ]
     
     def __missing__(self, key):
@@ -101,6 +103,8 @@ class LazyDictForTool(dict):
             self[key] = LLMSummarize()
         elif key == "chembl_query":
             self[key] = ChEMBLQueryRequester()
+        elif key == "kegg_query":
+            self[key] = KEGGQueryRequester()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]

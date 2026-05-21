@@ -13,7 +13,27 @@ tags: [kegg, pathway, drug, disease, target, bioinformatics]
 
 # KEGG Query
 
-Query the KEGG (Kyoto Encyclopedia of Genes and Genomes) database for comprehensive biomedical information.
+Query KEGG database for drug, pathway, and disease information via the OpenBioMed server API.
+
+## Endpoint Configuration (read this first)
+
+Defaults declared in this skill (edit these inline when the real values are known):
+
+- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+  Placeholder for the OpenBioMed cloud service base URL. Replace with the real published URL when available.
+
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
+
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set in the runtime environment.
+3. Otherwise, ask the user once which endpoint to use, and offer these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value declared above.
+   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `http://localhost:9000` or `https://openbiomed.internal.example.com`.
+4. Remember the chosen base URL for the rest of the session and reuse it for subsequent calls without re-asking.
+
+Privacy note: KEGG is a public database, so there are no privacy concerns with using either endpoint.
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). KEGG queries use the endpoint `${OPENBIOMED_API_BASE_URL}/run_pipeline/` with `task: "kegg_query"`.
 
 ## When to Use
 
@@ -25,177 +45,234 @@ Query the KEGG (Kyoto Encyclopedia of Genes and Genomes) database for comprehens
 
 ### Use Case 1: Drug Information Lookup
 
-Fetch comprehensive drug information from KEGG DRUG database.
+Search for a drug by name, then retrieve full entry details.
 
-```python
-from scripts.kegg_api import kegg_find, kegg_get, parse_drug_entry
+**Step 1: Find drug by name** (`query_type: "find"`):
 
-# Step 1: Search for drug by name
-results = kegg_find("drug", "aspirin")
-# Returns: [("dr:D00109", "Aspirin (JP18/USP); Acetylsalicylic acid; ...")]
-
-# Step 2: Get full entry
-drug_id = "dr:D00109"  # or just "D00109"
-entry = kegg_get(drug_id)
-drug_info = parse_drug_entry(entry)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "find", "database": "drug", "query": "aspirin"}'
 ```
 
-**Output includes**: Names, formula, efficacy, diseases, targets, pathways, metabolism, DDI.
+Response:
+```json
+{
+  "task": "kegg_query",
+  "query_type": "find",
+  "results": [
+    {"entry_id": "dr:D00109", "description": "Aspirin (JP18/USP); Acetylsalicylic acid; ..."}
+  ]
+}
+```
 
-See `examples/drug_lookup.py` for complete implementation.
+**Step 2: Get full drug entry** (`query_type: "get"`):
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "get", "entry_id": "D00109"}'
+```
+
+The entry_id is auto-formatted (e.g., `D00109` → `dr:D00109`). You can also use the full format directly:
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "get", "entry_id": "dr:D00109"}'
+```
+
+Response:
+```json
+{
+  "task": "kegg_query",
+  "query_type": "get",
+  "results": [{"entry_id": "dr:D00109", "raw_text": "...full KEGG entry text..."}]
+}
+```
+
+The `raw_text` field contains the complete KEGG DRUG entry. Parse key fields like NAME, FORMULA, EFFICACY, TARGET, PATHWAY, DISEASE from this text (see Expected Outputs below).
+
+**Optional: Get molecular structure** (`option: "mol"`):
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "get", "entry_id": "D00109", "option": "mol"}'
+```
 
 ### Use Case 2: Pathway Analysis
 
-Analyze KEGG pathways to retrieve genes, compounds, and modules.
+Retrieve pathway entry with genes, compounds, and modules.
 
-```python
-from scripts.kegg_api import kegg_get, parse_pathway_entry
+**Get pathway by ID** (`query_type: "get"`):
 
-# Get pathway by ID (e.g., hsa00010 for Glycolysis)
-entry = kegg_get("hsa00010")
-pathway = parse_pathway_entry(entry)
-
-# Access parsed data
-print(f"Genes: {len(pathway['genes'])}")      # 50+ genes
-print(f"Compounds: {len(pathway['compounds'])}")  # 30+ compounds
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "get", "entry_id": "hsa00010"}'
 ```
 
-**Output includes**: Description, genes with KO/EC annotations, compounds, modules, related pathways.
+Response:
+```json
+{
+  "task": "kegg_query",
+  "query_type": "get",
+  "results": [{"entry_id": "hsa00010", "raw_text": "...full pathway entry with genes, compounds, modules..."}]
+}
+```
 
-See `examples/pathway_analysis.py` for complete implementation.
+**Find pathway by keyword** (`query_type: "find"`):
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "find", "database": "pathway", "query": "glycolysis"}'
+```
+
+**Cross-reference pathway with compounds** (`query_type: "link"`):
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "link", "target_db": "compound", "source_id": "hsa00010"}'
+```
+
+Response:
+```json
+{
+  "task": "kegg_query",
+  "query_type": "link",
+  "results": [
+    {"source_id": "hsa00010", "target_id": "cpd:C00031"},
+    {"source_id": "hsa00010", "target_id": "cpd:C00022"}
+  ]
+}
+```
 
 ### Use Case 3: Disease-Drug-Target Discovery
 
-Discover therapeutic targets and drugs for diseases.
+Find diseases by keyword, then retrieve associated drugs and targets.
 
-```python
-from scripts.kegg_api import kegg_find, kegg_get, parse_disease_entry
+**Step 1: Search for disease** (`query_type: "find"`):
 
-# Step 1: Search for disease
-results = kegg_find("disease", "diabetes")
-# Returns multiple matches including Type 2 diabetes (H00409)
-
-# Step 2: Get disease details
-entry = kegg_get("ds:H00409")
-disease = parse_disease_entry(entry)
-
-# Access drugs and targets
-print(f"Drugs: {len(disease['drugs'])}")    # 60+ drugs
-print(f"Genes: {len(disease['genes'])}")    # 20+ genes
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "find", "database": "disease", "query": "diabetes"}'
 ```
 
-**Output includes**: Description, category, associated genes, pathways, approved drugs.
+**Step 2: Get disease details** (`query_type: "get"`):
 
-See `examples/disease_discovery.py` for complete implementation.
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "get", "entry_id": "H00409"}'
+```
+
+The entry_id is auto-formatted (`H00409` → `ds:H00409`). The `raw_text` contains the full KEGG DISEASE entry with associated genes, drugs, and pathways.
+
+**Step 3: Cross-reference disease with drugs** (`query_type: "link"`):
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "kegg_query", "query_type": "link", "target_db": "drug", "source_id": "ds:H00409"}'
+```
 
 ## Expected Outputs
 
-### Drug Entry (JSON)
+### Find Operation
 
-```json
-{
-  "id": "D00109",
-  "names": ["Aspirin", "Acetylsalicylic acid"],
-  "formula": "C9H8O4",
-  "efficacy": ["Analgesic", "Anti-inflammatory", "Antipyretic", "COX inhibitor"],
-  "targets": [
-    {"gene": "PTGS1", "uniprot": "P23219", "ko": "K00509"},
-    {"gene": "PTGS2", "uniprot": "P35354", "ko": "K11987"}
-  ],
-  "pathways": ["hsa00590", "hsa04611"],
-  "diseases": ["Myocardial infarction", "Unstable angina"]
-}
-```
+Returns a list of matching entries:
 
-### Pathway Entry (JSON)
+| Field | Description |
+|-------|-------------|
+| `entry_id` | KEGG entry identifier (e.g., `dr:D00109`) |
+| `description` | Entry name and synonyms |
 
-```json
-{
-  "id": "hsa00010",
-  "name": "Glycolysis / Gluconeogenesis",
-  "organism": "Homo sapiens",
-  "description": "Glycolysis is the process...",
-  "genes": [
-    {"id": "10327", "symbol": "AKR1A1", "ko": "K00002", "ec": "1.1.1.2"},
-    {"id": "3939", "symbol": "LDHA", "ko": "K00016", "ec": "1.1.1.27"}
-  ],
-  "compounds": [
-    {"id": "C00031", "name": "D-Glucose"},
-    {"id": "C00022", "name": "Pyruvate"}
-  ],
-  "modules": ["hsa_M00001", "hsa_M00002", "hsa_M00003"]
-}
-```
+### Get Operation
 
-### Disease Entry (JSON)
+Returns a single entry with `raw_text` containing the full KEGG flat-file format. Key sections to parse:
 
-```json
-{
-  "id": "H00409",
-  "name": "Type 2 diabetes mellitus",
-  "category": "Endocrine and metabolic disease",
-  "description": "T2DM is characterized by chronic hyperglycemia...",
-  "genes": [
-    {"symbol": "CAPN10", "ko": "K08579"},
-    {"symbol": "TCF7L2", "ko": "K04491"}
-  ],
-  "drugs": [
-    {"id": "D00944", "name": "Metformin hydrochloride"},
-    {"id": "D06404", "name": "Liraglutide"}
-  ],
-  "pathways": ["hsa04930", "hsa04911"]
-}
-```
+**Drug Entry** fields: ENTRY, NAME, FORMULA, EXACT_MASS, MOL_WEIGHT, EFFICACY, TARGET, PATHWAY, DISEASE, DBLINKS
 
-## KEGG API Reference
+**Pathway Entry** fields: ENTRY, NAME, DESCRIPTION, CLASS, ORGANISM, MODULE, GENE, COMPOUND, REL_PATHWAY
 
-| Operation | URL Pattern | Description |
-|-----------|-------------|-------------|
-| `info` | `/info/{database}` | Database statistics |
-| `list` | `/list/{database}` | List all entries |
-| `find` | `/find/{database}/{query}` | Search by keyword |
-| `get` | `/get/{entry_id}` | Retrieve entry |
-| `link` | `/link/{target}/{source}` | Cross-references |
-| `conv` | `/conv/{target}/{source}` | ID conversion |
+**Disease Entry** fields: ENTRY, NAME, DESCRIPTION, CATEGORY, GENE, DRUG, PATHWAY, NETWORK, DBLINKS
 
-**Key Databases**: `pathway`, `compound`, `drug`, `disease`, `genes`, `enzyme`, `ko`
+### Link Operation
 
-**Entry ID Formats**:
-- Drug: `D00009` or `dr:D00009`
-- Compound: `C00031` or `cpd:C00031`
-- Pathway: `hsa00010` (organism-specific) or `map00010` (reference)
-- Disease: `H00409` or `ds:H00409`
-- Gene: `hsa:5742` (organism:gene_id)
+Returns cross-reference pairs:
+
+| Field | Description |
+|-------|-------------|
+| `source_id` | Source entry ID |
+| `target_id` | Target entry ID |
+
+## Parameters Reference
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `task` | str (required) | Must be `"kegg_query"` |
+| `query_type` | str (required) | `"find"`, `"get"`, or `"link"` |
+| `database` | str | KEGG database for find: `"drug"`, `"compound"`, `"disease"`, `"pathway"`, `"genes"`, `"enzyme"`, `"ko"` (default: `"drug"`) |
+| `query` | str | Search keyword for find; also fallback for entry_id/source_id |
+| `entry_id` | str | Entry ID for get (auto-formatted: `D00109` → `dr:D00109`, `C00031` → `cpd:C00031`, `H00409` → `ds:H00409`) |
+| `option` | str | Optional format for get: `"aaseq"`, `"ntseq"`, `"mol"`, `"image"`, `"kgml"` |
+| `target_db` | str | Target database for link (e.g., `"drug"`, `"compound"`, `"pathway"`) (default: `"drug"`) |
+| `source_id` | str | Source entry/database ID for link; fallback to `query` if not provided |
+
+## Entry ID Formats
+
+Auto-formatting rules (applied automatically by the tool):
+
+| Raw ID | Auto-formatted | Database |
+|--------|---------------|----------|
+| `D00109` | `dr:D00109` | Drug |
+| `C00031` | `cpd:C00031` | Compound |
+| `H00409` | `ds:H00409` | Disease |
+| `hsa00010` | `hsa00010` (no change) | Pathway (organism-specific) |
+| `map00010` | `map00010` (no change) | Pathway (reference) |
+
+You can also provide the full prefixed format directly (`dr:D00109`, `cpd:C00031`, etc.).
 
 ## Error Handling
 
-| Error | Solution |
-|-------|----------|
-| Entry not found | Verify ID format (e.g., D00109, not aspirin) |
-| Multiple matches | Use `kegg_find` first to get exact ID |
-| Timeout | Reduce query complexity, retry with delay |
-| Rate limited | KEGG allows ~10 requests/second; add delays |
+### Entry Not Found
 
-## Integration with OpenBioMed
+**Symptom**: `get` returns empty or very short `raw_text`.
 
-```python
-from open_biomed.data import Molecule, Protein
-from open_biomed.tools.tool_registry import TOOLS
+**Solution**: Use `find` first to get the exact entry ID, then use `get` with that ID.
 
-# Convert KEGG compound to Molecule
-compound_entry = kegg_get("cpd:C00031")  # Glucose
-mol_file = kegg_get("C00031", option="mol")  # Get MOL format
-# molecule = Molecule.from_mol_file(mol_file)
+### No Search Results
 
-# Get protein from KEGG gene
-gene_entry = kegg_get("hsa:5742")  # PTGS1
-# Use UniProt ID to fetch protein
-protein_tool = TOOLS["protein_uniprot_request"]
-proteins, _ = protein_tool.run(accession="P23219")
-```
+**Symptom**: `find` returns empty results list.
 
-## References
+**Solution**: Try alternative keywords or different database names. Use simpler terms (e.g., "cancer" instead of "carcinoma").
 
-- `references/kegg_databases.md` - Complete database listing and ID formats
-- `references/kegg_api_operations.md` - Detailed API operation reference
-- KEGG API Documentation: https://www.kegg.jp/kegg/rest/keggapi.html
+### Rate Limiting
+
+**Symptom**: Repeated requests fail or timeout.
+
+**Solution**: KEGG allows ~5 requests/second. The server implements rate limiting (5 calls/second). Add delays between rapid queries.
+
+### Timeout
+
+**Symptom**: curl returns timeout after long wait.
+
+**Solution**: KEGG entries can be large (pathway entries have hundreds of genes). Reduce query complexity.
+
+### Invalid ID Format
+
+**Symptom**: `get` returns error for malformed entry_id.
+
+**Solution**: Use auto-formatting (e.g., provide `D00109` instead of `dr:D00109`), or use the full prefixed format.
+
+## Notes
+
+- KEGG queries use the `/run_pipeline/` endpoint with `task: "kegg_query"`
+- The `get` operation returns raw KEGG flat-file text in `raw_text` — parse relevant sections as needed
+- Auto-formatting of entry IDs is handled tool-side, so `D00109` and `dr:D00109` both work
+- The `link` operation is useful for discovering cross-references (e.g., disease → drugs, pathway → compounds)
+- KEGG API rate limit: 5 requests/second (enforced server-side)
