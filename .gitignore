@@ -152,6 +152,9 @@ cython_debug/
 !/third_party/.placeholder
 /outputs/*
 .claude/*
+/boltzgen_configs/
+/mutation_analysis/
+/pdb_analysis/
 
 #files
 *.csv
