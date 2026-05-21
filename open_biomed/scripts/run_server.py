@@ -430,7 +430,7 @@ def handle_drug_lead_analysis(request: TaskRequest, pipeline):
     return {"task": request.task, "model": request.model, "report": outputs[0]}
 
 
-async def handle_chembl_query(request: TaskRequest, requester):
+def handle_chembl_query(request: TaskRequest, requester):
     kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
     # Remove non-ChEMBL fields that may have been populated
     for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
@@ -439,12 +439,12 @@ async def handle_chembl_query(request: TaskRequest, requester):
                 "database", "option", "entry_id", "target_db", "source_id",
                 "species", "required_score"]:
         kwargs.pop(key, None)
-    results, messages = await requester.run_async(request.query_type, **kwargs)
+    results, _ = requester.run(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
-async def handle_ppi_string_request(request: TaskRequest, requester):
-    results, messages = await requester.run_async(
+def handle_ppi_string_request(request: TaskRequest, requester):
+    results, _ = requester.run(
         uniprot_id=request.uniprot_id,
         species=request.species or 9606,
         required_score=request.required_score or 700,
@@ -453,7 +453,7 @@ async def handle_ppi_string_request(request: TaskRequest, requester):
     return {"task": request.task, "uniprot_id": request.uniprot_id, "results": results}
 
 
-async def handle_kegg_query(request: TaskRequest, requester):
+def handle_kegg_query(request: TaskRequest, requester):
     kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
     # Remove non-KEGG fields
     for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
@@ -463,7 +463,7 @@ async def handle_kegg_query(request: TaskRequest, requester):
                 "disease", "standard_type", "standard_value_lte", "max_phase", "limit",
                 "species", "required_score"]:
         kwargs.pop(key, None)
-    results, messages = await requester.run_async(request.query_type, **kwargs)
+    results, _ = requester.run(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
@@ -655,21 +655,21 @@ TASK_CONFIGS = [
         "required_inputs": ["query_type"],
         "pipeline_key": "chembl_query",
         "handler_function": handle_chembl_query,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "kegg_query", # 28
         "required_inputs": ["query_type"],
         "pipeline_key": "kegg_query",
         "handler_function": handle_kegg_query,
-        "is_async": True
+        "is_async": False
     },
     {
         "task_name": "ppi_string_request", # 29
         "required_inputs": ["uniprot_id"],
         "pipeline_key": "ppi_string_request",
         "handler_function": handle_ppi_string_request,
-        "is_async": True
+        "is_async": False
     }
 
 
