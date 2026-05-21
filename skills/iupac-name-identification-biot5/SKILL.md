@@ -13,7 +13,27 @@ tags: [iupac, molecule, nomenclature, question-answering, biot5]
 
 # IUPAC Name Identification (BioT5)
 
-This skill identifies the IUPAC name of a molecule using the BioT5 question answering model.
+This skill identifies the IUPAC name of a molecule by calling the OpenBioMed server API via curl.
+
+## Endpoint Configuration (read this first)
+
+Defaults declared in this skill (edit these inline when the real values are known):
+
+- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+  Placeholder for the OpenBioMed cloud service base URL. Replace with the real published URL when available.
+
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
+
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set in the runtime environment.
+3. Otherwise, ask the user once which endpoint to use, and offer these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value declared above.
+   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `http://localhost:9000` or `https://openbiomed.internal.example.com`.
+4. Remember the chosen base URL for the rest of the session and reuse it for subsequent calls without re-asking.
+
+Privacy note: if the molecule data is proprietary or unpublished, recommend a self-hosted endpoint rather than the public cloud service, and let the user confirm before sending.
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is therefore `${OPENBIOMED_API_BASE_URL}/run_pipeline/` or `${OPENBIOMED_API_BASE_URL}/web_search/`.
 
 ## When to Use
 
@@ -23,82 +43,122 @@ This skill identifies the IUPAC name of a molecule using the BioT5 question answ
 
 ## Workflow
 
-### Step 1: Get the Molecule
+### Step 1: Get the Molecule SMILES (if user provides a name)
 
-**If user provides a molecule name** (e.g., "aspirin"):
-```python
-from open_biomed.tools.tool_registry import TOOLS
+Only needed when the user gives a molecule name (e.g., "aspirin") instead of a SMILES string. If the user already provides a SMILES, skip this step and use it directly in Step 2.
 
-tool = TOOLS["molecule_name_request"]
-result, message = tool.run(accession="aspirin")
-molecule = result[0]  # Returns a list of molecules
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_name_request", "query": "<molecule_name>"}'
 ```
 
-**If user provides a SMILES string**:
-```python
-from open_biomed.data import Molecule
-
-molecule = Molecule.from_smiles("CC(=O)OC1=CC=CC=C1C(=O)O")
+Response:
+```json
+{
+  "task": "molecule_name_request",
+  "molecule": "<PubChem data>",
+  "molecule_preview": "<SMILES string>"
+}
 ```
+
+Extract the `molecule_preview` field — this is the SMILES string to use in Step 2.
 
 ### Step 2: Ask for IUPAC Name
 
-Use the molecule question answering tool:
-```python
-from open_biomed.data import Text
-from open_biomed.tools.tool_registry import TOOLS
+Call the molecule question answering endpoint with the SMILES and the IUPAC question:
 
-qa_tool = TOOLS["molecule_question_answering"]
-question = Text.from_str("What's the IUPAC name of this molecule?")
-result, message = qa_tool.run(molecule=molecule, text=question)
-print(result)  # IUPAC name
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_question_answering", "model": "biot5", "molecule": "<SMILES>", "text": "What is the IUPAC name of this molecule?"}'
 ```
+
+Response:
+```json
+{
+  "task": "molecule_question_answering",
+  "model": "biot5",
+  "text": "<IUPAC name answer>"
+}
+```
+
+Extract the `text` field — this contains the IUPAC name.
 
 ## Expected Outputs
 
-| Input | Output | Description |
-|-------|--------|-------------|
-| SMILES or molecule name | IUPAC name string | Systematic chemical nomenclature |
+| Input | API Endpoint | Response Field | Output |
+|-------|-------------|---------------|--------|
+| Molecule name | `/web_search/` | `molecule_preview` | SMILES string |
+| SMILES + IUPAC question | `/run_pipeline/` | `text` | IUPAC name string |
 
 ## Example Usage
 
 **Input**: "What is the IUPAC name of aspirin?"
 
-**Workflow**:
-1. Retrieve aspirin molecule from PubChem
-2. Ask BioT5: "What's the IUPAC name of this molecule?"
-3. Return the IUPAC name
+**Step 1**: Get aspirin SMILES
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_name_request", "query": "aspirin"}'
+```
 
-**Expected output**: "2-acetyloxybenzoic acid" or similar systematic name
+Expected response:
+```json
+{"task": "molecule_name_request", "molecule": "...", "molecule_preview": "CC(=O)OC1=CC=CC=C1C(=O)O"}
+```
+
+**Step 2**: Ask for IUPAC name using the SMILES from Step 1
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_question_answering", "model": "biot5", "molecule": "CC(=O)OC1=CC=CC=C1C(=O)O", "text": "What is the IUPAC name of this molecule?"}'
+```
+
+Expected response:
+```json
+{"task": "molecule_question_answering", "model": "biot5", "text": "2-acetyloxybenzoic acid"}
+```
+
+**Final output**: "2-acetyloxybenzoic acid" (or similar systematic name)
 
 ## Model Options
 
-The `molecule_question_answering` tool supports multiple models:
+The `molecule_question_answering` task supports multiple models via the `model` field:
 
 | Model | Description |
 |-------|-------------|
 | `biot5` (default) | BioT5 model for biomedical QA |
 | `molt5` | MolT5 model specialized for molecules |
 
+To use `molt5`, change the `model` field in the curl command:
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_question_answering", "model": "molt5", "molecule": "<SMILES>", "text": "What is the IUPAC name of this molecule?"}'
+```
+
 ## Error Handling
 
-### Molecule Not Found
+### Endpoint Unreachable
 
-**Symptom**: PubChem request fails for molecule name.
+**Symptom**: curl returns "Connection refused" or timeout.
 
-**Solution**: Ask user for SMILES string directly.
+**Solution**: Verify the endpoint is reachable (`curl ${OPENBIOMED_API_BASE_URL}/healthz` should return "Service available"). If unreachable, re-resolve the base URL per the resolution order above.
 
-### QA Model Fails
+### Molecule Name Not Found
 
-**Symptom**: No IUPAC name returned.
+**Symptom**: `/web_search/` returns empty or null `molecule_preview`.
+
+**Solution**: Ask user for the SMILES string directly and skip Step 1.
+
+### QA Model Returns Empty Answer
+
+**Symptom**: `/run_pipeline/` returns empty `text` field.
 
 **Solution**:
-- Try alternative question phrasing
-- Use RDKit's MolToIUPACName as fallback:
-```python
-from rdkit.Chem import MolToIUPACName
-iupac = MolToIUPACName(molecule.rdmol)
-```
+- Try alternative question phrasing (e.g., "What is the systematic name?" or "Give the IUPAC nomenclature.")
+- Switch model to `molt5`
 
 ## Notes
 
