@@ -464,6 +464,20 @@ def handle_kegg_query(request: TaskRequest, requester):
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
+def handle_retrosynthesis(request: TaskRequest, requester):
+    kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
+    for key in ["model", "config", "visualize", "protein", "pocket",
+                "text", "dataset", "mutation", "indices", "property",
+                "molecule_1", "molecule_2", "similarity", "value",
+                "target_name", "uniprot_id", "molecule_name", "chembl_id",
+                "disease", "standard_type", "standard_value_lte", "max_phase", "limit",
+                "species", "required_score", "database", "option", "entry_id",
+                "target_db", "source_id"]:
+        kwargs.pop(key, None)
+    results, _ = requester.run(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
 TASK_CONFIGS = [
     {
         "task_name": "text_based_molecule_editing",
@@ -666,6 +680,13 @@ TASK_CONFIGS = [
         "required_inputs": ["uniprot_id"],
         "pipeline_key": "ppi_string_request",
         "handler_function": handle_ppi_string_request,
+        "is_async": False
+    },
+    {
+        "task_name": "retrosynthesis",
+        "required_inputs": ["query_type"],
+        "pipeline_key": "retrosynthesis",
+        "handler_function": handle_retrosynthesis,
         "is_async": False
     }
 
