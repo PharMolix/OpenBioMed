@@ -15,7 +15,27 @@ tags: [molecule-editing, text-guided, molecular-optimization, de-novo-design]
 
 # Text-Based Molecule Editing
 
-Modify molecular structures guided by natural language property descriptions.
+Modify molecular structures guided by natural language property descriptions, via the OpenBioMed server API.
+
+## Endpoint Configuration (read this first)
+
+Defaults declared in this skill (edit these inline when the real values are known):
+
+- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+  Placeholder for the OpenBioMed cloud service base URL. Replace with the real published URL when available.
+
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
+
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set in the runtime environment.
+3. Otherwise, ask the user once which endpoint to use, and offer these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value declared above.
+   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `http://localhost:9000` or `https://openbiomed.internal.example.com`.
+4. Remember the chosen base URL for the rest of the session and reuse it for subsequent calls without re-asking.
+
+Privacy note: if the molecule data is proprietary or unpublished, recommend a self-hosted endpoint rather than the public cloud service, and let the user confirm before sending.
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is therefore `${OPENBIOMED_API_BASE_URL}/run_pipeline/` or `${OPENBIOMED_API_BASE_URL}/web_search/`.
 
 ## When to Use
 
@@ -25,72 +45,111 @@ Modify molecular structures guided by natural language property descriptions.
 
 ## Workflow
 
-### Step 1: Prepare Input Molecule
+### Step 1: Get the Molecule SMILES (if user provides a name)
 
-```python
-from open_biomed.data import Molecule
-from open_biomed.tools.tool_registry import TOOLS
+Only needed when the user gives a molecule name instead of a SMILES string. If the user already provides a SMILES, skip this step.
 
-# Option A: From molecule name (queries PubChem)
-tool = TOOLS["molecule_name_request"]
-result, _ = tool.run(accession="aspirin")
-molecule = result[0]
-
-# Option B: From SMILES directly
-molecule = Molecule.from_smiles("CC(=O)Oc1ccccc1C(=O)O")
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_name_request", "query": "<molecule_name>"}'
 ```
+
+Response:
+```json
+{
+  "task": "molecule_name_request",
+  "molecule": "<PubChem data>",
+  "molecule_preview": "<SMILES string>"
+}
+```
+
+Extract the `molecule_preview` field — this is the SMILES string for subsequent steps.
 
 ### Step 2: Calculate Baseline Properties (Optional)
 
-```python
-qed_tool = TOOLS["molecule_qed"]
-logp_tool = TOOLS["molecule_logp"]
-sa_tool = TOOLS["molecule_sa"]
+Compare properties before and after editing. Two options depending on server configuration:
 
-qed, _ = qed_tool.run(molecule=molecule)
-logp, _ = logp_tool.run(molecule=molecule)
-sa, _ = sa_tool.run(molecule=molecule)
+**Option A: `molecule_property_calculation`** — supports QED, LogP, Lipinski. Available on self-hosted servers with full pipeline support.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_calculation", "molecule": "<SMILES>", "property": "QED"}'
 ```
+
+Response:
+```json
+{"task": "molecule_property_calculation", "model": "...", "score": "<QED value>"}
+```
+
+Replace `"property"` with `LogP` or `Lipinski` for other properties.
+
+**Option B: `molecule_property_prediction`** — predicts BBBP penetration, SIDER side effects, etc. Available on all servers.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_prediction", "model": "graphmvp", "molecule": "<SMILES>", "dataset": "BBBP"}'
+```
+
+Response:
+```json
+{"task": "molecule_property_prediction", "model": "graphmvp", "score": "The blood-brain barrier penetration of the molecule is [0.188]"}
+```
+
+Supported datasets: `BBBP` (blood-brain barrier), `SIDER` (side effects), `caco2_wang` (Caco-2 permeability), `half_life_obach` (half-life), `ld50_zhu` (LD50 toxicity).
 
 ### Step 3: Run Text-Based Editing
 
-```python
-from open_biomed.core.pipeline import InferencePipeline
-from open_biomed.data import Text
+Call the molecule editing endpoint with the SMILES and the natural language edit description:
 
-pipeline = InferencePipeline(
-    task="text_based_molecule_editing",
-    model="molt5",
-    model_ckpt="./checkpoints/server/text_based_molecule_editing_biot5.ckpt",
-    device="cuda:0"
-)
-
-outputs = pipeline.run(
-    molecule=molecule,
-    text=Text.from_str("This molecule should be more soluble in water"),
-)
-edited_molecule = outputs[0][0]
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "text_based_molecule_editing", "model": "biot5", "molecule": "<SMILES>", "text": "<edit description>"}'
 ```
+
+Response:
+```json
+{
+  "task": "text_based_molecule_editing",
+  "model": "biot5",
+  "molecule": "<path to edited molecule file>",
+  "molecule_preview": "<edited SMILES string>"
+}
+```
+
+Extract `molecule_preview` — this is the SMILES of the edited molecule.
 
 ### Step 4: Compare Properties
 
-```python
-qed_new, _ = qed_tool.run(molecule=edited_molecule)
-logp_new, _ = logp_tool.run(molecule=edited_molecule)
+Re-calculate properties for the edited molecule using the same method from Step 2 and compare with baseline values.
 
-print(f"Original SMILES: {molecule.smiles}")
-print(f"Edited SMILES: {edited_molecule.smiles}")
-print(f"LogP change: {logp[0]:.2f} → {logp_new[0]:.2f}")
+**Option A** (molecule_property_calculation):
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_calculation", "molecule": "<edited_SMILES>", "property": "QED"}'
 ```
+
+**Option B** (molecule_property_prediction):
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_prediction", "model": "graphmvp", "molecule": "<edited_SMILES>", "dataset": "BBBP"}'
+```
+
+Summarize the before/after comparison.
 
 ## Expected Outputs
 
-| Step | Output | Description |
-|------|--------|-------------|
-| Step 1 | `Molecule` object | Input molecule with SMILES |
-| Step 2 | `float` values | QED (0-1), LogP, SA scores |
-| Step 3 | `Molecule` object | Edited molecule with new structure |
-| Step 4 | Comparison | Before/after property summary |
+| Step | API Endpoint | Response Field | Output |
+|------|-------------|---------------|--------|
+| 1 (optional) | `/web_search/` | `molecule_preview` | Original SMILES |
+| 2 (optional) | `/run_pipeline/` | `score` | Baseline property values |
+| 3 | `/run_pipeline/` | `molecule_preview` | Edited SMILES |
+| 4 (optional) | `/run_pipeline/` | `score` | New property values for comparison |
 
 ## Interpretation Guide
 
@@ -112,72 +171,92 @@ print(f"LogP change: {logp[0]:.2f} → {logp_new[0]:.2f}")
 | 0.3-0.5 | Moderate | May need optimization |
 | < 0.3 | Poor | Significant liabilities |
 
-### SA (Synthetic Accessibility)
+## Example Usage
 
-| Value | Difficulty | Interpretation |
-|-------|------------|----------------|
-| 1-3 | Easy | Straightforward synthesis |
-| 3-5 | Moderate | Some challenges |
-| 5-7 | Difficult | Complex synthesis needed |
-| > 7 | Very difficult | Likely impractical |
+**Input**: "Make aspirin more soluble in water"
+
+**Step 1**: Get aspirin SMILES
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_name_request", "query": "aspirin"}'
+```
+
+Expected response:
+```json
+{"task": "molecule_name_request", "molecule": "...", "molecule_preview": "CC(=O)Oc1ccccc1C(=O)O"}
+```
+
+**Step 2**: Calculate baseline BBBP penetration
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_prediction", "model": "graphmvp", "molecule": "CC(=O)Oc1ccccc1C(=O)O", "dataset": "BBBP"}'
+```
+
+Expected response:
+```json
+{"task": "molecule_property_prediction", "model": "graphmvp", "score": "The blood-brain barrier penetration of the molecule is [0.188]"}
+```
+
+**Step 3**: Edit molecule
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "text_based_molecule_editing", "model": "biot5", "molecule": "CC(=O)Oc1ccccc1C(=O)O", "text": "This molecule should be more soluble in water"}'
+```
+
+Expected response:
+```json
+{"task": "text_based_molecule_editing", "model": "biot5", "molecule": "./tmp/...", "molecule_preview": "CC(=O)Oc1ccc(C(=O)O)cc1C(=O)O"}
+```
+
+**Step 4**: Calculate BBBP for edited molecule
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_prediction", "model": "graphmvp", "molecule": "CC(=O)Oc1ccc(C(=O)O)cc1C(=O)O", "dataset": "BBBP"}'
+```
+
+Compare baseline vs. edited BBBP scores to evaluate the edit effect.
+
+## Model Options
+
+The `text_based_molecule_editing` task supports multiple models via the `model` field:
+
+| Model | Description |
+|-------|-------------|
+| `biot5` (default) | BioT5 model for biomedical molecule editing |
+| `molt5` | MolT5 model specialized for molecules |
+| `biot5_plus` | BioT5+ enhanced model |
+
+To use a different model, change the `model` field in the Step 3 curl command.
 
 ## Error Handling
 
-### Model Checkpoint Not Found
+### Endpoint Unreachable
 
-**Symptom**: `FileNotFoundError` for checkpoint file
+**Symptom**: curl returns "Connection refused" or timeout.
 
-**Solution**: Ensure checkpoint exists at `./checkpoints/server/text_based_molecule_editing_biot5.ckpt`
+**Solution**: Verify the endpoint is reachable (`curl ${OPENBIOMED_API_BASE_URL}/healthz` should return "Service available"). If unreachable, re-resolve the base URL per the resolution order above.
 
-```python
-import os
-ckpt_path = "./checkpoints/server/text_based_molecule_editing_biot5.ckpt"
-if not os.path.exists(ckpt_path):
-    raise FileNotFoundError(f"Download checkpoint to: {ckpt_path}")
-```
+### Molecule Name Not Found
+
+**Symptom**: `/web_search/` returns empty or null `molecule_preview`.
+
+**Solution**: Ask user for the SMILES string directly and skip Step 1.
 
 ### Invalid SMILES Output
 
-**Symptom**: Model generates invalid SMILES string
+**Symptom**: `/run_pipeline/` returns empty or invalid `molecule_preview`.
 
-**Solution**: The model returns `None` for invalid molecules. Try:
-- Rephrasing the edit prompt
-- Using beam search with more beams
-- Running multiple times for different outputs
+**Solution**:
+- Rephrase the edit prompt
+- Try a different model (e.g., `molt5` instead of `biot5`)
+- Run multiple times for different outputs
 
-### CUDA Out of Memory
+## Notes
 
-**Symptom**: `RuntimeError: CUDA out of memory`
-
-**Solution**: Use CPU or smaller batch:
-
-```python
-pipeline = InferencePipeline(
-    task="text_based_molecule_editing",
-    model="molt5",
-    model_ckpt="./checkpoints/server/text_based_molecule_editing_biot5.ckpt",
-    device="cpu"  # Fallback to CPU
-)
-```
-
-## Example
-
-```
-Input: aspirin
-Prompt: "This molecule should be more soluble in water"
-
-Original SMILES: CC(=O)Oc1ccccc1C(=O)O
-Edited SMILES:   CC(=O)Oc1ccc(C(=O)O)cc1C(=O)O
-
-Property Changes:
-  LogP: 1.31 → 1.01 (-0.30, more soluble)
-  QED:  0.55 → 0.59 (+0.04, better drug-likeness)
-  SA:   1.58 → 1.81 (+0.23, slightly harder to synthesize)
-```
-
-## See Also
-
-- `examples/basic_example.py` - Full runnable example script
-- `examples/solubility_optimization.py` - Solubility-focused workflow
-- `references/troubleshooting.md` - Detailed error handling
-- `references/advanced.md` - Advanced prompt engineering tips
+- The edited molecule may not always perfectly satisfy the edit description — it is a model-predicted variant
+- Running the edit multiple times can produce different structural variants
+- Property comparison (Step 4) is optional but recommended to verify the edit achieved the desired effect

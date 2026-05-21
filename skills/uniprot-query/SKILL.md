@@ -13,68 +13,85 @@ tags: [uniprot, protein, database, metadata, sequence]
 
 # UniProt Query
 
-Query the UniProt knowledgebase for comprehensive protein information.
+Query the UniProt knowledgebase for comprehensive protein information, via the OpenBioMed server API.
+
+## Endpoint Configuration (read this first)
+
+Defaults declared in this skill (edit these inline when the real values are known):
+
+- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+  Placeholder for the OpenBioMed cloud service base URL. Replace with the real published URL when available.
+
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
+
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set in the runtime environment.
+3. Otherwise, ask the user once which endpoint to use, and offer these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value declared above.
+   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `http://localhost:9000` or `https://openbiomed.internal.example.com`.
+4. Remember the chosen base URL for the rest of the session and reuse it for subsequent calls without re-asking.
+
+Privacy note: if the protein sequence is proprietary or unpublished, recommend a self-hosted endpoint rather than the public cloud service, and let the user confirm before sending.
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is therefore `${OPENBIOMED_API_BASE_URL}/web_search/`.
 
 ## When to Use
 
 - Look up protein by UniProt accession (e.g., P00533 for EGFR)
 - Search proteins by gene name, organism, or keywords
-- Retrieve protein metadata: function, domains, diseases, PTMs
-- Get protein sequences and structural annotations
+- Retrieve protein sequences and structural annotations
+- Get protein metadata: function, domains, diseases
 
 ## Workflow
 
-### Use Case 1: Protein Lookup by ID
+### Step 1: Look Up Protein by UniProt Accession ID
 
-Fetch complete protein information including metadata.
+Call the protein_uniprot_request endpoint with the accession ID:
 
-```python
-from open_biomed.tools.tool_registry import TOOLS
-import requests
-import json
-
-# Get protein sequence (existing tool)
-tool = TOOLS["protein_uniprot_request"]
-proteins, _ = tool.run(accession="P0DTC2")  # SARS-CoV-2 Spike
-protein = proteins[0]
-
-# Fetch full metadata from UniProt API
-url = f"https://rest.uniprot.org/uniprotkb/P0DTC2?format=json"
-response = requests.get(url)
-metadata = parse_uniprot_entry(response.json())
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "protein_uniprot_request", "query": "<UniProt_accession>"}'
 ```
 
-See `examples/lookup_by_id.py` for complete implementation.
-
-### Use Case 2: Search by Criteria
-
-Search UniProt by gene name, organism, keywords, or disease.
-
-```python
-import requests
-
-base_url = "https://rest.uniprot.org/uniprotkb/search"
-
-# Example queries:
-queries = {
-    "gene_exact:EGFR AND organism_id:9606": "Human EGFR",
-    "gene_exact:S AND organism_id:2697049": "SARS-CoV-2 Spike",
-    "keyword:Kinase AND organism_id:9606": "Human kinases",
-    "diabetes AND organism_id:9606": "Diabetes-related proteins",
+Response:
+```json
+{
+  "task": "protein_uniprot_request",
+  "protein": "<protein data or file path>",
+  "protein_preview": "<sequence preview or FASTA>"
 }
-
-params = {
-    "query": "gene_exact:EGFR AND organism_id:9606 AND reviewed:true",
-    "fields": "accession,gene_primary,protein_name,organism_name,length",
-    "format": "json",
-    "size": 10
-}
-response = requests.get(base_url, params=params)
 ```
 
-See `examples/search_by_criteria.py` for complete implementation.
+Extract the `protein` and `protein_preview` fields — these contain the protein data.
 
-## Query Syntax Reference
+### Step 2: Fetch Full Metadata from UniProt REST API (Optional)
+
+For comprehensive metadata beyond the basic sequence, call the UniProt REST API directly:
+
+```bash
+curl -s "https://rest.uniprot.org/uniprotkb/<UniProt_accession>?format=json"
+```
+
+This returns detailed metadata including function, domains, diseases, PTMs, and annotations.
+
+### Step 3: Search by Criteria (Optional)
+
+Search UniProt by gene name, organism, keywords, or disease. This is a direct call to the UniProt search API:
+
+```bash
+curl -s "https://rest.uniprot.org/uniprotkb/search?query=gene_exact:EGFR+AND+organism_id:9606+AND+reviewed:true&fields=accession,gene_primary,protein_name,organism_name,length&format=json&size=10"
+```
+
+## Expected Outputs
+
+| Step | API Endpoint | Response Field | Output |
+|------|-------------|---------------|--------|
+| 1 | `/web_search/` | `protein`, `protein_preview` | Protein sequence and basic data |
+| 2 (optional) | UniProt REST API | Full JSON | Comprehensive metadata (function, domains, diseases) |
+| 3 (optional) | UniProt REST API | Search results JSON | List of matching proteins |
+
+## Query Syntax Reference (for Step 3)
 
 | Field | Example | Description |
 |-------|---------|-------------|
@@ -89,80 +106,60 @@ See `examples/search_by_criteria.py` for complete implementation.
 
 **Common Organism IDs**: Human (9606), Mouse (10090), SARS-CoV-2 (2697049), E. coli (83333)
 
-**Combine queries**: Use `AND`, `OR` to combine criteria:
-- `gene_exact:EGFR AND organism_id:9606 AND reviewed:true`
+**Combine queries**: Use `AND`, `OR` — e.g., `gene_exact:EGFR AND organism_id:9606 AND reviewed:true`
 
-## Expected Outputs
+## Example Usage
 
-### Metadata JSON (lookup_by_id)
+**Input**: "Tell me about the EGFR protein (P00533)"
 
+**Step 1**: Look up protein by accession
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "protein_uniprot_request", "query": "P00533"}'
+```
+
+Expected response:
 ```json
-{
-  "accession": "P0DTC2",
-  "uniProtId": "SPIKE_SARS2",
-  "protein": {"name": "Spike glycoprotein"},
-  "gene": {"primary": "S", "synonyms": []},
-  "organism": {"scientific_name": "...", "taxon_id": 2697049},
-  "sequence": {"length": 1273, "mass": 141178},
-  "function": ["Attaches the virion to host receptor..."],
-  "domains": [{"type": "Domain", "description": "RBD", "location": "319-541"}],
-  "keywords": ["Glycoprotein", "Transmembrane", "Viral attachment"],
-  "subcellular_location": ["Virion membrane"]
-}
+{"task": "protein_uniprot_request", "protein": "...", "protein_preview": "..."}
 ```
 
-### Text Report
-
-```
-======================================================================
-UNIPROT PROTEIN REPORT
-======================================================================
-Accession:     P0DTC2
-Protein:       Spike glycoprotein
-Gene:          S
-Organism:      Severe acute respiratory syndrome coronavirus 2
-Length:        1273 aa
-
-FUNCTION
-Attaches the virion to the cell membrane by interacting with
-host receptor ACE2...
-
-DOMAINS
-• Domain: BetaCoV S1-NTD (14-303)
-• Region: Receptor-binding domain (319-541)
+**Step 2** (optional): Fetch full metadata
+```bash
+curl -s "https://rest.uniprot.org/uniprotkb/P00533?format=json"
 ```
 
-### Search Results JSON
+This returns the complete UniProt entry with function, domains, diseases, etc.
 
-```json
-{
-  "query": "gene_exact:S AND organism_id:2697049",
-  "total_results": 10,
-  "results": [
-    {"accession": "P0DTC2", "gene": "S", "protein_name": "Spike glycoprotein", ...}
-  ]
-}
+**Input**: "Search for human kinases"
+
+**Step 3**: Search by criteria
+```bash
+curl -s "https://rest.uniprot.org/uniprotkb/search?query=keyword:Kinase+AND+organism_id:9606+AND+reviewed:true&fields=accession,gene_primary,protein_name,organism_name,length&format=json&size=10"
 ```
 
 ## Error Handling
 
-| Error | Solution |
-|-------|----------|
-| Accession not found | Verify UniProt ID format (e.g., P00533, not EGFR) |
-| No search results | Broaden query, remove `reviewed:true`, check organism ID |
-| Timeout | Reduce `size` parameter, simplify query |
-| Rate limited | Wait and retry; UniProt allows 10 requests/second |
+### Endpoint Unreachable
 
-## Available Tools
+**Symptom**: curl returns "Connection refused" or timeout for OpenBioMed server.
 
-| Tool | Purpose |
-|------|---------|
-| `protein_uniprot_request` | Fetch protein sequence by accession (existing) |
+**Solution**: Verify the endpoint is reachable (`curl ${OPENBIOMED_API_BASE_URL}/healthz` should return "Service available"). If unreachable, re-resolve the base URL per the resolution order above.
 
-The workflows in this skill extend the basic tool with full metadata retrieval via UniProt REST API.
+### Accession Not Found
 
-## References
+**Symptom**: `/web_search/` returns empty or error response for the accession ID.
 
-- `references/query_fields.md` - Complete query field reference
-- `references/metadata_fields.md` - Available metadata fields
-- UniProt API Docs: https://www.uniprot.org/api-documentation
+**Solution**: Verify the UniProt ID format (e.g., `P00533`, not `EGFR`). Try searching by gene name using Step 3 instead.
+
+### UniProt REST API Errors
+
+**Symptom**: UniProt API returns 404 or no results.
+
+**Solution**: Broaden query, remove `reviewed:true`, check organism ID. UniProt rate limit is ~10 requests/second — retry after a short wait.
+
+## Notes
+
+- Step 1 (OpenBioMed API) provides protein sequence and basic data
+- Steps 2-3 (UniProt REST API) provide comprehensive metadata and search — these are external calls not dependent on the OpenBioMed server
+- For proprietary protein sequences, always use a self-hosted OpenBioMed endpoint
