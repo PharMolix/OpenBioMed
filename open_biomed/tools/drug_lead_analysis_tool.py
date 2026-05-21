@@ -1,4 +1,4 @@
-from typing import Any, List, Tuple, Union
+from typing import List, Tuple, Union
 
 from open_biomed.data import Molecule
 from open_biomed.tools.base_tool import Tool
