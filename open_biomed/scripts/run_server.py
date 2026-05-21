@@ -403,6 +403,12 @@ def handle_molecule_property_calculation(request: TaskRequest, pipeline):
     outputs = pipeline.run(molecule=molecule, property=property)
     return {"task": request.task, "model":request.model, "score": round(outputs, 5)}
 
+def handle_drug_lead_analysis(request: TaskRequest, pipeline):
+    required_inputs = ["molecule"]
+    molecule = IO_Reader.get_molecule(request.molecule)
+    outputs, messages = pipeline.run(molecule=molecule)
+    return {"task": request.task, "model": request.model, "report": outputs[0]}
+
 
 TASK_CONFIGS = [
     {
@@ -578,6 +584,13 @@ TASK_CONFIGS = [
         "required_inputs": ["molecule", "property"],
         "pipeline_key": "molecule_property_calculation",
         "handler_function": handle_molecule_property_calculation,
+        "is_async": False
+    },
+    {
+        "task_name": "drug_lead_analysis", # 26
+        "required_inputs": ["molecule"],
+        "pipeline_key": "drug_lead_analysis",
+        "handler_function": handle_drug_lead_analysis,
         "is_async": False
     }
     

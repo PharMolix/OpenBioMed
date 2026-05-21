@@ -4,6 +4,7 @@ from open_biomed.tools.visualization_tools import *
 from open_biomed.tools.third_party_tools import *
 from open_biomed.data.molecule import *
 from open_biomed.scripts.inference import *
+from open_biomed.tools.drug_lead_analysis_tool import DrugLeadAnalysisTool
 
 
 # TODO: Add pocket prediction as a tool
@@ -20,6 +21,7 @@ class LazyDictForTool(dict):
             "ppi_string_request",
             "web_search", "import_pocket", "export_molecule", "export_protein",
             "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity",
+            "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "summarize_content", "chembl_query"
         ]
     
@@ -93,6 +95,8 @@ class LazyDictForTool(dict):
         #    self[key] = MoleculePropertyCalculationTool()
         elif key == "molecule_similarity":
             self[key] = MoleculeSimilarityTool()
+        elif key == "drug_lead_analysis":
+            self[key] = DrugLeadAnalysisTool()
         elif key == "summarize_content":
             self[key] = LLMSummarize()
         elif key == "chembl_query":
