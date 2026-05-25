@@ -13,7 +13,7 @@ KEGG_API_BASE = "https://rest.kegg.jp"
 
 
 def _auto_format_id(entry_id: str) -> str:
-    if any(entry_id.startswith(p) for p in ["dr:", "cpd:", "ds:", "hsa:", "map:", "ko:", "path:", "br:"]:
+    if any(entry_id.startswith(p) for p in ["dr:", "cpd:", "ds:", "hsa:", "map:", "ko:", "path:", "br:"]):
         return entry_id
     if entry_id.startswith("D"):
         return f"dr:{entry_id}"

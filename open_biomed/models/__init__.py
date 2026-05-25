@@ -69,7 +69,7 @@ MODEL_REGISTRY = {
         "esmfold": EsmFold,
     },
 }
-
+"""
 try:
     from open_biomed.models.cell.langcell.langcell import LangCell
     MODEL_REGISTRY["cell_annotation"] = {
@@ -77,3 +77,4 @@ try:
     }
 except ImportError:
     logging.warning("Install geneformer to use LangCell: pip install geneformer")
+"""
