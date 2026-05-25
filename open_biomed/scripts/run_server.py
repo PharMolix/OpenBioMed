@@ -154,6 +154,10 @@ class TaskRequest(BaseModel):
     molecule_chembl_id: Optional[str] = None
     efo_term: Optional[str] = None
     offset: Optional[int] = None
+    # DDI analysis fields
+    drugs: Optional[List[str]] = None
+    drug_ids: Optional[str] = None
+    drug_id: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -508,8 +512,34 @@ async def handle_disease_drug_intel(request: TaskRequest, requester):
                 "target_name", "uniprot_id", "molecule_name",
                 "species", "required_score",
                 "database", "option", "entry_id", "target_db", "source_id",
-                "standard_type", "standard_value_lte", "max_phase"]:
+                "standard_type", "standard_value_lte", "max_phase",
+                "drug_ids", "drug_id"]:
         kwargs.pop(key, None)
+    results, _ = await requester.run_async(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
+async def handle_ddi_analysis(request: TaskRequest, requester):
+    """Handle drug-drug interaction analysis queries."""
+    kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
+    # Remove non-relevant fields for this task
+    for key in ["model", "config", "visualize", "protein", "pocket",
+                "text", "dataset", "mutation", "indices", "property",
+                "molecule_1", "molecule_2", "similarity", "value",
+                "target_name", "uniprot_id", "molecule_name", "chembl_id",
+                "species", "required_score",
+                "database", "option", "entry_id", "target_db", "source_id",
+                "standard_type", "standard_value_lte", "max_phase",
+                "query_cond", "query_term", "filter_overall_status",
+                "fields", "sort", "page_size", "count_total", "page_token",
+                "nct_id", "molecule_chembl_id", "efo_term", "offset",
+                "disease", "limit"]:
+        kwargs.pop(key, None)
+
+    # Handle drugs parameter - can be list or comma-separated string
+    if "drugs" in kwargs and isinstance(kwargs["drugs"], str):
+        kwargs["drugs"] = kwargs["drugs"].split(",")
+
     results, _ = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
@@ -730,6 +760,13 @@ TASK_CONFIGS = [
         "required_inputs": ["query_type"],
         "pipeline_key": "disease_drug_intel",
         "handler_function": handle_disease_drug_intel,
+        "is_async": True
+    },
+    {
+        "task_name": "ddi_analysis",
+        "required_inputs": ["query_type"],
+        "pipeline_key": "ddi_analysis",
+        "handler_function": handle_ddi_analysis,
         "is_async": True
     }
 
