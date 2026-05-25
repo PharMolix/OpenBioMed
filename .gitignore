@@ -140,18 +140,18 @@ cython_debug/
 /logs/*
 /.vscode
 /assets/*
-/checkpoints/**/*
+/checkpoints/
 /datasets/**/*
 /misc/*
 /tmp/*
 /third_party/*
 !/third_party/.placeholder
 !/third_party/p2rank_2.5
-!/checkpoints/.placeholder
 !/datasets/**/.placeholder
 !/third_party/.placeholder
 /outputs/*
-.claude/*
+# Claude Code directory
+.claude/
 /boltzgen_configs/
 /mutation_analysis/
 /pdb_analysis/
@@ -162,5 +162,4 @@ cython_debug/
 *.txt
 !requirements.txt
 *.pth
-.claude
 *.conf

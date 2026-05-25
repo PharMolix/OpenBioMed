@@ -38,10 +38,10 @@ Outputs: dict with keys qed, sa, logp, lipinski, bbbp, sider
             lipinski_scores, _ = self.lipinski_tool.run(molecule=mol)
 
             report = {
-                "qed": qed_scores[0],
-                "sa": sa_scores[0],
-                "logp": logp_scores[0],
-                "lipinski": lipinski_scores[0],
+                "qed": float(qed_scores[0]),
+                "sa": float(sa_scores[0]),
+                "logp": float(logp_scores[0]),
+                "lipinski": int(lipinski_scores[0]),
             }
             results.append(report)
             messages.append(
