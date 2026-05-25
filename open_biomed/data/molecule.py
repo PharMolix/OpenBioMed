@@ -644,14 +644,20 @@ class MoleculePropertyCalculationTool:
 
         :param molecule: The molecule object to calculate the property for.
         :param property: The name of the property to calculate (e.g., "QED", "SA", "LogP", "Lipinski").
-        :return: The calculated property value.
+        :return: The calculated property value (converted to Python native type).
         """
         if property not in self.tool_map:
             raise ValueError(f"Unknown property: {property}")
 
         tool_class = self.tool_map[property]
         tool_instance = tool_class()
-        return tool_instance.run(molecule)
+        scores, messages = tool_instance.run(molecule)
+        # Convert numpy types to Python native types for FastAPI serialization
+        score = scores[0]
+        if property == "Lipinski":
+            return int(score)
+        else:
+            return float(score)
 
 class MoleculeSimilarityTool(Tool):
     def __init__(self) -> None:

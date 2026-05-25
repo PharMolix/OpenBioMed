@@ -23,6 +23,7 @@ class LazyDictForTool(dict):
             "ppi_string_request",
             "web_search", "import_pocket", "export_molecule", "export_protein",
             "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity",
+            "molecule_property_calculation",
             "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "summarize_content", "chembl_query",
             "kegg_query", "retrosynthesis"
@@ -94,8 +95,8 @@ class LazyDictForTool(dict):
             self[key] = MoleculeLogPTool()
         elif key == "molecule_lipinski":
             self[key] = MoleculeLipinskiTool()
-        # elif key == "molecule_property_calculation":
-        #    self[key] = MoleculePropertyCalculationTool()
+        elif key == "molecule_property_calculation":
+            self[key] = MoleculePropertyCalculationTool()
         elif key == "molecule_similarity":
             self[key] = MoleculeSimilarityTool()
         elif key == "drug_lead_analysis":
