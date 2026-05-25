@@ -430,7 +430,7 @@ def handle_drug_lead_analysis(request: TaskRequest, pipeline):
     return {"task": request.task, "model": request.model, "report": outputs[0]}
 
 
-def handle_chembl_query(request: TaskRequest, requester):
+async def handle_chembl_query(request: TaskRequest, requester):
     kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
     # Remove non-ChEMBL fields that may have been populated
     for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
@@ -439,12 +439,12 @@ def handle_chembl_query(request: TaskRequest, requester):
                 "database", "option", "entry_id", "target_db", "source_id",
                 "species", "required_score"]:
         kwargs.pop(key, None)
-    results, _ = requester.run(request.query_type, **kwargs)
+    results, _ = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
-def handle_ppi_string_request(request: TaskRequest, requester):
-    results, _ = requester.run(
+async def handle_ppi_string_request(request: TaskRequest, requester):
+    results, _ = await requester.run_async(
         uniprot_id=request.uniprot_id,
         species=request.species or 9606,
         required_score=request.required_score or 700,
@@ -453,7 +453,7 @@ def handle_ppi_string_request(request: TaskRequest, requester):
     return {"task": request.task, "uniprot_id": request.uniprot_id, "results": results}
 
 
-def handle_kegg_query(request: TaskRequest, requester):
+async def handle_kegg_query(request: TaskRequest, requester):
     kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
     # Remove non-KEGG fields
     for key in ["model", "config", "visualize", "molecule", "protein", "pocket",
@@ -463,11 +463,11 @@ def handle_kegg_query(request: TaskRequest, requester):
                 "disease", "standard_type", "standard_value_lte", "max_phase", "limit",
                 "species", "required_score"]:
         kwargs.pop(key, None)
-    results, _ = requester.run(request.query_type, **kwargs)
+    results, _ = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
-def handle_retrosynthesis(request: TaskRequest, requester):
+async def handle_retrosynthesis(request: TaskRequest, requester):
     kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
     for key in ["model", "config", "visualize", "protein", "pocket",
                 "text", "dataset", "mutation", "indices", "property",
@@ -477,7 +477,7 @@ def handle_retrosynthesis(request: TaskRequest, requester):
                 "species", "required_score", "database", "option", "entry_id",
                 "target_db", "source_id"]:
         kwargs.pop(key, None)
-    results, _ = requester.run(request.query_type, **kwargs)
+    results, _ = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
@@ -564,35 +564,35 @@ TASK_CONFIGS = [
         "required_inputs": ["query"],
         "pipeline_key": "molecule_name_request",
         "handler_function": handle_molecule_name_request,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "web_search",
         "required_inputs": ["query"],
         "pipeline_key": "web_search",
         "handler_function": handle_web_search,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "molecule_structure_request",
         "required_inputs": ["molecule", "threshold"],
         "pipeline_key": "molecule_structure_request",
         "handler_function": handle_molecule_structure_request,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "protein_uniprot_request",
         "required_inputs": ["query"],
         "pipeline_key": "protein_uniprot_request",
         "handler_function": handle_protein_uniprot_request,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "protein_pdb_request",
         "required_inputs": ["query"],
         "pipeline_key": "protein_pdb_request",
         "handler_function": handle_protein_pdb_request,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "mutation_explanation",
@@ -669,28 +669,28 @@ TASK_CONFIGS = [
         "required_inputs": ["query_type"],
         "pipeline_key": "chembl_query",
         "handler_function": handle_chembl_query,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "kegg_query",
         "required_inputs": ["query_type"],
         "pipeline_key": "kegg_query",
         "handler_function": handle_kegg_query,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "ppi_string_request",
         "required_inputs": ["uniprot_id"],
         "pipeline_key": "ppi_string_request",
         "handler_function": handle_ppi_string_request,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "retrosynthesis",
         "required_inputs": ["query_type"],
         "pipeline_key": "retrosynthesis",
         "handler_function": handle_retrosynthesis,
-        "is_async": False
+        "is_async": True
     }
 
 
@@ -728,7 +728,11 @@ async def run_pipeline(request: TaskRequest):
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
         pipeline = TOOLS[task_config.pipeline_key]
-        output = task_config.handler_function(request, pipeline)
+
+        if task_config.is_async:
+            output = await task_config.handler_function(request, pipeline)
+        else:
+            output = task_config.handler_function(request, pipeline)
         return output
     except Exception as e:
         print(e)
