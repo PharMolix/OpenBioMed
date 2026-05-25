@@ -4,8 +4,11 @@ import torch.nn.functional as F
 import uvicorn
 import random
 import copy
+import asyncio
 import logging
 import subprocess
+import time
+import uuid
 from typing import Optional, List, Dict, Callable, Any, Literal
 
 # import function
@@ -267,21 +270,21 @@ def handle_protein_folding(request: TaskRequest, pipeline):
 
 
 # Handlers for web_search
-def handle_molecule_name_request(request: SearchRequest, requester):
-    outputs = requester.run(request.query)
+async def handle_molecule_name_request(request: SearchRequest, requester):
+    outputs = await requester.run_async(request.query)
     smiles = outputs[0][0].smiles
     output = outputs[1][0]
     return {"task": request.task, "molecule": output, "molecule_preview": smiles}
 
-def handle_web_search(request: SearchRequest, requester):
-    outputs = requester.run(request.query)
+async def handle_web_search(request: SearchRequest, requester):
+    outputs = await requester.run_async(request.query)
     outputs = outputs[0][0]
     return {"task": request.task, "text": outputs}
 
-def handle_molecule_structure_request(request: SearchRequest, requester):
+async def handle_molecule_structure_request(request: SearchRequest, requester):
     molecule = IO_Reader.get_molecule(request.molecule)
     threshold = request.threshold
-    outputs = requester.run(molecule, threshold=float(threshold), max_records=1)
+    outputs = await requester.run_async(molecule, threshold=float(threshold), max_records=1)
     # Pick a random molecule
     index = random.randint(0, len(outputs[1])-1)
     molecule = outputs[1][index]
@@ -289,16 +292,16 @@ def handle_molecule_structure_request(request: SearchRequest, requester):
     return {"task": request.task, "molecule": molecule, "molecule_preview": molecule_preview}
 
 
-def handle_protein_uniprot_request(request: SearchRequest, requester):
-    outputs = requester.run(request.query)
+async def handle_protein_uniprot_request(request: SearchRequest, requester):
+    outputs = await requester.run_async(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
     return {"task": request.task, "protein": outputs, "protein_preview": protein_preview}
 
 
-def handle_protein_pdb_request(request: SearchRequest, requester):
-    outputs = requester.run(request.query)
+async def handle_protein_pdb_request(request: SearchRequest, requester):
+    outputs = await requester.run_async(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
