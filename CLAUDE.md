@@ -32,12 +32,6 @@ python open_biomed/scripts/train.py \
     --dataset_path ./datasets/TASK/DATASET
 ```
 
-### Testing/Evaluation
-```bash
-./scripts/test.sh TASK MODEL DATASET GPU_ID
-# Note: test.sh has a hardcoded checkpoint path — modify for your use case
-```
-
 ### Inference
 ```bash
 python open_biomed/scripts/inference.py --task TASK_NAME
@@ -48,15 +42,27 @@ python open_biomed/scripts/inference.py --task TASK_NAME
 # Both servers together
 sh ./scripts/run_server.sh
 
-# Individually
-python -m uvicorn open_biomed.scripts.run_server:app --host 0.0.0.0 --port 8082
-python -m uvicorn open_biomed.scripts.run_server_workflow:app --host 0.0.0.0 --port 8083
+# Individually (ports configurable in run_server.sh)
+python -m uvicorn open_biomed.scripts.run_server:app --host 0.0.0.0 --port 8095
+python -m uvicorn open_biomed.scripts.run_server_workflow:app --host 0.0.0.0 --port 8094
 ```
+
+### API Endpoints
+- `/run_pipeline/` — Inference tasks (molecule editing, drug design, property prediction, etc.)
+- `/web_search/` — Data retrieval (PubChem, UniProt, PDB, web search)
 
 ### Integration Testing
 ```bash
-# Requires server running on port 8090 (default)
-python test/api_test.py
+# Requires server running (default: http://127.0.0.1:8090)
+python test/api_test.py --url http://127.0.0.1:8090
+# Filter specific tests
+python test/api_test.py --url http://127.0.0.1:8090 --test molecule
+```
+
+### Evaluation (using trained models)
+```bash
+./scripts/test.sh TASK MODEL DATASET GPU_ID
+# Note: test.sh runs evaluation mode (test_only flag) with a hardcoded checkpoint path
 ```
 
 ## Architecture
@@ -89,7 +95,7 @@ python test/api_test.py
   - `context_manager.py`: `ContextManager`, `ToolContextManager` — conversation history management for agents
 - `open_biomed/utils/`: `config.py` (Config system with `!SUB ${var}` substitution), `featurizer.py`, `collator.py`, `misc.py` (`create_tool_input()` universal factory), `callbacks.py` (`RecoverCallback`, `GradientClip`)
 - `configs/`: YAML configurations — `basic_config.yaml` (base), `model/`, `dataset/`, `workflow/`, `agent/`, `visualization/`
-- `skills/`: 45 Claude Code skills organized by category (drug discovery, protein engineering, single-cell omics, data retrieval, utilities)
+- `skills/`: 46 Claude Code skills organized by category (drug discovery, protein engineering, single-cell omics, data retrieval, utilities)
 
 ### Key Registries
 
@@ -97,8 +103,8 @@ All registries use nested dict structures `{task_name: {item_name: Class}}`:
 
 - `TASK_REGISTRY` (`tasks/__init__.py`): Maps 16 task names to task classes
 - `MODEL_REGISTRY` (`models/__init__.py`): Maps task names → model names → model classes
-- `DATASET_REGISTRY` (`datasets/__init__.py`): Maps task names → dataset names → dataset classes (50+ configs for molecule property prediction alone)
-- `TOOLS` (`tools/tool_registry.py`): `LazyDictForTool` with 37 registered tool names; lazy-instantiates via `__missing__()` on first access
+- `DATASET_REGISTRY` (`datasets/__init__.py`): Maps task names → dataset names → dataset classes (20+ datasets for molecule property prediction)
+- `TOOLS` (`tools/tool_registry.py`): `LazyDictForTool` with 28 registered tool names; lazy-instantiates via `__missing__()` on first access
 
 ### Data Entities
 
@@ -159,8 +165,10 @@ edges:
 - Config at `configs/agent/planner_executor.yaml` (defaults to `deepseek-reasoner`)
 
 LLM provider dispatch (`core/llm_provider.py`):
-- `claude-*` → Anthropic, `openai-*` → OpenAI, `gemini-*` → OpenAI-compatible, `deepseek-*` → DeepSeek, `BioMedGPT*` → custom local model
-- Custom/self-hosted via `API_KEY` + `API_URL` env vars (takes priority)
+- Priority: `API_KEY` + `API_URL` env vars (custom/self-hosted) > platform providers by model prefix
+- Model prefix routing: `claude-*` → Anthropic, `openai-*` → OpenAI, `gemini-*` → OpenAI-compatible, `deepseek-*` → DeepSeek, `BioMedGPT*` → custom local model
+- Default model: `claude-sonnet-4-20250514` (can override via `MODEL_NAME` env var)
+- Agent config at `configs/agent/planner_executor.yaml` may specify different defaults for agent workflows
 
 ### Inference Pipeline
 ```python
