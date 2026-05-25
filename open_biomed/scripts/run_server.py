@@ -137,6 +137,23 @@ class TaskRequest(BaseModel):
     # PPI STRING query extension
     species: Optional[int] = None
     required_score: Optional[int] = None
+    # ClinicalTrials query extension
+    query_cond: Optional[str] = None
+    query_term: Optional[str] = None
+    filter_overall_status: Optional[str] = None
+    fields: Optional[List[str]] = None
+    sort: Optional[List[str]] = None
+    page_size: Optional[int] = None
+    count_total: Optional[bool] = None
+    page_token: Optional[str] = None
+    nct_id: Optional[str] = None
+    # Tavily Search extension
+    max_results: Optional[int] = None
+    api_key: Optional[str] = None
+    # ChEMBL additional fields
+    molecule_chembl_id: Optional[str] = None
+    efo_term: Optional[str] = None
+    offset: Optional[int] = None
 
 
 class SearchRequest(BaseModel):
@@ -481,6 +498,22 @@ async def handle_retrosynthesis(request: TaskRequest, requester):
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
+async def handle_disease_drug_intel(request: TaskRequest, requester):
+    """Handle disease-drug intelligence queries."""
+    kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
+    # Remove non-relevant fields for this task
+    for key in ["model", "config", "visualize", "protein", "pocket",
+                "text", "dataset", "mutation", "indices", "property",
+                "molecule_1", "molecule_2", "similarity", "value",
+                "target_name", "uniprot_id", "molecule_name",
+                "species", "required_score",
+                "database", "option", "entry_id", "target_db", "source_id",
+                "standard_type", "standard_value_lte", "max_phase"]:
+        kwargs.pop(key, None)
+    results, _ = await requester.run_async(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
 TASK_CONFIGS = [
     {
         "task_name": "text_based_molecule_editing",
@@ -690,6 +723,13 @@ TASK_CONFIGS = [
         "required_inputs": ["query_type"],
         "pipeline_key": "retrosynthesis",
         "handler_function": handle_retrosynthesis,
+        "is_async": True
+    },
+    {
+        "task_name": "disease_drug_intel",
+        "required_inputs": ["query_type"],
+        "pipeline_key": "disease_drug_intel",
+        "handler_function": handle_disease_drug_intel,
         "is_async": True
     }
 
