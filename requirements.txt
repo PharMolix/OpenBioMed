@@ -26,3 +26,4 @@ langgraph-prebuilt==0.6.5
 langgraph-sdk==0.2.9
 omegaconf==2.3.0
 langchain-deepseek==0.1.4
+aiohttp==3.9.5

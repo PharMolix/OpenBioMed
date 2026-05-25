@@ -158,6 +158,13 @@ class TaskRequest(BaseModel):
     drugs: Optional[List[str]] = None
     drug_ids: Optional[str] = None
     drug_id: Optional[str] = None
+    # Literature search fields
+    pmids: Optional[List[str]] = None
+    max_results: Optional[int] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    days: Optional[int] = None
+    category: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -533,12 +540,40 @@ async def handle_ddi_analysis(request: TaskRequest, requester):
                 "query_cond", "query_term", "filter_overall_status",
                 "fields", "sort", "page_size", "count_total", "page_token",
                 "nct_id", "molecule_chembl_id", "efo_term", "offset",
-                "disease", "limit"]:
+                "disease", "limit",
+                "pmids", "max_results", "start_date", "end_date", "days", "category"]:
         kwargs.pop(key, None)
 
     # Handle drugs parameter - can be list or comma-separated string
     if "drugs" in kwargs and isinstance(kwargs["drugs"], str):
         kwargs["drugs"] = kwargs["drugs"].split(",")
+
+    results, _ = await requester.run_async(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
+
+
+async def handle_literature_search(request: TaskRequest, requester):
+    """Handle biomedical literature search queries."""
+    kwargs = request.model_dump(exclude={"task", "query_type"}, exclude_none=True)
+    # Remove non-relevant fields for this task
+    for key in ["model", "config", "visualize", "protein", "pocket",
+                "text", "dataset", "mutation", "indices", "property",
+                "molecule_1", "molecule_2", "similarity", "value",
+                "target_name", "uniprot_id", "molecule_name", "chembl_id",
+                "species", "required_score",
+                "database", "option", "entry_id", "target_db", "source_id",
+                "standard_type", "standard_value_lte", "max_phase",
+                "filter_overall_status",
+                "fields", "sort", "page_size", "count_total", "page_token",
+                "nct_id", "molecule_chembl_id", "efo_term", "offset",
+                "disease", "limit",
+                "drugs", "drug_ids", "drug_id",
+                "query_cond", "query_term"]:
+        kwargs.pop(key, None)
+
+    # Handle pmids parameter - can be list or comma-separated string
+    if "pmids" in kwargs and isinstance(kwargs["pmids"], str):
+        kwargs["pmids"] = kwargs["pmids"].split(",")
 
     results, _ = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
@@ -767,6 +802,13 @@ TASK_CONFIGS = [
         "required_inputs": ["query_type"],
         "pipeline_key": "ddi_analysis",
         "handler_function": handle_ddi_analysis,
+        "is_async": True
+    },
+    {
+        "task_name": "literature_search",
+        "required_inputs": ["query_type"],
+        "pipeline_key": "literature_search",
+        "handler_function": handle_literature_search,
         "is_async": True
     }
 

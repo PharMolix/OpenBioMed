@@ -9,6 +9,7 @@ from open_biomed.tools.kegg_query_tool import KEGGQueryRequester
 from open_biomed.tools.retrosynthesis_tool import RetrosynthesisRequester
 from open_biomed.tools.disease_drug_intel_tool import DiseaseDrugIntelTool
 from open_biomed.tools.drug_drug_interaction_tool import DrugDrugInteractionTool
+from open_biomed.tools.literature_search_tool import LiteratureSearchTool
 
 
 # TODO: Add pocket prediction as a tool
@@ -28,7 +29,7 @@ class LazyDictForTool(dict):
             "molecule_property_calculation",
             "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "summarize_content", "chembl_query",
-            "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis"
+            "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search"
         ]
     
     def __missing__(self, key):
@@ -115,6 +116,8 @@ class LazyDictForTool(dict):
             self[key] = DiseaseDrugIntelTool()
         elif key == "ddi_analysis":
             self[key] = DrugDrugInteractionTool()
+        elif key == "literature_search":
+            self[key] = LiteratureSearchTool()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]
