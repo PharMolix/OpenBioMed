@@ -570,12 +570,17 @@ async def handle_disease_drug_intel(request: TaskRequest, requester):
     for key in ["model", "config", "visualize", "protein", "pocket",
                 "text", "dataset", "mutation", "indices", "property",
                 "molecule_1", "molecule_2", "similarity", "value",
-                "target_name", "uniprot_id", "molecule_name",
+                "uniprot_id", "molecule_name",
                 "species", "required_score",
                 "database", "option", "entry_id", "target_db", "source_id",
                 "standard_type", "standard_value_lte", "max_phase",
                 "drug_ids", "drug_id"]:
         kwargs.pop(key, None)
+
+    # Map target_name to query for ChEMBL target search
+    if request.query_type == "chembl_search_target" and "target_name" in kwargs:
+        kwargs["query"] = kwargs.pop("target_name")
+
     results, _ = await requester.run_async(request.query_type, **kwargs)
     return {"task": request.task, "query_type": request.query_type, "results": results}
 

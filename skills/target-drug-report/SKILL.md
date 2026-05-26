@@ -5,65 +5,202 @@ description: |
   Use when user asks about target drug pipeline, clinical trials, or research progress.
   Triggers on phrases like "target report", "drug development progress", "clinical trial summary",
   "靶点报告", "药物研发进展", "竞品分析", "专利分析".
+license: MIT
+category: drug-discovery
+tags: [target-analysis, drug-pipeline, clinical-trials, market-analysis]
 ---
 
-# Target Drug Development Report (Enhanced)
+# Target Drug Development Report
 
-## Overview
+Generate comprehensive, beautifully formatted reports on drug development progress for therapeutic targets via the run_pipeline API.
 
-Generate beautiful, comprehensive reports on drug development progress for therapeutic targets.
+## Endpoint Configuration (read this first)
 
-**Features:**
-- 7 analysis sections with visualizations
-- HTML and Markdown output formats
-- Responsive design for all devices
-- Print-friendly for PDF export
+Defaults declared in this skill:
 
-## When to Use
+- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+  Placeholder for the OpenBioMed cloud service base URL.
 
-- User asks about a specific target's drug development status
-- Need to summarize clinical trial progress for a target
-- Researching competitive landscape for a therapeutic target
-- Understanding drug pipeline and market opportunities
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
 
-## Workflow
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set.
+3. Otherwise, ask the user once which endpoint to use, offering these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value.
+   - **Self-hosted OpenBioMed server**: user provides their own base URL.
 
-```python
-from open_biomed.tools.tool_registry import TOOLS
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is `${OPENBIOMED_API_BASE_URL}/run_pipeline/`.
 
-target_name = "CGRP"
+## Inputs
 
-# Step 1: Multi-source search
-web_search = TOOLS["web_search"]
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `target_name` | str | Yes | Target name (e.g., "CGRP", "EGFR", "KRAS") |
+| `output_format` | str | No | "html" (default) or "markdown" |
+
+## Workflow Overview
+
+### Phase 1: Data Collection
+
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 1.1 | `web_search` | Search for target clinical trials |
+| 1.2 | `literature_search` | Search PubMed for target research |
+| 1.3 | `disease_drug_intel` | Get disease-drug intelligence |
+
+### Phase 2: Report Generation
+
+Local processing with collected data and built-in knowledge base.
+
+---
+
+## API Query Types
+
+### Phase 1 APIs
+
+#### web_search (Clinical Trials)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "web_search", "query": "{target_name} clinical trial 2024 2025"}'
+```
+
+Response:
+```json
+{
+  "task": "web_search",
+  "text": "Search results containing clinical trial information..."
+}
+```
+
+#### web_search (Research Papers)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "web_search", "query": "{target_name} discovery mechanism site:pubmed.ncbi.nlm.nih.gov"}'
+```
+
+#### literature_search (PubMed)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "literature_search", "query_type": "pubmed_search", "query": "{target_name} inhibitor", "max_results": 10}'
+```
+
+Response:
+```json
+{
+  "task": "literature_search",
+  "query_type": "pubmed_search",
+  "results": [
+    {"pmid": "12345678", "title": "...", "abstract": "...", "authors": [...]}
+  ]
+}
+```
+
+#### disease_drug_intel (ChEMBL Target Search)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "disease_drug_intel", "query_type": "chembl_search_target", "target_name": "{target_name}"}'
+```
+
+Response:
+```json
+{
+  "task": "disease_drug_intel",
+  "query_type": "chembl_search_target",
+  "results": [
+    {"target_chembl_id": "CHEMBL...", "target_name": "..."}
+  ]
+}
+```
+
+#### disease_drug_intel (Clinical Trials Search)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "disease_drug_intel", "query_type": "clinicaltrials_search", "query_term": "{target_name}"}'
+```
+
+Response:
+```json
+{
+  "task": "disease_drug_intel",
+  "query_type": "clinicaltrials_search",
+  "results": [
+    {"nct_id": "...", "title": "...", "phase": "..."}
+  ]
+}
+```
+
+Available query_types for disease_drug_intel:
+- `chembl_search_target` - Search targets in ChEMBL
+- `chembl_search_molecule` - Search molecules/drugs in ChEMBL
+- `chembl_get_target` - Get target details by ChEMBL ID
+- `chembl_get_mechanism` - Get mechanism of action for a molecule
+- `chembl_get_indication` - Get drug indications
+- `clinicaltrials_search` - Search clinical trials
+- `clinicaltrials_get` - Get a specific clinical trial
+- `search` - Web search via Tavily
+
+---
+
+## Complete Workflow Script
+
+```bash
+# Configuration
+TARGET_NAME="CGRP"  # Replace with user's target
+BASE_URL="${OPENBIOMED_API_BASE_URL}"
+
+# Phase 1: Data Collection
+echo "[Phase 1] Collecting target information..."
 
 # Search clinical trials
-trial_results, _ = web_search.run(
-    query=f"{target_name} clinical trial 2024 2025"
-)
+CLINICAL_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"web_search\", \"query\": \"${TARGET_NAME} clinical trial 2024 2025\"}")
 
 # Search research papers
-paper_results, _ = web_search.run(
-    query=f"{target_name} discovery mechanism site:pubmed.ncbi.nlm.nih.gov"
-)
+PAPER_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"literature_search\", \"query_type\": \"pubmed_search\", \"query\": \"${TARGET_NAME} mechanism\", \"max_results\": 10}")
 
-# Step 2: Generate report
-report = generate_target_report(
-    target=target_name,
-    output_format="html"  # or "markdown"
-)
+# Get disease-drug intelligence (ChEMBL target search)
+DISEASE_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"disease_drug_intel\", \"query_type\": \"chembl_search_target\", \"target_name\": \"${TARGET_NAME}\"}")
+
+# Get clinical trials
+CLINICALTRIALS_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"disease_drug_intel\", \"query_type\": \"clinicaltrials_search\", \"query_term\": \"${TARGET_NAME}\"}")
+
+# Phase 2: Report Generation
+echo "[Phase 2] Generating report..."
+
+# Combine API results with built-in knowledge base
+# Report generation is done locally using the Python script:
+# python skills/target-drug-report/examples/basic_example.py ${TARGET_NAME}
+
+echo "Report generation complete!"
 ```
+
+---
 
 ## Report Sections
 
-| Section | Description | Key Content |
+| Section | Description | Data Source |
 |---------|-------------|-------------|
-| 🎯 靶点概况 | Target overview | Protein function, diseases |
-| 💊 已上市药物 | Approved drugs | Name, company, indication |
-| 🏥 临床管线 | Clinical pipeline | Phase distribution, drugs |
-| 📚 研究热点 | Research trends | Publications, directions |
-| 📜 专利布局 | Patent landscape | Trends, applicants |
-| 📊 市场分析 | Market analysis | Size, competition |
-| 🔮 投资展望 | Investment outlook | Opportunities, risks |
+| 🎯 靶点概况 | Target overview | Built-in KB + UniProt |
+| 💊 已上市药物 | Approved drugs | Built-in KB + ChEMBL |
+| 🏥 临床管线 | Clinical pipeline | web_search + disease_drug_intel |
+| 📚 研究热点 | Research trends | literature_search |
+| 📜 专利布局 | Patent landscape | web_search |
+| 📊 市场分析 | Market analysis | Built-in KB |
+| 🔮 投资展望 | Investment outlook | Analysis |
+
+---
 
 ## Output Formats
 
@@ -79,44 +216,81 @@ report = generate_target_report(
 - Version control friendly
 - Easy to edit
 
-## Usage
+---
 
-```python
-# Generate HTML report
-report = generate_target_report("EGFR", output_format="html")
+## Built-in Knowledge Base
 
-# Generate Markdown report
-report = generate_target_report("KRAS", output_format="markdown")
+When web search is unavailable, uses built-in knowledge for common targets:
 
-# Save to file
-report = generate_target_report(
-    target="BCL-2",
-    output_format="html",
-    output_path="report.html"
-)
-```
+| Category | Targets |
+|----------|---------|
+| Oncology | EGFR, KRAS, BCL-2, ALK, BRAF, HER2 |
+| Immunology | PD-1, CTLA-4 |
+| Neurology | CGRP |
+| Other | JAK, BTK |
+
+---
+
+## Expected Outputs
+
+| Output | Description |
+|--------|-------------|
+| HTML file | `{target}_target_drug_report.html` |
+| Markdown file | `{target}_target_drug_report.md` |
+| Key statistics | Approved drugs, pipeline count, market size |
+
+---
 
 ## Error Handling
 
-When web search is unavailable, uses built-in knowledge for common targets:
-- EGFR, KRAS, BCL-2, ALK, BRAF, HER2 (Oncology)
-- PD-1, CTLA-4 (Immunology)
-- CGRP, JAK, BTK (Other)
+### Web Search Unavailable
 
-## Files
+**Symptom**: API returns error or timeout.
 
-```
-target-drug-report/
-├── SKILL.md                    # This file
-├── examples/
-│   └── basic_example.py        # Report generator script
-└── references/
-    ├── html_template.py        # HTML template
-    └── data_sources.md         # Data source reference
-```
+**Solution**: Use built-in knowledge base for common targets.
+
+### No Results for Target
+
+**Symptom**: No clinical trial or research data found.
+
+**Solution**: Target may be novel or less studied. Use broader search terms.
+
+### Disease-Drug Intel Failed
+
+**Symptom**: `disease_drug_intel` returns empty.
+
+**Solution**: Target may not be mapped in database. Use web search instead.
+
+---
 
 ## Limitations
 
-- Requires network for real-time data
-- Built-in knowledge for ~20 common targets
+- Built-in knowledge for ~20 common targets only
 - Patent data may be incomplete
+- Market analysis uses static estimates
+- Requires network for real-time data
+
+## Example Usage
+
+**Input**: "Generate drug report for CGRP target"
+
+**Workflow**:
+1. Search CGRP clinical trials
+2. Search CGRP PubMed papers
+3. Get disease-drug intelligence
+4. Generate HTML report with built-in data
+
+**Input**: "EGFR 靶点药物研发进展"
+
+**Workflow**:
+1. Search EGFR clinical trials in Chinese
+2. Get disease-drug intelligence for NSCLC
+3. Generate bilingual report
+
+---
+
+## Related Skills
+
+- `drug-candidate-discovery` - Generate drug candidates for target
+- `disease-drug-intelligence` - Query disease-drug relationships
+- `chembl-query` - Query ChEMBL for target drugs
