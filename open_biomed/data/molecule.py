@@ -72,7 +72,7 @@ class Molecule:
         # initialize a molecule with pdb lines
         path = os.path.join(os.path.abspath(os.path.dirname(__file__)).replace("/open_biomed/data", ""), "tmp", "molecule.pdb")
         with open(path, "w") as f:
-            f.write(pdb_lines)
+            f.write("".join(pdb_lines))
         return cls.from_pdb_file(path)
 
     @classmethod

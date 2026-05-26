@@ -165,6 +165,8 @@ class TaskRequest(BaseModel):
     end_date: Optional[str] = None
     days: Optional[int] = None
     category: Optional[str] = None
+    # PDB request mode
+    mode: Optional[str] = None  # "metadata" or "file_only"
 
 
 class SearchRequest(BaseModel):
@@ -172,6 +174,7 @@ class SearchRequest(BaseModel):
     query: Optional[str] = None
     molecule: Optional[str] = None
     threshold: Optional[str] = None
+    mode: Optional[str] = None  # For PDBRequester: "metadata" or "file_only"
 
 
 class TaskConfig:
@@ -328,12 +331,19 @@ async def handle_protein_uniprot_request(request: SearchRequest, requester):
     return {"task": request.task, "protein": outputs, "protein_preview": protein_preview}
 
 
-async def handle_protein_pdb_request(request: SearchRequest, requester):
-    outputs = await requester.run_async(request.query)
-    outputs = outputs[1][0]
-    protein = IO_Reader.get_protein(outputs)
-    protein_preview = str(protein)
-    return {"task": request.task, "protein": outputs, "protein_preview": protein_preview}
+async def handle_protein_pdb_request(request: TaskRequest, requester):
+    mode = request.mode or "file_only"  # Default to file_only for drug discovery workflows
+    outputs = await requester.run_async(request.query, mode=mode)
+    if mode == "file_only":
+        # outputs[0] is the file path list, outputs[1] is the content list
+        pdb_file = outputs[0][0]
+        protein = IO_Reader.get_protein(pdb_file)
+        protein_preview = str(protein)
+        return {"task": request.task, "protein": pdb_file, "protein_preview": protein_preview}
+    else:
+        # metadata mode returns JSON content
+        outputs = outputs[1][0]
+        return {"task": request.task, "protein": outputs}
 
 
 def handle_mutation_explanation(request: TaskRequest, pipeline):
@@ -579,6 +589,51 @@ async def handle_literature_search(request: TaskRequest, requester):
     return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
+def handle_extract_molecules_from_pdb_file(request: TaskRequest, pipeline):
+    """Extract proteins, ligands, and ions from a PDB file."""
+    required_inputs = ["protein"]
+    # protein field contains the PDB file path
+    pdb_file = request.protein
+    outputs_list, metadata_list = pipeline.run(pdb_file=pdb_file)
+
+    # The serial_exec wrapper returns [output], [msg]
+    # outputs_list = [results] where results is a list of tuples (type, chain_id, obj)
+    outputs = outputs_list[0]
+    metadata = metadata_list[0]
+
+    # Prepare results with file paths
+    results = []
+    for item_type, chain_id, obj in outputs:
+        if item_type == "protein":
+            # Save protein to file
+            protein_file = obj.save_binary()
+            results.append({
+                "type": "protein",
+                "chain_id": chain_id,
+                "name": obj.name,
+                "sequence_preview": str(obj)[:100],
+                "file": protein_file
+            })
+        elif item_type == "molecule":
+            # Save molecule to file
+            mol_file = obj.save_binary()
+            results.append({
+                "type": "molecule",
+                "chain_id": chain_id,
+                "name": obj.name,
+                "smiles": obj.smiles,
+                "file": mol_file
+            })
+        elif item_type == "ion":
+            results.append({
+                "type": "ion",
+                "chain_id": chain_id,
+                "name": obj.name if hasattr(obj, 'name') else "unknown_ion"
+            })
+
+    return {"task": request.task, "results": results, "metadata": metadata}
+
+
 TASK_CONFIGS = [
     {
         "task_name": "text_based_molecule_editing",
@@ -810,6 +865,13 @@ TASK_CONFIGS = [
         "pipeline_key": "literature_search",
         "handler_function": handle_literature_search,
         "is_async": True
+    },
+    {
+        "task_name": "extract_molecules_from_pdb_file",
+        "required_inputs": ["protein"],
+        "pipeline_key": "extract_molecules_from_pdb_file",
+        "handler_function": handle_extract_molecules_from_pdb_file,
+        "is_async": False
     }
 
 
