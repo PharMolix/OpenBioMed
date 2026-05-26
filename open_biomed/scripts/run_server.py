@@ -167,6 +167,14 @@ class TaskRequest(BaseModel):
     category: Optional[str] = None
     # PDB request mode
     mode: Optional[str] = None  # "metadata" or "file_only"
+    # PubChem bioactivity query fields
+    cid: Optional[int] = None
+    aid: Optional[int] = None
+    aids_type: Optional[str] = None  # "active" or "inactive"
+    cids_type: Optional[str] = None  # "active" or "inactive"
+    gene_symbol: Optional[str] = None
+    gene_id: Optional[int] = None
+    max_records: Optional[int] = None
 
 
 class SearchRequest(BaseModel):
@@ -321,6 +329,23 @@ async def handle_molecule_structure_request(request: SearchRequest, requester):
     molecule = outputs[1][index]
     molecule_preview = outputs[0][index].smiles
     return {"task": request.task, "molecule": molecule, "molecule_preview": molecule_preview}
+
+
+async def handle_pubchem_bioactivity(request: TaskRequest, requester):
+    """Handle PubChem bioactivity queries."""
+    kwargs = {
+        "cid": request.cid,
+        "aid": request.aid,
+        "aids_type": request.aids_type,
+        "cids_type": request.cids_type,
+        "gene_symbol": request.gene_symbol,
+        "gene_id": request.gene_id,
+        "max_records": request.max_records or 10
+    }
+    # Remove None values
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    results, _ = await requester.run_async(request.query_type, **kwargs)
+    return {"task": request.task, "query_type": request.query_type, "results": results}
 
 
 async def handle_protein_uniprot_request(request: SearchRequest, requester):
@@ -750,6 +775,13 @@ TASK_CONFIGS = [
         "required_inputs": ["molecule", "threshold"],
         "pipeline_key": "molecule_structure_request",
         "handler_function": handle_molecule_structure_request,
+        "is_async": True
+    },
+    {
+        "task_name": "pubchem_bioactivity",
+        "required_inputs": ["query_type"],
+        "pipeline_key": "pubchem_bioactivity",
+        "handler_function": handle_pubchem_bioactivity,
         "is_async": True
     },
     {
