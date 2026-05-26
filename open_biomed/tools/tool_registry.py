@@ -24,11 +24,11 @@ class LazyDictForTool(dict):
             "visualize_protein_pocket", "molecule_name_request", "pubchemid_search",
             "molecule_structure_request", "pubchem_bioactivity", "protein_uniprot_request", "protein_pdb_request",
             "ppi_string_request",
-            "web_search", "import_pocket", "export_molecule", "export_protein",
+            "web_search", "import_pocket", "create_pocket_from_ligand", "export_molecule", "export_protein",
             "molecule_qed", "molecule_sa", "molecule_logp", "molecule_lipinski", "molecule_similarity",
             "molecule_property_calculation",
             "drug_lead_analysis",
-            "extract_molecules_from_pdb_file", "summarize_content", "chembl_query",
+            "extract_molecules_from_pdb_file", "analyze_complex_interaction", "summarize_content", "chembl_query",
             "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search"
         ]
     
@@ -80,12 +80,16 @@ class LazyDictForTool(dict):
             self[key] = STRINGRequester()
         elif key == "extract_molecules_from_pdb_file":
             self[key] = ExtractAllMoleculesFromPDB()
+        elif key == "analyze_complex_interaction":
+            self[key] = ComplexInteractionAnalysis()
         elif key == "web_search":
             self[key] = WebSearchRequester()
         # elif key == "key_info_extract":
         #    self[key] = KeyInfoExtractor()
         elif key == "import_pocket":
             self[key] = ImportPocket()
+        elif key == "create_pocket_from_ligand":
+            self[key] = CreatePocketFromLigand()
         elif key == "export_molecule":
             self[key] = ExportMolecule()
         elif key == "export_protein":

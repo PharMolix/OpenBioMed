@@ -7,6 +7,9 @@ description: >
   (2) Generating structurally diverse molecules with optimized binding affinity,
   (3) Filtering candidates based on user-defined criteria (docking, ADMET, drug-likeness),
   (4) Iteratively refining leads through regeneration when criteria are not met.
+
+  The skill handles target identification, structure retrieval, molecule generation,
+  docking, property calculation, and in silico evaluation through API calls.
 license: MIT
 category: drug-discovery
 tags: [lead-generation, structure-based-design, diversity, molcraft, docking, admet]
@@ -14,20 +17,30 @@ tags: [lead-generation, structure-based-design, diversity, molcraft, docking, ad
 
 # Target-Based Lead Design
 
-Generate diverse, drug-like lead compounds targeting a specific protein using AI-powered structure-based drug design.
+Generate diverse, drug-like lead compounds targeting a specific protein using AI-powered structure-based drug design via the run_pipeline API.
 
-## When to Use
+## Endpoint Configuration (read this first)
 
-- User provides a PDB ID or disease name and wants drug candidates
-- User wants to design molecules for a specific protein target
-- User needs diverse leads with user-defined property criteria
-- User wants iterative refinement with regeneration loop
+Defaults declared in this skill:
+
+- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+  Placeholder for the OpenBioMed cloud service base URL.
+
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
+
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set.
+3. Otherwise, ask the user once which endpoint to use, offering these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value.
+   - **Self-hosted OpenBioMed server**: user provides their own base URL.
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is `${OPENBIOMED_API_BASE_URL}/run_pipeline/`.
 
 ## Inputs
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `target` | str | Yes | PDB ID (e.g., "4xli") or disease name |
+| `target` | str | Yes | PDB ID (e.g., "4xli") or disease/target name |
 | `num_candidates` | int | No | Initial candidates to generate (default: 40) |
 | `target_leads` | int | No | Desired number of final leads (default: 20) |
 
@@ -38,324 +51,404 @@ Generate diverse, drug-like lead compounds targeting a specific protein using AI
 | `docking_threshold` | -10.0 | Maximum docking score (kcal/mol), more negative = better |
 | `qed_min` | 0.4 | Minimum QED score (0-1), higher = more drug-like |
 | `lipinski_min` | 4 | Minimum Lipinski rules obeyed (0-4), 4 = no violations |
-| `side_effects_max` | 18 | Maximum SIDER side effect categories predicted |
 | `similarity_max` | 0.7 | Maximum Tanimoto similarity between selected leads |
 
-## Workflow
+## Workflow Overview
 
-```
-Phase 1: Target Identification
-    └── Path A: PDB ID provided → Download structure directly
-    └── Path B: Disease/target name provided → Agent-based discovery:
-           ├── Agent searches web for PDB structures
-           ├── Agent examines each PDB's ligands
-           ├── Agent searches literature to validate ligand is a true binder
-           │      └── Fallback (if 3 search attempts fail):
-           │             └── Judge by molecular weight:
-           │                    • MW ≥ 150 Da → Likely drug-like binder (accept)
-           │                    • MW 100-150 Da → Fragment (accept with caution)
-           │                    • MW < 100 Da → Likely solvent/ion (exclude)
-           ├── Agent ranks by resolution, returns best PDB ID
-           └── If no valid PDB found → Ask user for PDB ID
+### Phase 1: Target Identification & Structure Retrieval
 
-Phase 2: Structure Preparation
-    └── Extract protein chains and ligands
-    └── Define binding pocket (from reference ligand)
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 1.1 | `web_search` | Search for target PDB structures (if disease name provided) |
+| 1.2 | `protein_pdb_request` | Download PDB structure file |
 
-Phase 3: De Novo Generation
-    └── Generate candidates using MolCraft
-    └── Save candidates to SDF files
+### Phase 2: Structure Preparation
 
-Phase 4: Docking
-    └── Dock all candidates (AutoDock Vina)
-
-Phase 5: Property + ADMET Calculation
-    └── Drug-likeness: QED, SA, LogP, Lipinski
-    └── ADMET: BBB penetration, Side effects (SIDER)
-
-Phase 6: Filtering & Diversity Selection
-    └── Apply user criteria → Filter candidates
-    └── Greedy diversity selection (Tanimoto)
-    └── Regeneration check → Iterate if needed
-
-Phase 7: PLIP Interaction Analysis (selected molecules only)
-    └── Analyze protein-ligand interactions for selected leads
-    └── Report hydrophobic contacts, H-bonds, π-stacking, salt bridges
-
-Phase 8: Visualization (selected molecules only)
-    └── 2D molecule structures (RDKit)
-    └── 3D rotating complex GIF (PyMOL, requires installation)
-```
-
-## Core Implementation
-
-### Phase 1-2: Target Retrieval & Pocket Definition
-
-```python
-from open_biomed.tools.tool_registry import TOOLS
-from open_biomed.data import Pocket
-
-# Download PDB structure
-pdb_tool = TOOLS["protein_pdb_request"]
-pdb_file, _ = pdb_tool.run(accession="4xli", mode="file_only")
-
-# Extract protein and ligand
-extract_tool = TOOLS["extract_molecules_from_pdb_file"]
-results, _ = extract_tool.run(pdb_file=pdb_file[0])
-# results[0] contains list of (type, chain_id, entity) tuples
-
-protein = [r[2] for r in results[0] if r[0] == "protein"][0]
-ligand = [r[2] for r in results[0] if r[0] == "molecule"][0]
-
-# Define pocket from reference ligand
-pocket = Pocket.from_protein_ref_ligand(protein, ligand, radius=10.0)
-pocket.estimated_num_atoms = ligand.get_num_atoms()
-```
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 2.1 | `extract_molecules_from_pdb_file` | Extract protein chains and ligands from PDB |
+| 2.2 | `create_pocket_from_ligand` | Create binding pocket from reference ligand |
 
 ### Phase 3: Molecule Generation
 
-```python
-from open_biomed.core.pipeline import InferencePipeline
-from pytorch_lightning import seed_everything
-
-pipeline = InferencePipeline(
-    task="structure_based_drug_design",
-    model="molcraft",
-    model_ckpt="./checkpoints/molcraft/last_updated.ckpt",
-    device="cuda:0"
-)
-
-candidates = []
-for i in range(num_candidates):
-    seed_everything(i * 1000 + 42)
-    outputs = pipeline.run(pocket=pocket)
-    if outputs and outputs[0] and outputs[0][0]:
-        mol = outputs[0][0]
-        mol._add_smiles()
-        candidates.append(mol)
-```
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 3.1 | `structure_based_drug_design` | Generate molecules for binding pocket |
 
 ### Phase 4: Docking
 
-```python
-docking_tool = TOOLS["protein_molecule_docking_score"]
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 4.1 | `protein_molecule_docking_score` | Dock candidates against protein |
 
-for mol in candidates:
-    result, _ = docking_tool.run(protein=protein, molecule=mol)
-    score = result[0][0]  # (score, docked_molecule) tuple
-    mol.docking_score = score
-```
+### Phase 5: Property Calculation
 
-### Phase 5: Property & ADMET
-
-```python
-from open_biomed.core.pipeline import InferencePipeline, EnsemblePipeline
-
-# Drug-likeness tools
-qed_tool = TOOLS["molecule_qed"]
-sa_tool = TOOLS["molecule_sa"]
-logp_tool = TOOLS["molecule_logp"]
-lipinski_tool = TOOLS["molecule_lipinski"]
-
-# ADMET pipeline
-pipelines = {
-    "BBBP": InferencePipeline(
-        task="molecule_property_prediction", model="graphmvp",
-        model_ckpt="./checkpoints/server/graphmvp-BBBP.ckpt",
-        additional_config="./configs/dataset/bbbp.yaml", device="cuda:0"),
-    "SIDER": InferencePipeline(
-        task="molecule_property_prediction", model="graphmvp",
-        model_ckpt="./checkpoints/server/graphmvp-SIDER.ckpt",
-        additional_config="./configs/dataset/sider.yaml", device="cuda:0"),
-}
-admet_pipeline = EnsemblePipeline(pipelines)
-
-for mol in candidates:
-    # Drug-likeness
-    qed, _ = qed_tool.run(molecule=mol)
-    sa, _ = sa_tool.run(molecule=mol)
-    logp, _ = logp_tool.run(molecule=mol)
-    lipinski, _ = lipinski_tool.run(molecule=mol)
-
-    mol.qed = qed[0]
-    mol.sa = sa[0]
-    mol.logp = logp[0]
-    mol.lipinski = lipinski[0]  # Rules obeyed (0-4)
-
-    # ADMET
-    bbb_out = admet_pipeline.run(molecule=mol, task="BBBP")
-    mol.bbb_prob = float(bbb_out[1][0].strip("[]"))
-
-    sider_out = admet_pipeline.run(molecule=mol, task="SIDER")
-    sider_list = eval(sider_out[1][0])
-    mol.num_side_effects = sum(1 for s in sider_list if s > 0.5)
-```
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 5.1 | `molecule_property_calculation` | Calculate QED, SA, LogP, Lipinski |
 
 ### Phase 6: Filtering & Diversity
 
-```python
-similarity_tool = TOOLS["molecule_similarity"]
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 6.1 | `molecule_similarity` | Calculate pairwise Tanimoto similarity |
 
-# Apply user criteria
-filtered = [i for i, mol in enumerate(candidates) if
-    mol.docking_score <= docking_threshold and
-    mol.qed >= qed_min and
-    mol.lipinski >= lipinski_min and
-    mol.num_side_effects <= side_effects_max]
+### Phase 7: Interaction Analysis
 
-# Build similarity matrix
-n = len(filtered)
-sim_matrix = [[0.0] * n for _ in range(n)]
-for i in range(n):
-    for j in range(i+1, n):
-        sim, _ = similarity_tool.run(
-            molecule_1=candidates[filtered[i]],
-            molecule_2=candidates[filtered[j]])
-        sim_matrix[i][j] = sim_matrix[j][i] = sim[0]
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 7.1 | `analyze_complex_interaction` | Analyze protein-ligand interactions (PLIP) |
 
-# Greedy diversity selection
-selected = [filtered[0]]
-for idx in filtered[1:]:
-    is_diverse = all(
-        similarity_matrix[idx][s] <= similarity_max
-        for s in selected)
-    if is_diverse:
-        selected.append(idx)
+### Phase 8: Visualization
+
+| Step | API Call | Purpose |
+|------|----------|---------|
+| 8.1 | `visualize_molecule` | Generate 2D molecule images |
+| 8.2 | `visualize_complex` | Generate protein-ligand complex images |
+| 8.3 | `export_molecule` | Export molecules as SDF files |
+
+---
+
+## API Query Types
+
+### Phase 1 APIs
+
+#### web_search
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "web_search", "query": "{target_name} PDB structure inhibitor"}'
 ```
 
-### Regeneration Loop
-
-```python
-while len(selected) < target_leads and attempts < max_attempts:
-    print(f"Only {len(selected)} leads, need {target_leads}")
-    print("Options: 1) Generate more, 2) Relax criteria, 3) Accept")
-    # User chooses action
-    if user_choice == "generate":
-        new_candidates = generate_more(num_additional)
-        candidates.extend(new_candidates)
-        # Re-run from Phase 4
-    elif user_choice == "relax":
-        qed_min = max(0.3, qed_min - 0.1)
-        side_effects_max += 3
-        # Re-filter
+#### protein_pdb_request
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "protein_pdb_request", "query": "{pdb_id}"}'
 ```
 
-### Phase 7: PLIP Interaction Analysis (Selected Leads Only)
-
-```python
-from open_biomed.tools.tool_misc import ComplexInteractionAnalysis
-
-plip_tool = ComplexInteractionAnalysis()
-
-for idx in selected:
-    mol = candidates[idx]
-    report, _ = plip_tool.run(molecule=mol, protein=protein)
-    # Report contains: hydrophobic interactions, H-bonds,
-    # π-stacking, salt bridges, water bridges, etc.
-    mol.interaction_report = report[0]
+Response:
+```json
+{
+  "task": "protein_pdb_request",
+  "protein": "./tmp/pdb_{pdb_id}.pdb",
+  "protein_preview": "Protein(name={pdb_id}, ...)"
+}
 ```
 
-### Phase 8: Visualization (Selected Leads Only)
+### Phase 2 APIs
 
-```python
-import subprocess
-from rdkit import Chem
-from plip.structure.preparation import PDBComplex
-from plip.basic.remote import VisualizerData
-from plip.visualization.visualize import visualize_in_pymol
-from plip.basic import config
-from open_biomed.tools.visualization_tools import MoleculeVisualizer, ComplexVisualizer
-from open_biomed.data import Pocket, Protein
-
-# 2D molecule visualization
-mol_vis = MoleculeVisualizer()
-for idx in selected:
-    mol = candidates[idx]
-    img_file, _ = mol_vis.run(molecule=mol, config='2D',
-        img_file=f'./outputs/mol_2d_{idx}.png')
-
-# 3D rotating complex visualization (requires PyMOL)
-# Full protein view with surface mode
-complex_vis = ComplexVisualizer()
-for idx in selected:
-    mol = candidates[idx]
-
-    # Full protein-ligand complex view
-    gif_file = f'./outputs/complex_rotating_{idx}.gif'
-    complex_vis.run(
-        molecule=mol,
-        protein=protein,
-        molecule_config='ball_and_stick',
-        protein_config='surface',
-        img_file=gif_file,
-        rotate=True
-    )
-
-    # Zoomed view: pocket-ligand complex only
-    # Extract pocket around ligand and save as PDB
-    pocket = Pocket.from_protein_ref_ligand(protein, mol, radius=10.0)
-    pocket_pdb_file = pocket.save_pdb(f'./outputs/pocket_{idx}.pdb')
-
-    # Load pocket PDB as Protein for visualization
-    pocket_protein = Protein.from_pdb_file(pocket_pdb_file)
-
-    gif_file_zoomed = f'./outputs/complex_zoomed_{idx}.gif'
-    complex_vis.run(
-        molecule=mol,
-        protein=pocket_protein,
-        molecule_config='ball_and_stick',
-        protein_config='surface',
-        img_file=gif_file_zoomed,
-        rotate=True
-    )
-
-# PLIP interaction visualization (requires PyMOL and PLIP)
-# Shows protein-ligand interactions with annotated H-bonds, hydrophobic contacts, etc.
-for idx in selected:
-    mol = candidates[idx]
-
-    # Create combined complex PDB file for PLIP
-    sdf_file = mol.save_sdf(f'./outputs/mol_{idx}.sdf')
-    pdb_file = protein.save_pdb(f'./outputs/protein_{idx}.pdb')
-
-    rdmol = Chem.MolFromMolFile(sdf_file)
-    rdprotein = Chem.MolFromPDBFile(pdb_file, sanitize=False)
-    rdcomplex = Chem.CombineMols(rdmol, rdprotein)
-    complex_pdb_file = f'./outputs/complex_plip_{idx}.pdb'
-    Chem.MolToPDBFile(rdcomplex, complex_pdb_file)
-
-    # Run PLIP analysis and visualization
-    complex_obj = PDBComplex()
-    complex_obj.load_pdb(complex_pdb_file)
-    for ligand in complex_obj.ligands:
-        complex_obj.characterize_complex(ligand)
-    complex_obj.analyze()
-
-    # Generate visualization for each ligand binding site
-    for key in complex_obj.interaction_sets:
-        data = VisualizerData(complex_obj, key)
-        config.PICS = True
-        config.OUTPATH = f'./outputs/plip_viz_{idx}'
-        config.BACKGROUND = "white"
-        config.CARTOON = True
-        config.STICKS = True
-        config.HIDE_WATER = True
-        visualize_in_pymol(data)
+#### extract_molecules_from_pdb_file
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "extract_molecules_from_pdb_file", "protein": "./tmp/pdb_{pdb_id}.pdb"}'
 ```
+
+Response:
+```json
+{
+  "task": "extract_molecules_from_pdb_file",
+  "results": [
+    {"type": "protein", "chain_id": "A", "name": "{pdb_id}_A", "sequence_preview": "...", "file": "./tmp/{pdb_id}_A.pkl"},
+    {"type": "molecule", "chain_id": "A", "name": "...", "smiles": "...", "file": "./tmp/{molecule_name}.pkl"}
+  ],
+  "metadata": "Total 1 protein chains, 1 molecules and 0 ions extracted..."
+}
+```
+
+#### create_pocket_from_ligand
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "create_pocket_from_ligand", "protein": "./tmp/{pdb_id}_A.pkl", "molecule": "./tmp/{ligand_name}.pkl", "similarity": 10.0}'
+```
+
+Response:
+```json
+{
+  "task": "create_pocket_from_ligand",
+  "pocket": "./tmp/pocket.pkl",
+  "pocket_preview": "Pocket(...)"
+}
+```
+
+Note: The `similarity` field is used as the radius parameter (default 10.0 Angstroms).
+
+### Phase 3 APIs
+
+#### structure_based_drug_design
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "structure_based_drug_design", "model": "molcraft", "pocket": "./tmp/pocket.pkl"}'
+```
+
+Response:
+```json
+{
+  "task": "structure_based_drug_design",
+  "model": "molcraft",
+  "molecule": "./tmp/generated_molecule.pkl",
+  "molecule_preview": "CC1=CC=CC=C1..."
+}
+```
+
+### Phase 4 APIs
+
+#### protein_molecule_docking_score
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "protein_molecule_docking_score", "protein": "./tmp/{pdb_id}_A.pkl", "molecule": "./tmp/generated_molecule.pkl"}'
+```
+
+Response:
+```json
+{
+  "task": "protein_molecule_docking_score",
+  "score": "-9.5"
+}
+```
+
+### Phase 5 APIs
+
+#### molecule_property_calculation
+```bash
+# Calculate QED
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_calculation", "molecule": "./tmp/molecule.pkl", "property": "QED"}'
+
+# Calculate LogP
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_calculation", "molecule": "./tmp/molecule.pkl", "property": "LogP"}'
+
+# Calculate Lipinski
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_property_calculation", "molecule": "./tmp/molecule.pkl", "property": "Lipinski"}'
+```
+
+Response:
+```json
+{
+  "task": "molecule_property_calculation",
+  "score": 0.65
+}
+```
+
+Available properties: `QED`, `SA`, `LogP`, `Lipinski`
+
+### Phase 6 APIs
+
+#### molecule_similarity
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "molecule_similarity", "molecule_1": "./tmp/mol1.pkl", "molecule_2": "./tmp/mol2.pkl"}'
+```
+
+Response:
+```json
+{
+  "task": "molecule_similarity",
+  "similarity": 0.42
+}
+```
+
+### Phase 7 APIs
+
+#### analyze_complex_interaction
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "analyze_complex_interaction", "molecule": "./tmp/molecule.pkl", "protein": "./tmp/protein.pkl"}'
+```
+
+Response:
+```json
+{
+  "task": "analyze_complex_interaction",
+  "report": "UNL:hydrophobic interactions;H-bonds;..."
+}
+```
+
+### Phase 8 APIs
+
+#### visualize_molecule
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "visualize_molecule", "visualize": "ball_and_stick", "molecule": "./tmp/molecule.pkl"}'
+```
+
+Response:
+```json
+{
+  "task": "visualize_molecule",
+  "image": "https://.../molecule_visualization.png"
+}
+```
+
+#### visualize_complex
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "visualize_complex", "protein": "./tmp/protein.pkl", "molecule": "./tmp/molecule.pkl"}'
+```
+
+#### export_molecule
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "export_molecule", "molecule": "./tmp/molecule.pkl"}'
+```
+
+Response:
+```json
+{
+  "task": "export_molecule",
+  "file": "./tmp/molecule.sdf"
+}
+```
+
+---
+
+## Complete Workflow Script
+
+### Step 1: Determine Endpoint
+
+First resolve the API base URL per the resolution order above.
+
+### Step 2: Execute Workflow via API Calls
+
+**IMPORTANT: Execute each API call sequentially and save the outputs.**
+
+```bash
+# Configuration
+TARGET_PDB="4xli"  # Replace with user's target PDB ID
+NUM_CANDIDATES=40
+TARGET_LEADS=20
+BASE_URL="${OPENBIOMED_API_BASE_URL}"
+
+# Phase 1: Structure Retrieval
+echo "[Phase 1] Retrieving protein structure..."
+
+PDB_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"protein_pdb_request\", \"query\": \"${TARGET_PDB}\"}")
+
+# Extract PDB file path from response
+PDB_FILE=$(echo "$PDB_RESULT" | jq -r '.protein')
+
+# Phase 2: Structure Preparation
+echo "[Phase 2] Extracting molecules and creating pocket..."
+
+# Extract molecules from PDB
+EXTRACT_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"extract_molecules_from_pdb_file\", \"protein\": \"${PDB_FILE}\"}")
+
+# Extract protein and ligand file paths
+PROTEIN_FILE=$(echo "$EXTRACT_RESULT" | jq -r '.results[] | select(.type=="protein") | .file')
+LIGAND_FILE=$(echo "$EXTRACT_RESULT" | jq -r '.results[] | select(.type=="molecule") | .file')
+
+# Create pocket from ligand
+POCKET_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"create_pocket_from_ligand\", \"protein\": \"${PROTEIN_FILE}\", \"molecule\": \"${LIGAND_FILE}\", \"similarity\": 10.0}")
+
+POCKET_FILE=$(echo "$POCKET_RESULT" | jq -r '.pocket')
+
+# Phase 3: Molecule Generation
+echo "[Phase 3] Generating candidate molecules..."
+
+for i in $(seq 1 $NUM_CANDIDATES); do
+  echo "Generating molecule $i..."
+  GENERATED_MOL=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+    -H "Content-Type: application/json" \
+    -d "{\"task\": \"structure_based_drug_design\", \"model\": \"molcraft\", \"pocket\": \"${POCKET_FILE}\"}")
+
+  MOL_FILE=$(echo "$GENERATED_MOL" | jq -r '.molecule')
+
+  # Phase 4: Docking
+  DOCKING_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+    -H "Content-Type: application/json" \
+    -d "{\"task\": \"protein_molecule_docking_score\", \"protein\": \"${PROTEIN_FILE}\", \"molecule\": \"${MOL_FILE}\"}")
+
+  DOCKING_SCORE=$(echo "$DOCKING_RESULT" | jq -r '.score')
+
+  # Phase 5: Property Calculation
+  QED_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+    -H "Content-Type: application/json" \
+    -d "{\"task\": \"molecule_property_calculation\", \"molecule\": \"${MOL_FILE}\", \"property\": \"QED\"}")
+
+  LOGP_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+    -H "Content-Type: application/json" \
+    -d "{\"task\": \"molecule_property_calculation\", \"molecule\": \"${MOL_FILE}\", \"property\": \"LogP\"}")
+
+  LIPINSKI_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+    -H "Content-Type: application/json" \
+    -d "{\"task\": \"molecule_property_calculation\", \"molecule\": \"${MOL_FILE}\", \"property\": \"Lipinski\"}")
+
+  # Store results for filtering
+  echo "$i,$MOL_FILE,$DOCKING_SCORE,$(echo "$QED_RESULT" | jq -r '.score'),$(echo "$LIPINSKI_RESULT" | jq -r '.score')" >> candidates.csv
+done
+
+# Phase 6: Filtering & Diversity Selection
+echo "[Phase 6] Filtering candidates by criteria..."
+
+# Apply user criteria (bash filtering)
+awk -F, -v dock_thresh=-10 -v qed_min=0.4 -v lipinski_min=4 \
+  '$3 <= dock_thresh && $4 >= qed_min && $5 >= lipinski_min {print}' candidates.csv > filtered.csv
+
+# Calculate pairwise similarity for diversity selection
+# (This requires iterating over filtered candidates and computing molecule_similarity)
+
+# Phase 7: Interaction Analysis for selected leads
+echo "[Phase 7] Analyzing protein-ligand interactions..."
+
+# For each selected molecule:
+SELECTED_MOL="./tmp/selected_molecule.pkl"
+INTERACTION_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"analyze_complex_interaction\", \"molecule\": \"${SELECTED_MOL}\", \"protein\": \"${PROTEIN_FILE}\"}")
+
+# Phase 8: Visualization
+echo "[Phase 8] Generating visualizations..."
+
+# Visualize molecule
+VISUALIZATION=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"visualize_molecule\", \"visualize\": \"ball_and_stick\", \"molecule\": \"${SELECTED_MOL}\"}")
+
+# Export molecule as SDF
+EXPORT_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"export_molecule\", \"molecule\": \"${SELECTED_MOL}\"}")
+
+echo "Workflow complete!"
+```
+
+---
 
 ## Expected Outputs
 
-| Output | Format | Description |
-|--------|--------|-------------|
-| Lead compounds | List[dict] | SMILES, docking score, properties |
-| Diversity report | Table | Pairwise Tanimoto similarities |
-| ADMET profile | Table | BBB, side effects per candidate |
-| Interaction reports | List[str] | PLIP analysis for selected leads |
-| 2D structures | PNG files | Molecule diagrams |
-| 3D complexes | GIF files | Rotating protein-ligand visualizations (full view) |
-| 3D zoomed complexes | GIF files | Rotating pocket-ligand visualizations (zoomed view) |
-| PLIP interactions | PNG files | Protein-ligand interactions with annotated H-bonds, hydrophobic contacts, etc. |
-| Summary report | Markdown | Comprehensive lead analysis |
+| Output | Description | API Response Field |
+|--------|-------------|-------------------|
+| Protein structure | Downloaded PDB file | `protein` from `protein_pdb_request` |
+| Ligand molecule | Extracted ligand from PDB | `results[].file` from `extract_molecules_from_pdb_file` |
+| Binding pocket | Pocket centered on reference ligand | `pocket` from `create_pocket_from_ligand` |
+| Generated molecules | New candidate molecules | `molecule` from `structure_based_drug_design` |
+| Docking scores | Binding affinity scores | `score` from `protein_molecule_docking_score` |
+| Property scores | QED, LogP, Lipinski | `score` from `molecule_property_calculation` |
+| Interaction reports | PLIP analysis for selected leads | `report` from `analyze_complex_interaction` |
+| Visualization images | 2D/3D molecule images | `image` from `visualize_molecule` |
+| SDF files | Molecular structure files | `file` from `export_molecule` |
+
+---
 
 ## Output Interpretation
 
@@ -383,51 +476,77 @@ for idx in selected:
 | 2 | 2 | Marginal |
 | < 2 | > 2 | May have issues |
 
-### BBB Penetration Probability
-| Probability | Interpretation |
-|-------------|----------------|
-| > 0.5 | Likely crosses BBB (CNS drug) |
-| < 0.5 | Unlikely to cross BBB |
-
-### Side Effects (SIDER categories)
-| Count | Risk Level |
-|-------|------------|
-| 0-10 | Low risk |
-| 10-15 | Moderate risk |
-| 15-20 | Elevated risk |
-| > 20 | High risk |
+---
 
 ## Error Handling
 
-| Error | Solution |
-|-------|----------|
-| PDB not found | Check PDB ID validity or use disease name |
-| No ligand in PDB | Use binding site prediction tool |
-| MolCraft checkpoint missing | Check `./checkpoints/molcraft/` |
-| No candidates pass criteria | Relax criteria or generate more |
-| CUDA OOM | Use CPU or reduce batch size |
+### Endpoint Unreachable
+
+**Symptom**: curl returns "Connection refused" or timeout.
+
+**Solution**: Verify endpoint health: `curl ${OPENBIOMED_API_BASE_URL}/healthz`. Re-resolve base URL if needed.
+
+### PDB Structure Not Found
+
+**Symptom**: `protein_pdb_request` returns error or empty file.
+
+**Solution**: Check PDB ID validity. Use web search to find alternative structures.
+
+### No Ligands Extracted
+
+**Symptom**: `extract_molecules_from_pdb_file` returns no molecules.
+
+**Solution**: The PDB structure may not contain small molecule ligands. Try another structure with co-crystallized inhibitor. If no ligands, use `import_pocket` with manually specified residue indices.
+
+### Pocket Creation Failed
+
+**Symptom**: `create_pocket_from_ligand` returns error.
+
+**Solution**: Ensure both protein and ligand files exist and are valid pickle files.
+
+### Molecule Generation Failed
+
+**Symptom**: `structure_based_drug_design` returns error.
+
+**Solution**: Ensure pocket file is valid. Check MolCraft model checkpoint availability at `./checkpoints/molcraft/`.
+
+### No Candidates Pass Criteria
+
+**Symptom**: Filtering returns empty set.
+
+**Solution**: Relax criteria (increase docking_threshold, lower qed_min) or generate more candidates.
+
+---
+
+## Limitations
+
+- `structure_based_drug_design` requires valid pocket file (created from protein-ligand coordinates)
+- MolCraft model checkpoint must be available at `./checkpoints/molcraft/`
+- Multiple molecule generation calls are needed for diversity (one per seed)
+- API rate limits apply for external database queries
+- PLIP (`analyze_complex_interaction`) requires plip package installation on server
 
 ## Example Usage
 
-```
-Input:
-  target: "4xli" (ABL2 kinase)
-  num_candidates: 40
-  target_leads: 20
-  criteria:
-    docking_threshold: -10
-    qed_min: 0.4
-    lipinski_min: 4
-    side_effects_max: 18
-    similarity_max: 0.7
+**Input**: "Generate leads for 4xli (ABL2 kinase) with docking threshold -10, QED minimum 0.4"
 
-Output:
-  6 diverse leads selected
-  (Regeneration suggested: generate 28+ more candidates)
-```
+**Workflow**:
+1. Download PDB structure 4xli
+2. Extract protein chain and reference ligand
+3. Create binding pocket from ligand
+4. Generate 40 candidate molecules
+5. Dock each candidate
+6. Calculate QED, LogP, Lipinski for each
+7. Filter by docking <= -10, QED >= 0.4, Lipinski >= 4
+8. Select diverse leads (similarity <= 0.7)
+9. Analyze interactions with PLIP
+10. Visualize and export top leads
 
-## See Also
+**Input**: "Find drug candidates for BACE1 for Alzheimer's disease"
 
-- `examples/basic_example.py` - Complete runnable workflow
-- `references/interpretation_guide.md` - Detailed property interpretation
-- `references/regeneration_strategies.md` - When and how to regenerate
+**Workflow**:
+1. Web search for BACE1 PDB structures
+2. Select best PDB with inhibitor (e.g., 4DJW)
+3. Extract protein and ligand
+4. Create pocket and generate candidates
+5. Filter and select diverse leads

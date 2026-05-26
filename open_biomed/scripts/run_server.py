@@ -445,6 +445,25 @@ def handle_import_pocket(request: TaskRequest, pipeline):
     pockets, files = pipeline.run([protein], [indices])
     return {"task": request.task, "pocket": files[0], "pocket_preview": str(pockets[0])}
 
+
+def handle_create_pocket_from_ligand(request: TaskRequest, pipeline):
+    """Create a binding pocket from protein and reference ligand coordinates."""
+    required_inputs = ["protein", "molecule"]
+    protein = IO_Reader.get_protein(request.protein)
+    ligand = IO_Reader.get_molecule(request.molecule)
+    radius = request.similarity if request.similarity is not None else 10.0  # Use similarity field as radius
+    pockets, files = pipeline.run(protein=protein, ligand=ligand, radius=radius)
+    return {"task": request.task, "pocket": files[0], "pocket_preview": str(pockets[0])}
+
+
+def handle_analyze_complex_interaction(request: TaskRequest, pipeline):
+    """Analyze interactions between a molecule and protein."""
+    required_inputs = ["molecule", "protein"]
+    molecule = IO_Reader.get_molecule(request.molecule)
+    protein = IO_Reader.get_protein(request.protein)
+    reports, _ = pipeline.run(molecule=[molecule], protein=[protein])
+    return {"task": request.task, "report": reports[0]}
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -871,6 +890,20 @@ TASK_CONFIGS = [
         "required_inputs": ["protein"],
         "pipeline_key": "extract_molecules_from_pdb_file",
         "handler_function": handle_extract_molecules_from_pdb_file,
+        "is_async": False
+    },
+    {
+        "task_name": "create_pocket_from_ligand",
+        "required_inputs": ["protein", "molecule"],
+        "pipeline_key": "create_pocket_from_ligand",
+        "handler_function": handle_create_pocket_from_ligand,
+        "is_async": False
+    },
+    {
+        "task_name": "analyze_complex_interaction",
+        "required_inputs": ["molecule", "protein"],
+        "pipeline_key": "analyze_complex_interaction",
+        "handler_function": handle_analyze_complex_interaction,
         "is_async": False
     }
 

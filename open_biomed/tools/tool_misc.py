@@ -22,7 +22,7 @@ Usage: Construct a pocket object from several amino acids within a protein
 Inputs: {"protein": Protein (an OpenBioMed Protein object), "indices": List[int] (a list of indices of the amino acids within the protein)}
 Outputs: Pocket (an OpenBioMed Pocket object)
 """
-    
+
     def run(self, protein: Union[Protein, List[Protein]], indices: Union[List[int], List[List[int]]]) -> Tuple[List[Pocket], List[str]]:
         if isinstance(protein, Protein):
             protein = [protein]
@@ -35,6 +35,26 @@ Outputs: Pocket (an OpenBioMed Pocket object)
             pockets.append(pocket)
             files.append(pocket.save_binary())
         return pockets, files
+
+class CreatePocketFromLigand(Tool):
+    """Create a binding pocket from protein and reference ligand coordinates."""
+    def __init__(self) -> None:
+        super().__init__()
+
+    def print_usage(self) -> str:
+        return """
+Usage: Create a binding pocket from protein and reference ligand coordinates
+Inputs: {"protein": Protein, "ligand": Molecule, "radius": float (default 10.0)}
+Outputs: Pocket (an OpenBioMed Pocket object centered on the ligand)
+"""
+
+    @serial_exec
+    def run(self, protein: Protein, ligand: Molecule, radius: float = 10.0) -> Tuple[List[Pocket], List[str]]:
+        ligand._add_conformer()
+        pocket = Pocket.from_protein_ref_ligand(protein, ligand, radius=radius)
+        pocket.estimated_num_atoms = ligand.get_num_atoms()
+        pocket_file = pocket.save_binary()
+        return [pocket], [pocket_file]
 
 class ExportMolecule(Tool):
     def __init__(self) -> None:
@@ -233,11 +253,11 @@ Outputs: List[Tuple[str, str, Molecule | Protein]] (a list of tuples, the first 
                 with open(f"{work_dir}/tmp/{filename}.sdf", "w") as f:
                     f.write(content)
                 molecule = Molecule.from_sdf_file(f"{work_dir}/tmp/{filename}.sdf")
-                results.append((atm_type, chain_id, molecule))
             except Exception as e:
-                print(e)
+                logging.warning(f"Failed to get ligand SDF from RCSB for {filename}: {e}, falling back to PDB parsing")
                 molecule = Molecule.from_pdb(lines_in_res)
-                continue
+            molecule.name = filename
+            results.append((atm_type, chain_id, molecule))
             output_metadata += f"{atm_type}: {molecule.smiles}\n"
 
         output_metadata += f"Total {len(chains)} protein chains, {num_molecules} molecules and {num_ions} ions extracted from {pdb_file}"
