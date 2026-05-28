@@ -235,3 +235,36 @@ Model checkpoints stored in `./checkpoints/`. Download links:
 
 ### Package Note
 `setup.py` registers package as `openbiomed` (no underscore) but source directory is `open_biomed` (with underscore). `find_packages` handles the mapping — imports use `open_biomed`.
+
+## Skill Refactoring Guidelines
+
+### Background
+Recent commits have been refactoring skills to use the `run_pipeline` and `web_search` APIs. Key changes include:
+
+**Refactored Skills (19 total)**:
+- `target-based-lead-design`, `drug-candidate-discovery`, `pubchem-query`, `admet-prediction`
+- `text-based-molecule-editing`, `disease-drug-intelligence`, `kegg-query`, `chembl-query`
+- `molecule-biochemical-significance-query-biot5`, `biomedical-literature-search`
+- `target-drug-report`, `iupac-name-identification-biot5`, `drug-lead-analysis`
+- `uniprot-query`, `ppi-string-query`, `drug-drug-interaction-analysis`
+- `retrosynthesis-planning`, `biomed-skill-creator`, `biomed-skill-router`
+
+**New Tasks Added**: `literature_search`, `ddi_analysis`, `disease_drug_intel`
+
+**Infrastructure Updates**:
+- Async support added to `run_pipeline` endpoint
+- Web search handlers converted to async
+- Numpy type conversion fixes
+- WebSearchRequester migrated to Alibaba Cloud IQS
+
+### Refactoring Rules
+
+1. **Use run_pipeline API**: Skills should call the `/run_pipeline/` endpoint to execute tasks. Use existing tasks and tools whenever possible.
+
+2. **Reuse Before Adding**: Only create new tasks or tools when existing ones cannot meet the skill's requirements. Check `TASK_REGISTRY` and `TOOLS` before implementing new code.
+
+3. **Testing Environment**: Services run in Docker containers. See `scripts/run_docker.sh` for container configuration.
+
+4. **Unit Tests Required**: When adding new tasks, tools, or Python code, add comprehensive unit tests in `test/` directory.
+
+5. **Validation**: After refactoring a skill, simulate user usage to test the skill. The refactored skill must produce results consistent with the original implementation before the refactoring is considered complete.

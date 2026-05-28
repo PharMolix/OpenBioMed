@@ -244,6 +244,24 @@ def get_curl_commands(base_url):
             -d '{{"task": "molecule_property_calculation", "model": "rdkit", "molecule": "CC(=O)Oc1ccccc1C(=O)O", "property": "QED"}}'
             """
         },
+        {
+            "task": "similar_protein_search_msa",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "similar_protein_search", "search_type": "msa", "protein": "MKFLILLFNILCLFPVLAADNH"}}'
+            """
+        },
+        {
+            "task": "similar_protein_search_foldseek",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./checkpoints/server/test_data/4xli_B.pdb"}}'
+            """
+        },
     ]
 
 

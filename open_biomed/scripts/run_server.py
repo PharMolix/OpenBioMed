@@ -175,6 +175,8 @@ class TaskRequest(BaseModel):
     gene_symbol: Optional[str] = None
     gene_id: Optional[int] = None
     max_records: Optional[int] = None
+    # Similar protein search fields
+    search_type: Optional[str] = None  # "msa" or "foldseek"
 
 
 class SearchRequest(BaseModel):
@@ -683,6 +685,54 @@ def handle_extract_molecules_from_pdb_file(request: TaskRequest, pipeline):
     return {"task": request.task, "results": results, "metadata": metadata}
 
 
+async def handle_similar_protein_search(request: TaskRequest, pipeline):
+    """
+    Search for similar proteins using MSA (sequence) or FoldSeek (structure).
+
+    Inputs:
+        - protein: Protein input (PDB file path, FASTA sequence, or UniProt ID)
+        - search_type: "msa" for sequence similarity, "foldseek" for structure similarity
+        - database: (optional) FoldSeek databases to search, default ["pdb100", "afdb50"]
+
+    Outputs:
+        - result_path: Path to the results file (.a3m for MSA, .m8 for FoldSeek)
+    """
+    search_type = getattr(request, 'search_type', None) or "foldseek"
+    protein = IO_Reader.get_protein(request.protein)
+
+    if search_type == "msa":
+        # MSA sequence similarity search
+        outputs = await pipeline.run_async(protein=protein)
+        result_path = outputs[0][0]
+        return {
+            "task": request.task,
+            "search_type": "msa",
+            "result_path": result_path,
+            "description": "MSA results saved to .a3m file"
+        }
+    elif search_type == "foldseek":
+        # FoldSeek structure similarity search
+        database = getattr(request, 'database', None) or ["pdb100", "afdb50"]
+        from open_biomed.tools.web_request_tools import FoldSeekRequester
+        foldseek = FoldSeekRequester(database=database)
+        outputs = await foldseek.run_async(protein=protein)
+        result_dir = outputs[0][0]
+        # Find the .m8 result file
+        import glob
+        m8_files = glob.glob(f"{result_dir}/*.m8")
+        result_path = m8_files[0] if m8_files else result_dir
+        return {
+            "task": request.task,
+            "search_type": "foldseek",
+            "result_path": result_path,
+            "result_dir": result_dir,
+            "database": database,
+            "description": "FoldSeek results saved to .m8 file"
+        }
+    else:
+        raise ValueError(f"Unknown search_type: {search_type}. Use 'msa' or 'foldseek'.")
+
+
 TASK_CONFIGS = [
     {
         "task_name": "text_based_molecule_editing",
@@ -942,6 +992,13 @@ TASK_CONFIGS = [
         "pipeline_key": "analyze_complex_interaction",
         "handler_function": handle_analyze_complex_interaction,
         "is_async": False
+    },
+    {
+        "task_name": "similar_protein_search",
+        "required_inputs": ["protein", "search_type"],
+        "pipeline_key": "msa_search",
+        "handler_function": handle_similar_protein_search,
+        "is_async": True
     }
 
 

@@ -14,7 +14,7 @@ tags: [protein-similarity, foldseek, homolog-search, structure-search]
 
 # Similar Protein Retrieval
 
-Retrieve proteins with similar structures, sequences, or from the same family using FoldSeek (structure) or MSA (sequence).
+Retrieve proteins with similar structures, sequences, or from the same family using MSA (sequence) or FoldSeek (structure) via the OpenBioMed API.
 
 ## When to Use
 
@@ -22,189 +22,242 @@ Retrieve proteins with similar structures, sequences, or from the same family us
 - User asks for homologs or orthologs of a protein
 - User wants proteins with similar 3D structure
 - User wants to search by sequence similarity
-- User provides UniProt ID, PDB ID, FASTA, or PDB file as input
+- User provides UniProt ID, PDB ID, FASTA sequence, or PDB file as input
+
+## API Endpoint Resolution
+
+The skill resolves the OpenBioMed API base URL in this order:
+
+1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
+2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
+3. **Local development default**: `http://127.0.0.1:8090`
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
 
 ## Workflow
 
 ### Step 1: Parse Input and Load Protein
 
-Detect input type and load the protein appropriately.
+Detect input type and prepare protein input for API call.
 
-```python
-import os
-import requests
-from open_biomed.data import Protein
-from open_biomed.tools.tool_registry import TOOLS
+| Input Type | Example | How to Handle |
+|------------|---------|---------------|
+| PDB file path | `./protein.pdb` | Use path directly (must exist on server) |
+| FASTA sequence | `MKFLILLFNILCLFPVLAADNH...` | Use sequence string directly |
+| UniProt ID | `P0DTC2` | Query UniProt API to get sequence |
+| PDB ID | `6LZG` | Query PDB API to get structure file |
 
-def parse_input(user_input):
-    """Parse input and return Protein object with structure info."""
-    # Check if it's a file path
-    if os.path.isfile(user_input):
-        if user_input.endswith('.pdb'):
-            return Protein.from_pdb_file(user_input), True, "pdb_file"
-        elif user_input.endswith(('.fasta', '.fa')):
-            with open(user_input) as f:
-                seq = ''.join(l.strip() for l in f if not l.startswith('>'))
-            return Protein.from_fasta(seq), False, "fasta_file"
+**If input is UniProt ID**, first retrieve the sequence:
 
-    # Check if it's a UniProt ID (e.g., P0DTC2)
-    if len(user_input) in [6, 10] and user_input[0].isalpha():
-        return query_uniprot(user_input)
-
-    # Check if it's a PDB ID (4 characters, e.g., 6LZG)
-    if len(user_input) == 4 and user_input[0].isdigit():
-        return query_pdb(user_input)
-
-    # Assume it's a FASTA sequence
-    return Protein.from_fasta(user_input), False, "fasta_string"
+```bash
+curl -s "https://rest.uniprot.org/uniprotkb/<UniProt_accession>?format=json" | jq -r '.sequence.value'
 ```
 
-### Step 2a: Query UniProt (if UniProt ID)
+**If input is PDB ID**, first download the structure:
 
-```python
-def query_uniprot(uniprot_id):
-    """Query UniProt for sequence and PDB cross-references."""
-    url = f"https://rest.uniprot.org/uniprotkb/{uniprot_id}?format=json"
-    response = requests.get(url)
-    data = response.json()
+```bash
+# Option 1: Use OpenBioMed protein_pdb_request (recommended)
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "protein_pdb_request", "query": "<PDB_ID>", "mode": "file_only"}'
 
-    sequence = data['sequence']['value']
-    protein = Protein.from_fasta(sequence)
-    protein.name = uniprot_id
-
-    # Get PDB cross-references
-    xrefs = data.get('uniProtKBCrossReferences', [])
-    pdb_refs = [x['id'] for x in xrefs if x['database'] == 'PDB']
-
-    has_structure = len(pdb_refs) > 0
-    return protein, has_structure, "uniprot", {"pdb_refs": pdb_refs}
+# Option 2: Direct download from RCSB PDB
+curl -L -o protein.pdb "https://files.rcsb.org/download/<PDB_ID>.pdb"
 ```
 
-### Step 2b: Query PDB (if PDB ID)
+### Step 2: Choose Search Method
 
-```python
-def query_pdb(pdb_id):
-    """Download PDB file and load structure."""
-    tool = TOOLS["protein_pdb_request"]
-    result, _ = tool.run(accession=pdb_id, mode="file_only")
-    pdb_file = result[0]
-    protein = Protein.from_pdb_file(pdb_file)
-    return protein, True, "pdb_id"
+| Search Type | Description | When to Use |
+|-------------|-------------|-------------|
+| `msa` | Sequence similarity (MMSeqs2/ColabFold) | Sequence-only input, finding homologs |
+| `foldseek` | Structure similarity (FoldSeek) | Has 3D structure, finding similar folds |
+
+If the input has 3D structure (PDB file or structure from PDB ID), ask user which method to use. Default to `foldseek` for structural inputs.
+
+### Step 3: Call similar_protein_search API
+
+#### MSA Search (Sequence Similarity)
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "similar_protein_search", "search_type": "msa", "protein": "<FASTA_SEQUENCE>"}'
 ```
 
-### Step 3: Choose Similarity Search Method
-
-If 3D structure is available, ask user to choose:
-
-```python
-def choose_search_method(has_structure, protein, extra_info=None):
-    if not has_structure:
-        return "msa"  # Default to MSA for sequence-only input
-
-    print("3D structure available. Choose similarity search method:")
-    print("  1. MSA - Sequence similarity (searches UniRef database)")
-    print("  2. FoldSeek - Structure similarity (searches PDB/AFDB)")
-
-    choice = input("Enter choice (1 or 2): ").strip()
-    return "msa" if choice == "1" else "foldseek"
+**Response**:
+```json
+{
+  "task": "similar_protein_search",
+  "search_type": "msa",
+  "result_path": "./tmp/msa_results_xxx/uniref.a3m",
+  "description": "MSA results saved to .a3m file"
+}
 ```
 
-### Step 4a: Run MSA (Sequence Similarity)
+#### FoldSeek Search (Structure Similarity)
 
-```python
-from open_biomed.tools.web_request_tools import MSARequester
-import asyncio
-
-async def run_msa(protein):
-    msa = MSARequester()
-    result, _ = await msa.run_async(protein)
-    return result[0]  # Path to .a3m file with MSA results
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "similar_protein_search", "search_type": "foldseek", "protein": "<PDB_FILE_PATH>"}'
 ```
 
-### Step 4b: Run FoldSeek (Structure Similarity)
+**Optional**: Specify databases to search:
 
-```python
-from open_biomed.tools.web_request_tools import FoldSeekRequester
-import asyncio
-
-async def run_foldseek(protein):
-    foldseek = FoldSeekRequester(database=["pdb100", "afdb50"])
-    result, _ = await foldseek.run_async(protein)
-    return result[0]  # Path to results directory
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "similar_protein_search", "search_type": "foldseek", "protein": "<PDB_FILE_PATH>", "database": ["pdb100", "afdb50"]}'
 ```
 
-### Step 5: Parse and Display Results
+Available databases: `pdb100`, `afdb50`, `afdb-swissprot`, `afdb-proteome`, `cath50`, `mgnify_esm30`
 
-```python
+**Response**:
+```json
+{
+  "task": "similar_protein_search",
+  "search_type": "foldseek",
+  "result_path": "./tmp/foldseek_results_xxx/result.m8",
+  "result_dir": "./tmp/foldseek_results_xxx",
+  "database": ["pdb100", "afdb50"],
+  "description": "FoldSeek results saved to .m8 file"
+}
+```
+
+### Step 4: Parse Results
+
+#### MSA Results (.a3m file)
+
+The `.a3m` file contains multiple sequence alignment. Parse to extract top hits:
+
+```bash
+# Read the first N hits from a3m file
+head -n 20 "${result_path}"
+# Each hit format: >hit_id\naligned_sequence
+```
+
+#### FoldSeek Results (.m8 file)
+
+The `.m8` file is tab-separated with columns:
+
+| Column | Description |
+|--------|-------------|
+| 0 | Query ID |
+| 1 | Target ID |
+| 2 | Sequence identity |
+| 3 | Alignment length |
+| 4-9 | Alignment details |
+| 10 | Probability |
+| 11 | E-value |
+
+Parse to display top results:
+
+```bash
+# Sort by e-value (column 11), show top 10
+cat "${result_path}" | sort -t'\t' -k11,11g | head -10
+
+# Or use Python for structured output
+python3 -c "
 import pandas as pd
-import glob
+df = pd.read_csv('${result_path}', sep='\t', header=None)
+print(df[[1, 2, 3, 11]].head(10).to_string(index=False, header=['Target', 'Identity', 'AlnLen', 'E-value']))
+"
+```
 
-def parse_foldseek_results(result_dir):
-    """Parse FoldSeek .m8 output file."""
-    m8_file = glob.glob(f"{result_dir}/*.m8")[0]
-    df = pd.read_csv(m8_file, sep='\t', header=None)
+## Example Usage
 
-    # Columns: query, target, identity, aln_len, mismatch, gap,
-    #          q_start, q_end, t_start, t_end, prob, evalue, ...
-    results = []
-    for _, row in df.iterrows():
-        results.append({
-            "target": row[1],
-            "identity": row[2],
-            "alignment_length": row[3],
-            "evalue": row[11] if len(df.columns) > 11 else "N/A"
-        })
-    return results
+### Example 1: Sequence Similarity Search
+
+```
+Input: "Find similar proteins to this sequence: MKFLILLFNILCLFPVLAADNH..."
+
+Step 1: Detected FASTA sequence input
+Step 2: No structure available → use MSA
+Step 3: Call API
+
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "similar_protein_search", "search_type": "msa", "protein": "MKFLILLFNILCLFPVLAADNH..."}'
+
+Step 4: Parse .a3m results
+
+Output (Top similar sequences):
+  Target            | Identity | Description
+  -------------------|----------|------------
+  sp|P00533|EGFR_HUMAN | 95%    | Epidermal growth factor receptor
+  sp|P04626|ERBB2_HUMAN | 78%   | Receptor tyrosine-protein kinase erbB-2
+```
+
+### Example 2: Structure Similarity Search
+
+```
+Input: "Find proteins with similar structure to PDB 6LZG"
+
+Step 1: Download PDB file
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "protein_pdb_request", "query": "6LZG", "mode": "file_only"}'
+  → protein file: ./tmp/protein_6lzg.pdb
+
+Step 2: Structure available → use FoldSeek
+Step 3: Call API
+
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./tmp/protein_6lzg.pdb"}'
+
+Step 4: Parse .m8 results
+
+Output (Top similar structures):
+  Target                      | Identity | E-value
+  ----------------------------|----------|---------
+  6LZG_A (SARS-CoV-2 RBD)     | 100.0%   | 0.0
+  6M0J_B (SARS-CoV RBD)       | 89.2%    | 1.4e-80
+  7A2N_A (Mink ACE2+RBD)      | 84.2%    | 6.3e-77
 ```
 
 ## Expected Outputs
 
 | Step | Output | Description |
 |------|--------|-------------|
-| Input Parse | Protein object | Loaded protein with sequence |
-| UniProt Query | Protein + PDB refs | Sequence and cross-references |
-| MSA | .a3m file | Multiple sequence alignment results |
-| FoldSeek | .m8 file | Similar structures with scores |
+| Input Parse | Protein ready | FASTA string or PDB file path |
+| API Call | result_path | Path to results file |
+| MSA | .a3m file | Multiple sequence alignment with homologs |
+| FoldSeek | .m8 file | Similar structures with identity/e-value |
 
 ## Error Handling
 
 ### Invalid Input Format
 
-**Symptom**: Input not recognized as valid protein identifier or file.
+**Symptom**: API returns error about invalid protein format.
 
-**Solution**: Check input format and provide guidance.
+**Solution**: Check input format. Supported formats:
+- FASTA sequence string (letters only)
+- PDB file path (must exist on server filesystem)
+- Use `protein_uniprot_request` or `protein_pdb_request` to convert IDs first
 
-```python
-try:
-    protein, has_structure, input_type = parse_input(user_input)
-except Exception as e:
-    print(f"Could not parse input: {e}")
-    print("Supported formats: UniProt ID, PDB ID, FASTA file, PDB file, FASTA string")
+### API Unavailable
+
+**Symptom**: curl returns "Connection refused" or timeout.
+
+**Solution**: Verify the endpoint is reachable:
+```bash
+curl "${OPENBIOMED_API_BASE_URL}/healthz"
+# Should return "Service available"
 ```
 
-### UniProt/PDB API Unavailable
+### Search Timeout
 
-**Symptom**: HTTP request fails with timeout or error status.
+**Symptom**: Long wait time or timeout error from MSA/FoldSeek.
 
-**Solution**: Use alternative database or cached data.
-
-```python
-try:
-    protein, has_structure, input_type = query_uniprot(uniprot_id)
-except requests.RequestException:
-    print("UniProt API unavailable. Try providing FASTA sequence directly.")
-```
-
-### FoldSeek/MSA Server Busy
-
-**Symptom**: Long wait time or rate limit error.
-
-**Solution**: Wait and retry, or suggest alternative.
-
-```python
-# These tools have built-in retry logic with rate limiting
-# If failing persistently, suggest using local BLAST or visiting web interface
-```
+**Solution**: These external services may be busy. Wait and retry, or use smaller sequence/structure input.
 
 ## Interpretation Guide
 
@@ -226,27 +279,8 @@ except requests.RequestException:
 | 1e-10 to 1e-3 | 30-50% | Moderate confidence, possible homolog |
 | > 1e-3 | < 30% | Low confidence, may be random match |
 
-## Example
-
-```
-Input: P0DTC2 (SARS-CoV-2 Spike protein)
-
-Step 1: Detected UniProt ID
-Step 2: Queried UniProt → Sequence (1273 aa) + 1961 PDB references
-Step 3: Structure available. User chooses FoldSeek.
-Step 4: Running FoldSeek on 6LZG (RBD domain)...
-
-Output (Top 5 similar structures):
-  Target                                           | Identity | E-value
-  --------------------------------------------------|----------|---------
-  SARS-CoV-2 Gamma RBD with ACE2 mutant             | 99.6%    | 1.6e-83
-  SARS-CoV-2 Beta RBD with ACE2                     | 99.3%    | 6.9e-83
-  SARS-CoV-2 Omicron RBD with ACE2                  | 99.3%    | 9.8e-81
-  SARS coronavirus spike RBD (2003)                 | 100.0%   | 1.4e-80
-  American mink ACE2 with RBD                       | 84.2%    | 6.3e-77
-```
-
 ## See Also
 
-- `examples/basic_example.py` - Full runnable example
-- `references/databases.md` - Database descriptions (PDB, UniProt, AFDB)
+- `protein_uniprot_request` - Get protein sequence from UniProt ID
+- `protein_pdb_request` - Get protein structure from PDB ID
+- `protein_folding` - Predict protein structure from sequence (for MSA → FoldSeek workflow)
