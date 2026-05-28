@@ -138,7 +138,7 @@ class ProdigyBindingAffinity(Tool):
     def print_usage(self) -> str:
         return "\n".join([
             'PRODIGY Binding Affinity Prediction',
-            'Inputs: {"protein_complex": PDB file path or Protein object}',
+            'Inputs: {"protein_complex": PDB file path}',
             'Outputs: float (predicted binding affinity in kcal.mol-1)',
             'Parameters: distance_cutoff (default: 5.5)'
         ])
@@ -152,21 +152,18 @@ class ProdigyBindingAffinity(Tool):
             distance_cutoff: Distance cutoff for calculating ICs (default: 5.5)
 
         Returns:
-            Tuple of (binding affinity score, description message)
+            Tuple of (binding affinity score list, description message list)
         """
         if distance_cutoff is None:
             distance_cutoff = self.distance_cutoff
 
-        # If input is a PDB file path, use it directly
         pdb_file = protein_complex
 
-        # Check if file exists
         if not os.path.exists(pdb_file):
             logging.error(f"PDB file not found: {pdb_file}")
             return [0.0], ["Error: PDB file not found"]
 
         try:
-            # Construct the prodigy command
             command = [
                 'prodigy',
                 pdb_file,
@@ -180,34 +177,18 @@ class ProdigyBindingAffinity(Tool):
                 logging.error(f"PRODIGY failed: {result.stderr}")
                 return [0.0], [f"Error: {result.stderr}"]
 
-            # Parse the output to extract binding affinity score
             output = result.stdout
-            try:
-                # PRODIGY output format:
-                # ##########################################
-                # [++] Predicted binding affinity (kcal.mol-1): -10.5
-                # ##########################################
-                if "Predicted binding affinity" in output:
-                    score_line = output.split("Predicted binding affinity (kcal.mol-1):")[1]
-                    score = float(score_line.split("\n")[0].strip())
-                else:
-                    # Alternative parsing for newer versions
-                    for line in output.split("\n"):
-                        if "kcal.mol-1" in line or "binding affinity" in line.lower():
-                            parts = line.split(":")
-                            if len(parts) > 1:
-                                score = float(parts[-1].strip().split()[0])
-                                break
-                    else:
-                        score = 0.0
+            # Parse PRODIGY output
+            # Format: [++] Predicted binding affinity (kcal.mol-1):    -11.6
+            if "Predicted binding affinity" in output:
+                for line in output.split("\n"):
+                    if "Predicted binding affinity (kcal.mol-1)" in line:
+                        score = float(line.split(":")[-1].strip())
+                        logging.info(f"Predicted binding affinity: {score} kcal.mol-1")
+                        return [score], [f"Binding affinity: {score} kcal.mol-1 (distance_cutoff={distance_cutoff})"]
 
-                logging.info(f"Predicted binding affinity: {score} kcal.mol-1")
-                return [score], [f"Binding affinity: {score} kcal.mol-1 (distance_cutoff={distance_cutoff})"]
-
-            except (ValueError, IndexError) as e:
-                logging.error(f"Failed to parse PRODIGY output: {e}")
-                logging.error(f"Output: {output}")
-                return [0.0], [f"Error parsing output: {e}"]
+            logging.error(f"Failed to parse PRODIGY output")
+            return [0.0], ["Error: Failed to parse output"]
 
         except subprocess.TimeoutExpired:
             logging.error("PRODIGY timed out")

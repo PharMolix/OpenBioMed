@@ -77,9 +77,9 @@ curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
 ```json
 {
   "task": "binding_affinity",
-  "binding_affinity": -10.5,
+  "binding_affinity": -11.6,
   "distance_cutoff": 5.5,
-  "description": "Binding affinity: -10.5 kcal.mol-1 (distance_cutoff=5.5)"
+  "description": "Binding affinity: -11.6 kcal.mol-1 (distance_cutoff=5.5)"
 }
 ```
 
@@ -113,7 +113,7 @@ Step 2: Call binding_affinity API
 Step 3: Interpret results
 
 Output:
-  Binding affinity: -12.3 kcal/mol
+  Binding affinity: -11.6 kcal/mol
   Interpretation: Strong binding between proteins in the complex
 ```
 
@@ -132,21 +132,6 @@ Output:
 **Symptom**: API returns error about file not found.
 
 **Solution**: Ensure the PDB file path is correct and accessible on the server filesystem.
-
-```bash
-# Check if file exists on server (if you have access)
-ls -la <PDB_FILE_PATH>
-```
-
-### PRODIGY Not Installed
-
-**Symptom**: API returns "PRODIGY not installed" error.
-
-**Solution**: Install PRODIGY in the server environment:
-
-```bash
-pip install prodigy-prot
-```
 
 ### Invalid PDB Format
 

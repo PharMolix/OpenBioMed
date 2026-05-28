@@ -175,8 +175,6 @@ class TaskRequest(BaseModel):
     gene_symbol: Optional[str] = None
     gene_id: Optional[int] = None
     max_records: Optional[int] = None
-    # Similar protein search fields
-    search_type: Optional[str] = None  # "msa" or "foldseek"
     # Binding affinity prediction fields
     protein_complex: Optional[str] = None  # PDB file path for protein complex
     distance_cutoff: Optional[float] = None  # Distance cutoff for PRODIGY
@@ -494,6 +492,41 @@ def handle_analyze_complex_interaction(request: TaskRequest, pipeline):
     reports, _ = pipeline.run(molecule=[molecule], protein=[protein])
     return {"task": request.task, "report": reports[0]}
 
+
+def handle_binding_affinity(request: TaskRequest, pipeline):
+    """
+    Predict binding affinity for protein-protein complexes using PRODIGY.
+
+    Inputs:
+        - protein_complex: PDB file path containing the protein complex
+        - distance_cutoff: (optional) Distance cutoff for calculating ICs, default 5.5
+
+    Outputs:
+        - binding_affinity: Predicted binding affinity score (kcal.mol-1)
+        - description: Description message
+    """
+    protein_complex = request.protein_complex
+    distance_cutoff = request.distance_cutoff or 5.5
+
+    if not protein_complex:
+        raise ValueError("protein_complex is required for binding affinity prediction")
+
+    outputs, messages = pipeline.run(
+        protein_complex=protein_complex,
+        distance_cutoff=distance_cutoff
+    )
+
+    binding_affinity = outputs[0]
+    description = messages[0]
+
+    return {
+        "task": request.task,
+        "binding_affinity": binding_affinity,
+        "distance_cutoff": distance_cutoff,
+        "description": description
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -686,88 +719,6 @@ def handle_extract_molecules_from_pdb_file(request: TaskRequest, pipeline):
             })
 
     return {"task": request.task, "results": results, "metadata": metadata}
-
-
-async def handle_similar_protein_search(request: TaskRequest, pipeline):
-    """
-    Search for similar proteins using MSA (sequence) or FoldSeek (structure).
-
-    Inputs:
-        - protein: Protein input (PDB file path, FASTA sequence, or UniProt ID)
-        - search_type: "msa" for sequence similarity, "foldseek" for structure similarity
-        - database: (optional) FoldSeek databases to search, default ["pdb100", "afdb50"]
-
-    Outputs:
-        - result_path: Path to the results file (.a3m for MSA, .m8 for FoldSeek)
-    """
-    search_type = getattr(request, 'search_type', None) or "foldseek"
-    protein = IO_Reader.get_protein(request.protein)
-
-    if search_type == "msa":
-        # MSA sequence similarity search
-        outputs = await pipeline.run_async(protein=protein)
-        result_path = outputs[0][0]
-        return {
-            "task": request.task,
-            "search_type": "msa",
-            "result_path": result_path,
-            "description": "MSA results saved to .a3m file"
-        }
-    elif search_type == "foldseek":
-        # FoldSeek structure similarity search
-        database = getattr(request, 'database', None) or ["pdb100", "afdb50"]
-        from open_biomed.tools.web_request_tools import FoldSeekRequester
-        foldseek = FoldSeekRequester(database=database)
-        outputs = await foldseek.run_async(protein=protein)
-        result_dir = outputs[0][0]
-        # Find the .m8 result file
-        import glob
-        m8_files = glob.glob(f"{result_dir}/*.m8")
-        result_path = m8_files[0] if m8_files else result_dir
-        return {
-            "task": request.task,
-            "search_type": "foldseek",
-            "result_path": result_path,
-            "result_dir": result_dir,
-            "database": database,
-            "description": "FoldSeek results saved to .m8 file"
-        }
-    else:
-        raise ValueError(f"Unknown search_type: {search_type}. Use 'msa' or 'foldseek'.")
-
-
-def handle_binding_affinity(request: TaskRequest, pipeline):
-    """
-    Predict binding affinity for protein-protein complexes using PRODIGY.
-
-    Inputs:
-        - protein_complex: PDB file path containing the protein complex
-        - distance_cutoff: (optional) Distance cutoff for calculating ICs, default 5.5
-
-    Outputs:
-        - binding_affinity: Predicted binding affinity score (kcal.mol-1)
-        - description: Description message
-    """
-    protein_complex = request.protein_complex
-    distance_cutoff = getattr(request, 'distance_cutoff', None) or 5.5
-
-    if not protein_complex:
-        raise ValueError("protein_complex is required for binding affinity prediction")
-
-    outputs, messages = pipeline.run(
-        protein_complex=protein_complex,
-        distance_cutoff=distance_cutoff
-    )
-
-    binding_affinity = outputs[0]
-    description = messages[0]
-
-    return {
-        "task": request.task,
-        "binding_affinity": binding_affinity,
-        "distance_cutoff": distance_cutoff,
-        "description": description
-    }
 
 
 TASK_CONFIGS = [
@@ -1029,13 +980,6 @@ TASK_CONFIGS = [
         "pipeline_key": "analyze_complex_interaction",
         "handler_function": handle_analyze_complex_interaction,
         "is_async": False
-    },
-    {
-        "task_name": "similar_protein_search",
-        "required_inputs": ["protein", "search_type"],
-        "pipeline_key": "msa_search",
-        "handler_function": handle_similar_protein_search,
-        "is_async": True
     },
     {
         "task_name": "binding_affinity",
