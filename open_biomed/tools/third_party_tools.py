@@ -119,3 +119,102 @@ if __name__ == "__main__":
     pocket_predictor = ProteinBindingSitePrediction()
     pocket = pocket_predictor.run(pdb_file)
     print(pocket)
+
+
+class ProdigyBindingAffinity(Tool):
+    """
+    Predict binding affinity for protein-protein complexes using PRODIGY.
+
+    PRODIGY (PROtein binding affinity prediction using contact enerGY) predicts
+    the binding affinity of protein-protein complexes based on intermolecular contacts.
+
+    Reference: Vangone A, Bonvin AMJJ (2015) "Contacts-based prediction of binding
+    affinity in protein-protein complexes"
+    """
+
+    def __init__(self, distance_cutoff: float = 5.5) -> None:
+        self.distance_cutoff = distance_cutoff
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'PRODIGY Binding Affinity Prediction',
+            'Inputs: {"protein_complex": PDB file path or Protein object}',
+            'Outputs: float (predicted binding affinity in kcal.mol-1)',
+            'Parameters: distance_cutoff (default: 5.5)'
+        ])
+
+    def run(self, protein_complex: str = "", distance_cutoff: float = None) -> Tuple[List[float], List[str]]:
+        """
+        Predict binding affinity for a protein complex.
+
+        Args:
+            protein_complex: PDB file path containing the protein complex
+            distance_cutoff: Distance cutoff for calculating ICs (default: 5.5)
+
+        Returns:
+            Tuple of (binding affinity score, description message)
+        """
+        if distance_cutoff is None:
+            distance_cutoff = self.distance_cutoff
+
+        # If input is a PDB file path, use it directly
+        pdb_file = protein_complex
+
+        # Check if file exists
+        if not os.path.exists(pdb_file):
+            logging.error(f"PDB file not found: {pdb_file}")
+            return [0.0], ["Error: PDB file not found"]
+
+        try:
+            # Construct the prodigy command
+            command = [
+                'prodigy',
+                pdb_file,
+                '--distance-cutoff', str(distance_cutoff)
+            ]
+
+            logging.info(f"Running PRODIGY: {' '.join(command)}")
+            result = subprocess.run(command, capture_output=True, text=True, timeout=120)
+
+            if result.returncode != 0:
+                logging.error(f"PRODIGY failed: {result.stderr}")
+                return [0.0], [f"Error: {result.stderr}"]
+
+            # Parse the output to extract binding affinity score
+            output = result.stdout
+            try:
+                # PRODIGY output format:
+                # ##########################################
+                # [++] Predicted binding affinity (kcal.mol-1): -10.5
+                # ##########################################
+                if "Predicted binding affinity" in output:
+                    score_line = output.split("Predicted binding affinity (kcal.mol-1):")[1]
+                    score = float(score_line.split("\n")[0].strip())
+                else:
+                    # Alternative parsing for newer versions
+                    for line in output.split("\n"):
+                        if "kcal.mol-1" in line or "binding affinity" in line.lower():
+                            parts = line.split(":")
+                            if len(parts) > 1:
+                                score = float(parts[-1].strip().split()[0])
+                                break
+                    else:
+                        score = 0.0
+
+                logging.info(f"Predicted binding affinity: {score} kcal.mol-1")
+                return [score], [f"Binding affinity: {score} kcal.mol-1 (distance_cutoff={distance_cutoff})"]
+
+            except (ValueError, IndexError) as e:
+                logging.error(f"Failed to parse PRODIGY output: {e}")
+                logging.error(f"Output: {output}")
+                return [0.0], [f"Error parsing output: {e}"]
+
+        except subprocess.TimeoutExpired:
+            logging.error("PRODIGY timed out")
+            return [0.0], ["Error: PRODIGY timed out"]
+        except FileNotFoundError:
+            logging.error("PRODIGY not found. Install with: pip install prodigy-prot")
+            return [0.0], ["Error: PRODIGY not installed"]
+        except Exception as e:
+            logging.error(f"PRODIGY error: {e}")
+            return [0.0], [f"Error: {e}"]

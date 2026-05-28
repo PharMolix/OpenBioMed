@@ -30,7 +30,7 @@ class LazyDictForTool(dict):
             "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "analyze_complex_interaction", "summarize_content", "chembl_query",
             "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search",
-            "msa_search", "foldseek_search"
+            "msa_search", "foldseek_search", "binding_affinity"
         ]
     
     def __missing__(self, key):
@@ -127,6 +127,8 @@ class LazyDictForTool(dict):
             self[key] = MSARequester()
         elif key == "foldseek_search":
             self[key] = FoldSeekRequester()
+        elif key == "binding_affinity":
+            self[key] = ProdigyBindingAffinity()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]

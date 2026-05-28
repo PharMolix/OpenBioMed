@@ -177,6 +177,9 @@ class TaskRequest(BaseModel):
     max_records: Optional[int] = None
     # Similar protein search fields
     search_type: Optional[str] = None  # "msa" or "foldseek"
+    # Binding affinity prediction fields
+    protein_complex: Optional[str] = None  # PDB file path for protein complex
+    distance_cutoff: Optional[float] = None  # Distance cutoff for PRODIGY
 
 
 class SearchRequest(BaseModel):
@@ -733,6 +736,40 @@ async def handle_similar_protein_search(request: TaskRequest, pipeline):
         raise ValueError(f"Unknown search_type: {search_type}. Use 'msa' or 'foldseek'.")
 
 
+def handle_binding_affinity(request: TaskRequest, pipeline):
+    """
+    Predict binding affinity for protein-protein complexes using PRODIGY.
+
+    Inputs:
+        - protein_complex: PDB file path containing the protein complex
+        - distance_cutoff: (optional) Distance cutoff for calculating ICs, default 5.5
+
+    Outputs:
+        - binding_affinity: Predicted binding affinity score (kcal.mol-1)
+        - description: Description message
+    """
+    protein_complex = request.protein_complex
+    distance_cutoff = getattr(request, 'distance_cutoff', None) or 5.5
+
+    if not protein_complex:
+        raise ValueError("protein_complex is required for binding affinity prediction")
+
+    outputs, messages = pipeline.run(
+        protein_complex=protein_complex,
+        distance_cutoff=distance_cutoff
+    )
+
+    binding_affinity = outputs[0]
+    description = messages[0]
+
+    return {
+        "task": request.task,
+        "binding_affinity": binding_affinity,
+        "distance_cutoff": distance_cutoff,
+        "description": description
+    }
+
+
 TASK_CONFIGS = [
     {
         "task_name": "text_based_molecule_editing",
@@ -999,6 +1036,13 @@ TASK_CONFIGS = [
         "pipeline_key": "msa_search",
         "handler_function": handle_similar_protein_search,
         "is_async": True
+    },
+    {
+        "task_name": "binding_affinity",
+        "required_inputs": ["protein_complex"],
+        "pipeline_key": "binding_affinity",
+        "handler_function": handle_binding_affinity,
+        "is_async": False
     }
 
 
