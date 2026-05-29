@@ -192,6 +192,11 @@ class TaskRequest(BaseModel):
     search_type: Optional[str] = None  # "msa" or "foldseek"
     protein: Optional[str] = None  # FASTA sequence or PDB file path
     database: Optional[List[str]] = None  # FoldSeek databases
+    # Mutation design AAV fields
+    num_rounds: Optional[int] = None  # Number of optimization rounds
+    population_size: Optional[int] = None  # Number of mutants per round
+    max_mutations: Optional[int] = None  # Max point mutations per sequence
+    diversity_weight: Optional[float] = None  # Weight for diversity in selection
 
 
 class SearchRequest(BaseModel):
@@ -662,6 +667,34 @@ def handle_similar_protein_search(request: TaskRequest, pipeline):
         "task": request.task,
         "search_type": search_type,
         "result_path": outputs[0] if outputs else "",
+        "description": messages[0]
+    }
+
+
+def handle_mutation_design_aav(request: TaskRequest, pipeline):
+    """
+    Design high-fitness AAV VP1 capsid protein mutants through multi-round optimization.
+
+    Inputs:
+        - num_rounds: Number of optimization rounds (default: 10)
+        - population_size: Number of mutants per round (default: 96)
+        - max_mutations: Max point mutations per sequence (default: 4)
+        - diversity_weight: Weight for diversity in selection (default: 0.1)
+
+    Outputs:
+        - csv_file: Path to results CSV with top 96 mutants
+        - description: Summary of optimization results
+    """
+    outputs, messages = pipeline.run(
+        num_rounds=request.num_rounds or 10,
+        population_size=request.population_size or 96,
+        max_mutations=request.max_mutations or 4,
+        diversity_weight=request.diversity_weight or 0.1
+    )
+
+    return {
+        "task": request.task,
+        "csv_file": outputs[0] if outputs else "",
         "description": messages[0]
     }
 
@@ -1146,6 +1179,13 @@ TASK_CONFIGS = [
         "required_inputs": ["protein"],
         "pipeline_key": "similar_protein_search",
         "handler_function": handle_similar_protein_search,
+        "is_async": False
+    },
+    {
+        "task_name": "mutation_design_aav",
+        "required_inputs": [],
+        "pipeline_key": "mutation_design_aav",
+        "handler_function": handle_mutation_design_aav,
         "is_async": False
     }
 

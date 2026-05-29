@@ -10,6 +10,7 @@ from open_biomed.tools.retrosynthesis_tool import RetrosynthesisRequester
 from open_biomed.tools.disease_drug_intel_tool import DiseaseDrugIntelTool
 from open_biomed.tools.drug_drug_interaction_tool import DrugDrugInteractionTool
 from open_biomed.tools.literature_search_tool import LiteratureSearchTool
+from open_biomed.tools.mutation_design_aav_tool import MutationDesignAAV
 
 
 # TODO: Add pocket prediction as a tool
@@ -30,7 +31,8 @@ class LazyDictForTool(dict):
             "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "analyze_complex_interaction", "summarize_content", "chembl_query",
             "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search",
-            "binding_affinity", "antibody_structure", "antibody_design", "similar_protein_search"
+            "binding_affinity", "antibody_structure", "antibody_design", "similar_protein_search",
+                "mutation_design_aav"
         ]
     
     def __missing__(self, key):
@@ -131,6 +133,8 @@ class LazyDictForTool(dict):
             self[key] = IgGMAntibodyDesign()
         elif key == "similar_protein_search":
             self[key] = SimilarProteinSearch()
+        elif key == "mutation_design_aav":
+            self[key] = MutationDesignAAV()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]

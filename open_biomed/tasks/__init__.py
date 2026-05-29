@@ -13,6 +13,7 @@ from open_biomed.tasks.aidd_tasks.protein_molecule_docking import PocketMolecule
 from open_biomed.tasks.aidd_tasks.structure_based_drug_design import StructureBasedDrugDesign, StructureTextBasedMoleculeOptimization
 from open_biomed.tasks.aidd_tasks.protein_folding import ProteinFolding
 from open_biomed.tasks.aidd_tasks.cell_annotation import CellAnnotation
+from open_biomed.tasks.aidd_tasks.mutation_design_aav import MutationDesignAAV
 
 TASK_REGISTRY = {
     "text_based_molecule_editing": TextMoleculeEditing,
@@ -31,4 +32,5 @@ TASK_REGISTRY = {
     "protein_folding": ProteinFolding,
     "cell_annotation": CellAnnotation,
     "go_guided_protein_generation": GoGuidedProteinGeneration,
+    "mutation_design_aav": MutationDesignAAV,
 }

@@ -1,102 +1,87 @@
 ---
 name: mutation-design-aav
-description: Propose high-fitness and high-diversity mutants of the VP1 capsid protein of Adeno-Associated Virus (AAV) through multi-round iterative optimization.
+description: >
+  Design high-fitness AAV VP1 capsid protein mutants through multi-round iterative optimization.
+  Use this skill when:
+  (1) Designing AAV mutants with improved DNA packaging fitness,
+  (2) Running computational iterative directed evolution,
+  (3) Performing fast mutation search guided by an oracle model.
+license: MIT
+category: protein-engineering
+tags: [mutation-design, aav, directed-evolution, protein-optimization]
 ---
 
-# High-fitness AAV Mutant Proposal
+# AAV Mutation Design
 
-A skill performs automated multi-round optimization of a 28-amino acid segment of the VP1 capsid protein of Adeno-Associated Virus (AAV) to discover mutants with improved DNA packaging fitness and high sequence diversity.
+Design high-fitness AAV VP1 capsid protein mutants through multi-round iterative optimization using the OpenBioMed API.
 
+## When to Use
 
-## When to Use This Skill
+- User wants to design AAV mutants with improved DNA packaging fitness
+- User asks for computational directed evolution optimization
+- User wants to generate AAV variants with high fitness and diversity
+- User requests multi-round mutation search
 
-* Design novel AAV mutants with improved DNA packaging fitness.
-* Run computational iterative directed evolution.
-* Perform fast mutation search guided by an oracle model.
+## API Endpoint Resolution
 
-Example prompts:
+The skill resolves the OpenBioMed API base URL in this order:
 
-* “Design AAV mutants with higher DNA packaging fitness.”
-* “Run multi-round mutation optimization for AAV.”
-* “Generate 96 AAV variants with improved fitness.”
+1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
+2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
+3. **Local development default**: `http://127.0.0.1:8090`
 
-
-## Prerequisites
-
-* Python 3.9+
-* PyTorch
-* NumPy / Pandas
-* Protein sequence analysis tools
-* Protein language model tools (ESM2)
-
-
-## Core Capabilities
-
-This skill can:
-
-1. Download **initial AAV sequences** if they were not provided by users.
-2. Download and execute an in-silico **oracle AAV prediction model**.
-3. Generate controllable mutants within **4 point mutations** for each round.
-4. Use **ESM2 embeddings** to represent protein sequences.
-5. Optimize mutation proposals based on **oracle feedback**.
-6. Maintain population **diversity using average pairwise Hamming distance**.
-7. Perform **multi-round optimization** and return the best mutants.
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
 
 ## Workflow
 
-1. Download initial AAV sequences from `https://cloud.tsinghua.edu.cn/f/992109032d8049689a6d/?dl=1` and use them as the starting pool.
+### Step 1: Call mutation_design_aav API
 
-2. Download the oracle AAV prediction model from `https://cloud.tsinghua.edu.cn/f/80bbc575ec3f4e63a0af/?dl=1`, and the configuration file from `https://cloud.tsinghua.edu.cn/f/09ea0869b74b4d2ca53e/?dl=1`.
-
-3. Execute code for oracle loading and scoring:
-```py
-import torch
-from omegaconf import OmegaConf
-
-# ===== ORACLE MODEL LOADING =====
-def load_oracle_model(ckpt_path, cfg_path):
-    with open(cfg_path, 'r') as fp:
-        cfg = OmegaConf.load(fp.name)
-    oracle = BaseCNN(**cfg.model.predictor)
-    state_dict = torch.load(ckpt_path)
-    oracle.load_state_dict(torch.load(ckpt_path))
-    oracle.eval()
-
-# ===== ORACLE SCORING FUNCTION =====
-def score_sequence(oracle, sequence: str) -> float:
-    results = oracle(sequence).detach()
-    return results.cpu().numpy()
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "mutation_design_aav"}'
 ```
 
-4. Compute ESM2 embeddings for all sequences to represent sequence features.
+**Optional Parameters**:
 
-5. Proposal: for each round, propose 96 × 4 candidate mutants from the current population using only point mutations with ≤4 mutations per sequence.
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "mutation_design_aav", "num_rounds": 10, "population_size": 96, "max_mutations": 4, "diversity_weight": 0.1}'
+'
+```
 
-6. Evaluation: evaluate all candidate sequences using the oracle scoring function. Use oracle feedback from previous rounds to bias mutation proposals toward directions that **increase predicted fitness** (fitness gradient exploitation).
+**Parameters**:
 
-7. Selection: rank sequences by predicted fitness and select the top 96 mutants, while **maintaining diversity** measured by average pairwise Hamming distance.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| num_rounds | int | 10 | Number of optimization rounds |
+| population_size | int | 96 | Number of mutants per round |
+| max_mutations | int | 4 | Max point mutations per sequence |
+| diversity_weight | float | 0.1 | Weight for diversity in selection |
 
-8. Repeat proposal, evaluation, and selection until 10 rounds are completed, or best fitness does not improve for 3 consecutive rounds.
+**Response**:
 
-9. Collect the best 96 mutants discovered across all rounds and sort them by predicted DNA packaging fitness, and export the results as a CSV file following the specified output format.
+```json
+{
+  "task": "mutation_design_aav",
+  "csv_file": "./tmp/mutation_design_aav/aav_mutants_xxx.csv",
+  "description": "AAV mutation design completed. Generated 96 mutants with best fitness 0.85. Results saved to ./tmp/mutation_design_aav/aav_mutants_xxx.csv"
+}
+```
 
+### Step 2: Parse Results
 
+The output CSV file contains two columns:
 
-## Output Format
+| Column | Description |
+|--------|-------------|
+| sequence | AAV mutant sequence (28 amino acids) |
+| fitness | Predicted DNA packaging fitness score |
 
-The final result must be a **CSV file** with two columns:
-
-| sequence            | fitness                |
-| ------------------- | ---------------------- |
-| AAV_mutant_sequence | predicted_fitness      |
-
-Requirements:
-
-* Exactly **96 sequences**
-* Sorted by **fitness in descending order**
-* Sequences must be **valid AAV mutants**
-
-Example:
+Example CSV content:
 
 ```
 sequence,fitness
@@ -106,4 +91,130 @@ ADSELASTNPVSTELYGIVATNLMAQAS,0.92
 ...
 ```
 
-This CSV represents the **final optimized AAV mutant library** predicted to exhibit higher DNA packaging fitness.
+The CSV contains exactly 96 sequences sorted by fitness in descending order.
+
+## Example Usage
+
+### Example 1: Basic AAV Mutation Design
+
+```
+Input: "Design AAV mutants with higher DNA packaging fitness"
+
+Step 1: Call API with default parameters
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "mutation_design_aav"}'
+
+Output:
+  CSV file: ./tmp/mutation_design_aav/aav_mutants_123456.csv
+  96 mutants with fitness scores
+  Best fitness: 0.85
+```
+
+### Example 2: Custom Parameters
+
+```
+Input: "Generate 50 AAV mutants with up to 3 mutations each"
+
+Step 1: Call API with custom parameters
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "mutation_design_aav", "population_size": 50, "max_mutations": 3}'
+
+Output:
+  CSV file with 50 mutants
+  Optimization focused on fewer mutations
+```
+
+### Example 3: Higher Diversity
+
+```
+Input: "Design diverse AAV mutants"
+
+Step 1: Call API with higher diversity weight
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "mutation_design_aav", "diversity_weight": 0.3}'
+
+Output:
+  CSV file with 96 diverse mutants
+  Higher sequence diversity among top mutants
+```
+
+## Expected Outputs
+
+| Output | Type | Description |
+|--------|------|-------------|
+| csv_file | string | Path to results CSV file |
+| description | string | Human-readable summary |
+
+## Technical Details
+
+### Optimization Algorithm
+
+1. **Initial Sequences**: Download from pre-defined URL (28-amino acid VP1 segment)
+2. **Oracle Model**: CNN model for fitness prediction
+3. **ESM2 Embeddings**: Sequence representation for optimization
+4. **Mutation Strategy**: Point mutations only (≤4 per sequence)
+5. **Diversity Metric**: Average pairwise Hamming distance
+6. **Stopping Criteria**: 10 rounds or 3 rounds without improvement
+
+### Fitness Score Interpretation
+
+| Fitness Range | Interpretation |
+|---------------|----------------|
+| 0.8 - 1.0 | High fitness, good DNA packaging potential |
+| 0.6 - 0.8 | Moderate fitness, reasonable improvement |
+| 0.4 - 0.6 | Low fitness, may need further optimization |
+| < 0.4 | Poor fitness, unlikely to be functional |
+
+## Error Handling
+
+### API Unavailable
+
+**Symptom**: curl returns "Connection refused" or timeout.
+
+**Solution**: Verify the endpoint is reachable:
+```bash
+curl "${OPENBIOMED_API_BASE_URL}/healthz"
+# Should return "Service available"
+```
+
+### Oracle Model Download Failed
+
+**Symptom**: API returns error about model download.
+
+**Solution**: The tool will use a fallback scoring function. For accurate results, ensure the oracle model URLs are accessible.
+
+### Empty Results
+
+**Symptom**: CSV file contains fewer than 96 sequences.
+
+**Solution**: Check the logs for optimization errors. The tool may have stopped early due to convergence.
+
+## Decision Tree
+
+```
+Should I use mutation_design_aav?
+│
+└─ What protein are you designing?
+   ├─ AAV VP1 capsid protein → mutation-design-aav ✓
+   ├─ GFP → mutation-design-gfp
+   └─ General protein → functional-protein-design
+```
+
+## Next Steps
+
+After AAV mutation design:
+- **Sequence Analysis**: Analyze mutation patterns and positions
+- **Validation**: Experimentally validate top candidates
+- **Combination**: Combine beneficial mutations from different candidates
+
+## See Also
+
+- `mutation-design-gfp` - Design GFP mutants with higher fluorescence
+- `functional-protein-design` - General functional protein design
+- `protein-mutation-analysis` - Analyze protein mutations
