@@ -188,6 +188,10 @@ class TaskRequest(BaseModel):
     epitope: Optional[str] = None  # Epitope residue numbers (space-separated)
     fasta_origin: Optional[str] = None  # Original antibody FASTA for affinity maturation
     num_samples: Optional[int] = None  # Number of samples per residue
+    # Similar protein search fields
+    search_type: Optional[str] = None  # "msa" or "foldseek"
+    protein: Optional[str] = None  # FASTA sequence or PDB file path
+    database: Optional[List[str]] = None  # FoldSeek databases
 
 
 class SearchRequest(BaseModel):
@@ -624,6 +628,40 @@ def handle_antibody_design(request: TaskRequest, pipeline):
         "task": request.task,
         "mode": task,
         "output_files": outputs,
+        "description": messages[0]
+    }
+
+
+def handle_similar_protein_search(request: TaskRequest, pipeline):
+    """
+    Search for similar proteins using MSA or FoldSeek.
+
+    Inputs:
+        - protein: FASTA sequence or PDB file path
+        - search_type: "msa" for sequence similarity, "foldseek" for structure similarity
+        - database: (optional) List of FoldSeek databases
+
+    Outputs:
+        - result_path: Path to results file (.a3m for MSA, .m8 for FoldSeek)
+        - description: Description message
+    """
+    protein = request.protein
+    search_type = request.search_type or "foldseek"
+    database = request.database
+
+    if not protein:
+        raise ValueError("protein input is required")
+
+    outputs, messages = pipeline.run(
+        protein=protein,
+        search_type=search_type,
+        database=database
+    )
+
+    return {
+        "task": request.task,
+        "search_type": search_type,
+        "result_path": outputs[0] if outputs else "",
         "description": messages[0]
     }
 
@@ -1101,6 +1139,13 @@ TASK_CONFIGS = [
         "required_inputs": ["fasta", "antigen_pdb"],
         "pipeline_key": "antibody_design",
         "handler_function": handle_antibody_design,
+        "is_async": False
+    },
+    {
+        "task_name": "similar_protein_search",
+        "required_inputs": ["protein"],
+        "pipeline_key": "similar_protein_search",
+        "handler_function": handle_similar_protein_search,
         "is_async": False
     }
 

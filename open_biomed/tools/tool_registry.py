@@ -30,7 +30,7 @@ class LazyDictForTool(dict):
             "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "analyze_complex_interaction", "summarize_content", "chembl_query",
             "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search",
-            "binding_affinity", "antibody_structure", "antibody_design"
+            "binding_affinity", "antibody_structure", "antibody_design", "similar_protein_search"
         ]
     
     def __missing__(self, key):
@@ -129,6 +129,8 @@ class LazyDictForTool(dict):
             self[key] = TFoldAntibodyStructure()
         elif key == "antibody_design":
             self[key] = IgGMAntibodyDesign()
+        elif key == "similar_protein_search":
+            self[key] = SimilarProteinSearch()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]

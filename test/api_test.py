@@ -271,6 +271,15 @@ def get_curl_commands(base_url):
             -d '{{"task": "antibody_design", "fasta": "./test_data/design.fasta", "antigen_pdb": "./test_data/antigen.pdb", "epitope": "7 8 9 10 11"}}'
             """
         },
+        {
+            "task": "similar_protein_search",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./checkpoints/server/test_data/pdb_6LVN.pdb"}}'
+            """
+        },
     ]
 
 

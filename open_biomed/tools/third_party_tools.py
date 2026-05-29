@@ -524,3 +524,135 @@ class IgGMAntibodyDesign(Tool):
         except Exception as e:
             logging.error(f"IgGM error: {e}")
             return [""], [f"Error: {str(e)}"]
+
+
+class SimilarProteinSearch(Tool):
+    """
+    Search for similar proteins using MSA (sequence) or FoldSeek (structure).
+
+    Supports two search methods:
+    1. MSA: Sequence similarity search using MMSeqs2/ColabFold
+    2. FoldSeek: Structure similarity search using FoldSeek
+
+    Outputs:
+    - MSA: .a3m file with multiple sequence alignment
+    - FoldSeek: .m8 file with similar structure hits
+    """
+
+    def __init__(self) -> None:
+        self._msa_requester = None
+        self._foldseek_requester = None
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'Similar Protein Search',
+            'Inputs:',
+            '  - protein: Protein sequence (FASTA) or PDB file path',
+            '  - search_type: "msa" for sequence similarity, "foldseek" for structure similarity',
+            '  - database: (optional) List of databases for FoldSeek ["pdb100", "afdb50"]',
+            'Outputs:',
+            '  - MSA: Path to .a3m file',
+            '  - FoldSeek: Path to result directory with .m8 file'
+        ])
+
+    def _load_msa_requester(self):
+        """Load MSA requester."""
+        if self._msa_requester is None:
+            from open_biomed.tools.web_request_tools import MSARequester
+            self._msa_requester = MSARequester()
+        return self._msa_requester
+
+    def _load_foldseek_requester(self):
+        """Load FoldSeek requester."""
+        if self._foldseek_requester is None:
+            from open_biomed.tools.web_request_tools import FoldSeekRequester
+            self._foldseek_requester = FoldSeekRequester()
+        return self._foldseek_requester
+
+    def run(
+        self,
+        protein: str = "",
+        search_type: str = "foldseek",
+        database: List[str] = None
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Search for similar proteins.
+
+        Args:
+            protein: FASTA sequence or PDB file path
+            search_type: "msa" for sequence similarity, "foldseek" for structure similarity
+            database: List of FoldSeek databases (optional)
+
+        Returns:
+            Tuple of (result paths list, description messages list)
+        """
+        import asyncio
+        import time
+
+        if not protein:
+            return [""], ["Error: protein input is required"]
+
+        # Determine if input is sequence or file path
+        is_sequence = not os.path.exists(protein) and all(c in 'ACDEFGHIKLMNPQRSTVWY\n\r\t ' for c in protein.strip())
+
+        try:
+            if search_type == "msa":
+                # MSA search for sequence similarity
+                if not is_sequence:
+                    # If input is a file, read the sequence
+                    if os.path.exists(protein):
+                        from open_biomed.data import Protein
+                        protein_obj = Protein.from_pdb_file(protein)
+                        sequence = protein_obj.sequence
+                    else:
+                        return [""], ["Error: Invalid protein input for MSA search"]
+                else:
+                    sequence = protein.strip()
+
+                # Create protein object with sequence
+                from open_biomed.data import Protein
+                protein_obj = Protein.from_fasta(sequence)
+
+                requester = self._load_msa_requester()
+                logging.info(f"Running MSA search...")
+
+                # Run async method
+                result_paths, messages = asyncio.run(requester.run_async(protein_obj))
+
+                return result_paths, [f"MSA results saved to {messages[0]}"]
+
+            elif search_type == "foldseek":
+                # FoldSeek search for structure similarity
+                if is_sequence:
+                    return [""], ["Error: FoldSeek requires a PDB structure file, not sequence"]
+
+                # Check if file exists
+                if not os.path.exists(protein):
+                    return [""], [f"Error: PDB file not found: {protein}"]
+
+                # Load protein from PDB file
+                from open_biomed.data import Protein
+                protein_obj = Protein.from_pdb_file(protein)
+
+                requester = self._load_foldseek_requester()
+
+                # Override database if specified
+                if database:
+                    requester.database = database
+
+                logging.info(f"Running FoldSeek search with databases: {requester.database}")
+
+                # Run async method
+                result_paths, messages = asyncio.run(requester.run_async(protein_obj))
+
+                return result_paths, [f"FoldSeek results saved to {messages[0]}"]
+
+            else:
+                return [""], [f"Error: Unknown search_type '{search_type}'. Use 'msa' or 'foldseek'"]
+
+        except ImportError as e:
+            logging.error(f"Import error: {e}")
+            return [""], ["Error: Required libraries not installed"]
+        except Exception as e:
+            logging.error(f"Similar protein search error: {e}")
+            return [""], [f"Error: {str(e)}"]
