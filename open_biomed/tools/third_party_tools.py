@@ -199,3 +199,142 @@ class ProdigyBindingAffinity(Tool):
         except Exception as e:
             logging.error(f"PRODIGY error: {e}")
             return [0.0], [f"Error: {e}"]
+
+
+class TFoldAntibodyStructure(Tool):
+    """
+    Predict antibody structure and antigen-antibody complex structure using tFold.
+
+    tFold is a deep learning model for antibody-related structure prediction:
+    - Antibody/nanobody structure prediction from heavy and light chain sequences
+    - Antigen-antibody complex structure prediction
+
+    Reference: Tencent AI4S tFold (https://github.com/TencentAI4S/tfold)
+    """
+
+    def __init__(self) -> None:
+        self._model_loaded = False
+        self._ab_model = None
+        self._ag_model = None
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'tFold Antibody Structure Prediction',
+            'Inputs:',
+            '  - For antibody: {"heavy_chain": FASTA sequence, "light_chain": FASTA sequence}',
+            '  - For complex: {"heavy_chain": FASTA, "light_chain": FASTA, "antigen": FASTA}',
+            'Outputs: PDB file path of predicted structure',
+            'Modes: "antibody" (default) or "complex"'
+        ])
+
+    def _load_ab_model(self):
+        """Load tFold-AB model for antibody structure prediction."""
+        if self._ab_model is None:
+            import tfold
+            logging.info("Loading tFold-AB models...")
+            ppi_model_path = tfold.model.esm_ppi_650m_ab()
+            tfold_model_path = tfold.model.tfold_ab_trunk()
+            self._ab_model = tfold.deploy.PLMComplexPredictor.restore_from_module(
+                ppi_model_path, tfold_model_path
+            )
+            logging.info("tFold-AB model loaded successfully")
+        return self._ab_model
+
+    def _load_ag_model(self):
+        """Load tFold-Ag model for antigen-antibody complex prediction."""
+        if self._ag_model is None:
+            import tfold
+            logging.info("Loading tFold-Ag models...")
+            ppi_model_path = tfold.model.esm_ppi_650m_ab()
+            alphafold_path = tfold.model.alpha_fold_4_ptm()
+            tfold_model_path = tfold.model.tfold_ag_base()
+            self._ag_model = tfold.deploy.AgPredictor(
+                ppi_model_path, alphafold_path, tfold_model_path
+            )
+            logging.info("tFold-Ag model loaded successfully")
+        return self._ag_model
+
+    def run(
+        self,
+        heavy_chain: str = "",
+        light_chain: str = "",
+        antigen: str = "",
+        mode: str = "antibody",
+        output_path: str = None
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Predict antibody or antigen-antibody complex structure.
+
+        Args:
+            heavy_chain: Heavy chain FASTA sequence
+            light_chain: Light chain FASTA sequence
+            antigen: Antigen FASTA sequence (required for complex mode)
+            mode: "antibody" for antibody-only, "complex" for antigen-antibody complex
+            output_path: Output PDB file path (default: auto-generated in ./tmp/)
+
+        Returns:
+            Tuple of (pdb file path list, description message list)
+        """
+        import time
+
+        # Validate inputs
+        if not heavy_chain or not light_chain:
+            return [""], ["Error: heavy_chain and light_chain sequences are required"]
+
+        if mode == "complex" and not antigen:
+            return [""], ["Error: antigen sequence is required for complex mode"]
+
+        # Generate output path
+        if output_path is None:
+            timestamp = int(time.time() * 1000)
+            output_path = f"./tmp/antibody_structure_{timestamp}.pdb"
+
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        try:
+            if mode == "antibody":
+                # Antibody structure prediction
+                model = self._load_ab_model()
+
+                data = [
+                    {"sequence": heavy_chain, "id": "H"},
+                    {"sequence": light_chain, "id": "L"}
+                ]
+
+                logging.info(f"Predicting antibody structure...")
+                model.infer_pdb(data, output_path)
+                logging.info(f"Antibody structure saved to {output_path}")
+
+                return [output_path], [f"Antibody structure predicted and saved to {output_path}"]
+
+            elif mode == "complex":
+                # Antigen-antibody complex structure prediction
+                model = self._load_ag_model()
+
+                # Generate MSA for antigen (simplified - using single sequence)
+                # Note: Full MSA generation requires external tools (HHblits)
+                msa = [[antigen]]
+                deletion_matrix = [[0] * len(antigen)]
+
+                data = [
+                    {"id": "H", "sequence": heavy_chain},
+                    {"id": "L", "sequence": light_chain},
+                    {"id": "A", "sequence": antigen, "msa": msa, "deletion_matrix": deletion_matrix}
+                ]
+
+                logging.info(f"Predicting antigen-antibody complex structure...")
+                model.infer_pdb(data, output_path)
+                logging.info(f"Complex structure saved to {output_path}")
+
+                return [output_path], [f"Complex structure predicted and saved to {output_path}"]
+
+            else:
+                return [""], [f"Error: Unknown mode '{mode}'. Use 'antibody' or 'complex'"]
+
+        except ImportError:
+            logging.error("tFold not installed. Install with: pip install tfold")
+            return [""], ["Error: tFold not installed"]
+        except Exception as e:
+            logging.error(f"tFold prediction error: {e}")
+            return [""], [f"Error: {str(e)}"]

@@ -1,136 +1,196 @@
 ---
 name: antibody-structure-prediction-tfold
 description: >
-  Antibody-related structure prediction using tfold model.
+  Antibody-related structure prediction using tFold model.
   Use this skill when:
   (1) Predict antibody and nanobody structure of a given sequence,
   (2) Predict antigen-antibody complex structure of given sequences,
   (3) Using local GPU resources.
 
-  For binding affinity evaluation, use prodigy.
+  For binding affinity evaluation, use binding-affinity-prediction-prodigy.
 license: MIT
 category: design-tools
-tags: [structure-prediction, antibody, nanobody, antigen-antibody complex]
+tags: [structure-prediction, antibody, nanobody, antigen-antibody complex, tfold]
 ---
 
 # tFold Antibody-related Structure Prediction
 
-## Prerequisites
+Predict antibody structure and antigen-antibody complex structure using tFold deep learning model.
 
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| Python | 3.8+ | 3.8 |
-| CUDA | 11.7+ | 11.8 |
-| GPU VRAM | 24GB | 80GB (A800) |
-| RAM | 32GB | 64GB |
+## When to Use
 
-## How to run
+- User wants to predict antibody/nanobody structure from sequence
+- User wants to predict antigen-antibody complex structure
+- User provides heavy chain and light chain sequences (for antibody)
+- User provides antigen + heavy chain + light chain (for complex)
 
-### Local installation
+## API Endpoint Resolution
+
+The skill resolves the OpenBioMed API base URL in this order:
+
+1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
+2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
+3. **Local development default**: `http://127.0.0.1:8090`
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
+
+## Workflow
+
+### Step 1: Prepare Input Sequences
+
+Collect FASTA sequences for:
+
+| Mode | Required Inputs | Description |
+|------|-----------------|-------------|
+| `antibody` | heavy_chain + light_chain | Antibody/nanobody structure |
+| `complex` | heavy_chain + light_chain + antigen | Antigen-antibody complex |
+
+**Example sequences**:
+```
+Heavy chain: EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK
+
+Light chain: DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK
+```
+
+### Step 2: Call antibody_structure API
+
+#### Antibody Structure Prediction
+
 ```bash
-git clone https://github.com/TencentAI4S/tfold.git
-cd tfold
-
-pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu118
-
-pip install deepspeed==0.12.3 termcolor==2.3.0 biopython==1.79 ml-collections==0.1.1 dm-tree==0.1.8 numpy==1.21.2 modelcif==0.9 scipy requests
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "antibody_structure", "heavy_chain": "<HEAVY_CHAIN>", "light_chain": "<LIGHT_CHAIN>"}'
 ```
 
-### Predict structure of an antibody
-```python
-import torch
-import tfold
-
-def pred_antibody_structure(heavy_chain_sequence, light_chain_sequence, output_path):
-    """
-    :param heavy_chain_sequence: sequence of the heavy chain
-    :param light_chain_sequence: sequence of the light chain
-    :param output_path: path to the antibody structure prediction
-    """
-
-    # Download the pre-trained model
-    ppi_model_path = tfold.model.esm_ppi_650m_ab()
-    tfold_model_path = tfold.model.tfold_ab_trunk()
-
-    # Load the model
-    model = tfold.deploy.PLMComplexPredictor.restore_from_module(ppi_model_path, tfold_model_path)
-
-    # Prepare antibody sequences (can be single or multiple sequences)
-    data =[
-            {
-              "sequence": heavy_chain_sequence, # Heavy chain
-              "id": 'H'
-              },
-            {
-              "sequence": light_chain_sequence, # Light chain
-              "id": 'L'
-              }]
-
-    model.infer_pdb(data, output_path)
+**Response**:
+```json
+{
+  "task": "antibody_structure",
+  "mode": "antibody",
+  "pdb_path": "./tmp/antibody_structure_xxx.pdb",
+  "description": "Antibody structure predicted and saved to ./tmp/antibody_structure_xxx.pdb"
+}
 ```
 
-### Predict the structure of antigen-antibody complex
-```python
-import torch
-import tfold
-from projects.tfold_ag.gen_msa import generate_msa
+#### Antigen-Antibody Complex Prediction
 
-def pred_antigen_antibody_structure(antigen_sequence, heavy_chain_sequence, light_chain_sequence, output_path):
-    """
-    :param antigen_sequence: sequence of the antigen
-    :param heavy_chain_sequence: sequence of the heavy chain
-    :param light_chain_sequence: sequence of the light chain
-    :param output_path: path to the antibody structure prediction
-    """
-
-    # Download the pre-trained model of ESM-PPI
-    ppi_model_path = tfold.model.esm_ppi_650m_ab()
-    # Download the pre-trained model of alphaFold
-    alphafold_path  = tfold.model.alpha_fold_4_ptm()
-    # Download base model for tFold-Ag
-    tfold_model_path = tfold.model.tfold_ag_base()
-
-    # Load the model
-    model = tfold.deploy.AgPredictor(ppi_model_path, alphafold_path, tfold_model_path)
-
-    # generate msa information
-    with open('antigen.fasta', 'w') as f:
-      f.write(f'>antigen\n{antigen_sequence}')
-    generate_msa('antigen.fasta', output_dir='./')
-    with open('./antigen.a3m') as f:
-      msa, deletion_matrix = tfold.protein.parser.parse_a3m(f.read())
-
-    # prepare input
-    data = [
-            {
-                "id": "H",
-                "sequence": heavy_chain_sequence
-            },
-            {
-                "id": "L",
-                "sequence": light_chain_sequence
-            },
-            {
-                "id": "A",
-                "sequence": antigen_sequence,
-                "msa": msa,
-                "deletion_matrix": deletion_matrix
-            }
-            ]
-
-    model.infer_pdb(data, output_path)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "antibody_structure", "heavy_chain": "<HEAVY_CHAIN>", "light_chain": "<LIGHT_CHAIN>", "antigen": "<ANTIGEN_SEQUENCE>", "mode": "complex"}'
 ```
 
-## Decision tree
+**Response**:
+```json
+{
+  "task": "antibody_structure",
+  "mode": "complex",
+  "pdb_path": "./tmp/antibody_structure_xxx.pdb",
+  "description": "Complex structure predicted and saved to ./tmp/antibody_structure_xxx.pdb"
+}
+```
+
+### Step 3: View and Use Results
+
+The predicted structure is saved as a PDB file. You can:
+
+1. **Visualize**: Use `visualize_protein` task or PyMol
+2. **Analyze binding**: Use `binding_affinity` task to predict binding affinity
+3. **Download**: Copy the PDB file from the server
+
+## Example Usage
+
+### Example 1: Predict Antibody Structure
+
+```
+Input: "Predict the structure of this antibody with heavy chain EVQL... and light chain DIQMT..."
+
+Step 1: Prepare sequences
+  Heavy chain: EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK
+  Light chain: DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK
+
+Step 2: Call API
+
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "antibody_structure", "heavy_chain": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK", "light_chain": "DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK"}'
+
+Output:
+  PDB file: ./tmp/antibody_structure_xxx.pdb
+  Contains predicted 3D structure of the antibody
+```
+
+## Expected Outputs
+
+| Output | Type | Description |
+|--------|------|-------------|
+| pdb_path | string | Path to predicted PDB file |
+| mode | string | "antibody" or "complex" |
+| description | string | Human-readable description |
+
+## Error Handling
+
+### Missing Sequences
+
+**Symptom**: API returns error about missing sequences.
+
+**Solution**: Ensure both heavy_chain and light_chain are provided. For complex mode, also provide antigen.
+
+### Model Loading Error
+
+**Symptom**: API returns "tFold not installed" error.
+
+**Solution**: tFold needs to be installed in the server environment:
+```bash
+pip install tfold termcolor deepspeed ml-collections dm-tree modelcif
+```
+
+### GPU Memory Error
+
+**Symptom**: Prediction fails with CUDA out of memory.
+
+**Solution**: tFold requires significant GPU memory (24GB+ recommended). Try:
+- Using a GPU with more memory
+- Reducing sequence length
+
+## Decision Tree
 
 ```
 Should I use tFold?
 │
 └─ What are you predicting?
-   ├─ Antibody and nanobody structure prediction → antibody-structure-prediction-tfold ✓
-   ├─ Antigen-antibody structure prediction → antibody-structure-prediction-tfold ✓
-   ├─ Structure prediction for general protein-protein complex → structure-prediction-boltz-2
-   └─ Structure prediction for protein-ligand complex → structure-prediction-boltz-2
+   ├─ Antibody/nanobody structure → antibody-structure-prediction-tfold ✓
+   ├─ Antigen-antibody complex → antibody-structure-prediction-tfold ✓
+   ├─ General protein-protein complex → structure-prediction-boltz-2
+   └─ Protein-ligand complex → structure-prediction-boltz-2
 ```
 
-**Next**: Evaluate binding affinity with `binding-affinity-prediction-prodigy`.
+## Next Steps
+
+After structure prediction:
+- **Binding Affinity**: Use `binding_affinity` task to evaluate binding strength
+- **Visualization**: Use `visualize_protein` to view the structure
+- **Analysis**: Analyze interface residues and contacts
+
+## Technical Details
+
+### tFold Models
+
+tFold uses two model architectures:
+
+1. **tFold-AB**: For antibody-only prediction
+   - ESM-PPI 650M for sequence encoding
+   - Structure trunk for coordinate prediction
+
+2. **tFold-Ag**: For antigen-antibody complex
+   - AlphaFold2 for antigen MSA
+   - ESM-PPI + tFold trunk for complex
+
+### Sequence Format
+
+- Input sequences should be in FASTA format (plain amino acid string)
+- Use standard 20 amino acid codes
+- No headers or special characters
