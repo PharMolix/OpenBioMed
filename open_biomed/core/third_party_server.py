@@ -64,16 +64,31 @@ class ProteinBindingSitePrediction(Tool):
             for index, row in pocket_df.iterrows():
                 pocket_name = row['name     ']
                 residue_ids = row[' residue_ids'].split()  # Split a string into a list by space
-                pocket_residues.append([int(i.split("_")[1]) for i in residue_ids])
+                # Extract PDB residue numbers and chain IDs from p2rank output (e.g., "B_294")
+                pocket_residues.append([(i.split("_")[0], int(i.split("_")[1])) for i in residue_ids])
 
-            
+
             protein = Protein.from_pdb_file(pdb_file)
+            # Build mapping from (chain, res_id) to Python list index
+            res_id_to_idx = {}
+            for idx, res in enumerate(protein.residues):
+                key = (res.chain, res.res_id)
+                res_id_to_idx[key] = idx
+
             random.shuffle(pocket_residues)
 
             pockets, pocket_paths = [], []
             for pocket_residue in pocket_residues:
                 try:
-                    pocket = Pocket.from_protein_subseq(protein, pocket_residue)
+                    # Map PDB residue IDs to 0-based list indices
+                    indices = []
+                    for chain, res_id in pocket_residue:
+                        key = (chain, res_id)
+                        if key in res_id_to_idx:
+                            indices.append(res_id_to_idx[key])
+                    if not indices:
+                        continue
+                    pocket = Pocket.from_protein_subseq(protein, indices)
                     pocket_path = pocket.save_binary()
                     pockets.append(pocket)
                     pocket_paths.append(pocket_path)
