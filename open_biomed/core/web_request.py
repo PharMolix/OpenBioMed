@@ -1,8 +1,11 @@
 from abc import abstractmethod, ABC
 from typing import Any, Dict, List, Optional, Tuple
 import os
+from dotenv import load_dotenv
+load_dotenv(".env")
 import sys
 import requests
+import time
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import aiohttp
@@ -18,6 +21,79 @@ from urllib.parse import quote
 from open_biomed.data import Molecule, Protein
 from open_biomed.core.tool import Tool
 
+# ==================== IQS Client (Module-level singleton) ====================
+
+class IQSClientWrapper:
+    """Alibaba Cloud IQS client wrapper (singleton pattern)"""
+    def __init__(self):
+        self.client = None
+        self.iqs_models = None
+        self._try_init()
+
+    def _try_init(self):
+        """Initialize IQS client"""
+        try:
+            from alibabacloud_iqs20241111 import models as iqs_models
+            from alibabacloud_iqs20241111.client import Client
+            from alibabacloud_tea_openapi import models as open_api_models
+
+            self.iqs_models = iqs_models
+            self.open_api_models = open_api_models
+
+            ak = os.environ.get("ALIYUN_AK")
+            sk = os.environ.get("ALIYUN_SK")
+            endpoint = os.environ.get("ALIYUN_ENDPOINT", "iqs.cn-zhangjiakou.aliyuncs.com")
+
+            if ak and sk:
+                config = open_api_models.Config(
+                    access_key_id=ak,
+                    access_key_secret=sk
+                )
+                config.endpoint = endpoint
+                config.read_timeout = 30000    # 30 seconds
+                config.connect_timeout = 10000  # 10 seconds
+                self.client = Client(config)
+            else:
+                logging.warning("ALIYUN_AK or ALIYUN_SK not set, IQS client disabled")
+        except ImportError:
+            logging.warning("alibabacloud_iqs20241111 not installed, IQS client disabled")
+
+    async def search(self, query: str, search_size: int = 10):
+        """Call IQS search API"""
+        from Tea.exceptions import TeaException
+
+        if not self.client:
+            return []
+
+        request = self.iqs_models.UnifiedSearchRequest(
+            body=self.iqs_models.UnifiedSearchInput(
+                query=query,
+                time_range="NoLimit",
+                contents=self.iqs_models.RequestContents(
+                    summary=False,
+                    main_text=True,
+                )
+            )
+        )
+
+        try:
+            response = await self.client.unified_search_async(request)
+            results = []
+            for item in response.body.page_items:
+                results.append({
+                    "title": item.title,
+                    "text": item.main_text,
+                    "url": item.link,
+                    "channel": "WebSearch"
+                })
+            return results[:search_size]
+        except TeaException as e:
+            logging.error(f"IQS search error: {e}")
+            return []
+
+# Module-level singleton
+_iqs_client = IQSClientWrapper()
+
 class Requester(Tool):
     def __init__(self) -> None:
         self.requires_async = True
@@ -29,27 +105,47 @@ class DBRequester(Requester):
         self.timeout = timeout
 
     @RateLimiter(max_calls=5, period=1)
-    async def run(self, accession: str="") -> Any:
+    async def run_async(self, accession: Any="", **kwargs) -> Any:
+        url = self._determine_query_url(accession, **kwargs)
+        logging.info(f"[DBRequester] Querying: {url} (timeout={self.timeout}s)")
+        start_time = time.time()
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                async with session.get(self.db_url.format(accession=accession)) as response:
+                async with session.get(url) as response:
                     if response.status == 200:
                         content = await response.read()
                         content = content.decode("utf-8")
-                        logging.info("Downloaded results successfully")
+                        if content.strip().startswith("<"):
+                            logging.warning(f"[DBRequester] Received HTML error page instead of expected data from {url}")
+                            raise Exception(f"Database returned an HTML error page (likely rate-limited or blocked)")
+                        elapsed = time.time() - start_time
+                        logging.info(f"[DBRequester] Downloaded results successfully in {elapsed:.2f}s")
                     else:
                         logging.warning(f"HTTP request failed, status {response.status}")
-                        raise Exception()
+                        raise Exception(f"HTTP {response.status}")
+        except asyncio.TimeoutError as e:
+            elapsed = time.time() - start_time
+            logging.error(f"[DBRequester] TIMEOUT: {url} after {elapsed:.2f}s (timeout setting: {self.timeout}s)")
+            raise asyncio.TimeoutError(f"Request to {url} timed out after {elapsed:.2f}s")
         except Exception as e:
-            content = None
-            logging.error(f"Download failed. Exception: {e}")
+            elapsed = time.time() - start_time
+            logging.error(f"[DBRequester] FAILED: {url} in {elapsed:.2f}s - {e}")
             raise e
-        return self._parse_and_save_outputs(accession, content)
+        return self._parse_and_save_outputs(accession, content, **kwargs)
 
-    @abstractmethod
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> Any:
-        # Parse the outputs and save them at a local file
-        raise NotImplementedError
+    def run(self, accession: Any="", **kwargs) -> Any:
+        """Sync wrapper for run_async"""
+        return asyncio.run(self.run_async(accession, **kwargs))
+
+    def _determine_query_url(self, accession: str="", **kwargs) -> str:
+        if hasattr(self, "db_url"):
+            url = self.db_url.format(accession=accession)
+            api_key = os.environ.get("PUBCHEM_API_KEY")
+            if api_key:
+                url += f"&api_key={api_key}" if "?" in url else f"?api_key={api_key}"
+            return url
+        else:
+            raise NotImplementedError
 
 class PubChemRequester(DBRequester):
     def __init__(self, 
@@ -71,10 +167,12 @@ class PubChemRequester(DBRequester):
             "Outputs: A molecule from PubChem."
         ])
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> Tuple[List[Molecule], List[str]]:
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> Tuple[List[Molecule], List[str]]:
+        if content.strip().startswith("<") or content.strip().startswith("{"):
+            raise ValueError(f"PubChem returned non-SDF response for '{accession}'. Content may be an error page or JSON.")
         sdf_file = f"./tmp/pubchem_{accession}.sdf"
         with open(sdf_file, "w") as f:
-            f.write(outputs)
+            f.write(content)
         molecule = Molecule.from_sdf_file(sdf_file)
         return [molecule], [molecule.save_binary()]
 
@@ -95,11 +193,14 @@ class PubChemStructureRequester(Requester):
         ])
 
     @RateLimiter(max_calls=5, period=1)
-    async def run(self, molecule: Molecule=None, threshold: float=0.8, max_records=10) -> Tuple[List[Molecule], List[str]]:
+    async def run_async(self, molecule: Molecule=None, threshold: float=0.8, max_records=10) -> Tuple[List[Molecule], List[str]]:
         molecule._add_smiles()
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
                 url = self.db_url.format(accession=molecule.smiles, threshold=int(threshold * 100), max_records=max_records)
+                api_key = os.environ.get("PUBCHEM_API_KEY")
+                if api_key:
+                    url += f"&api_key={api_key}"
                 async with session.get(url.replace("#", "%23")) as response:
                     if response.status == 200:
                         content = await response.read()
@@ -117,10 +218,13 @@ class PubChemStructureRequester(Requester):
             raise e
         all_mols, all_files = [], []
         for cid in content['IdentifierList']['CID']:
-            mol, mol_file = await self.molecule_requester.run(cid)
+            mol, mol_file = await self.molecule_requester.run_async(cid)
             all_mols.extend(mol)
             all_files.extend(mol_file)
         return all_mols, all_files
+
+    def run(self, molecule: Molecule=None, threshold: float=0.8, max_records=10) -> Tuple[List[Molecule], List[str]]:
+        return asyncio.run(self.run_async(molecule, threshold, max_records))
 
 class ChemBLRequester(DBRequester):
     def __init__(self, 
@@ -129,8 +233,8 @@ class ChemBLRequester(DBRequester):
     ) -> None:
         super().__init__(db_url, timeout)
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> str:
-        obj = json.loads(outputs)
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> str:
+        obj = json.loads(content)
         sdf_file = f"./tmp/chembl_{accession}.sdf"
         with open(sdf_file, "w") as f:
             f.write(obj["molecules"][0]["molecule_structures"]["molfile"])
@@ -151,33 +255,49 @@ class UniProtRequester(DBRequester):
             "Outputs: A protein from UniProt."
         ])
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> str:
-        obj = json.loads(outputs)
+    def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> str:
+        obj = json.loads(content)
         protein = Protein.from_fasta(obj["sequence"]["value"])
         protein.name = f"uniprot_{accession}"
         return [protein], [protein.save_binary()]
 
 class PDBRequester(DBRequester):
-    def __init__(self, 
-        db_url: str="https://files.rcsb.org/download/{accession}.pdb", 
+    def __init__(self,
         timeout: int=30
     ) -> None:
-        super().__init__(db_url, timeout)
+        super().__init__(db_url=None, timeout=timeout)
+        self.requires_async = False
 
     def print_usage(self) -> str:
-        database = "AlphaFoldDB" if "alphafold" in self.db_url else "PDB"
         return "\n".join([
-            'PDB structure query.',
-            'Inputs: {"accession": a ' + database + ' ID}',
-            "Outputs: A protein from the database."
+            'Usage: Query a PDB structure.',
+            'Inputs: {"accession": str (PDB/AlphaFoldDB ID), "mode": "metadata" (extracting the metadata of the pdb accession) or "file_only" (downloading the pdb file)}',
+            "Outputs: Protein (an OpenBioMed Protein object) or str (the path to the pdb file)"
         ])
 
-    def _parse_and_save_outputs(self, accession: str="", outputs: str="") -> str:
-        pdb_file = f"./tmp/pdb_{accession}.pdb"
-        with open(pdb_file, "w") as f:
-            f.write(outputs)
-        protein = Protein.from_pdb_file(pdb_file)
-        return [protein], [protein.save_binary()]
+    def _determine_query_url(self, accession: str="", mode: str="metadata", **kwargs) -> str:
+        if len(accession) == 4:
+            if mode == "metadata":
+                return f"https://data.rcsb.org/rest/v1/core/entry/{accession}"
+            elif mode == "file_only":
+                return f"https://files.rcsb.org/download/{accession}.pdb"
+            else:
+                raise ValueError(f"Invalid mode: {mode}")
+        else:
+            # AlphaFoldDB ID
+            assert mode == "file_only", "Only file_only mode is supported for AlphaFoldDB ID."
+            return f"https://alphafold.ebi.ac.uk/files/AF-{accession}-F1-model_v4.pdb"
+
+    def _parse_and_save_outputs(self, accession: str="", content: str="", mode: str="metadata", **kwargs) -> str:
+        if mode == "metadata":
+            obj = json.loads(content)
+            return [obj], [content]
+        elif mode == "file_only":
+            pdb_file = f"./tmp/pdb_{accession}.pdb"
+            with open(pdb_file, "w") as f:
+                f.write(content)
+            protein = Protein.from_pdb_file(pdb_file)
+            return [protein], [protein.save_binary()]
 
 class WebSearchRequester(Tool):
     def __init__(self, timeout: int=30) -> None:
@@ -185,66 +305,42 @@ class WebSearchRequester(Tool):
 
     def print_usage(self) -> str:
         return "\n".join([
-            'Web search.',
-            'Inputs: {"query": Any query inputs}',
-            "Outputs: results from the search engine."
+            'Usage: Search the web for information.',
+            'Inputs: {"query": str (a query string)}',
+            "Outputs: str (returned results from the search engine)"
         ])
 
-    def run(self, query: str) -> Tuple[List[str], List[str]]:
+    async def run_async(self, query: str) -> Tuple[List[str], List[str]]:
+        """Async web search using IQS client"""
+        logging.info(f"[WebSearchRequester] Searching for: {query}")
+        start_time = time.time()
 
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer 1234567890'
-        }
-        query_url = "https://staging.chatdd.pharmolix.com/v2/api/deepinsight/generate_query"
-        data = {
-            'chat_session_id': "FwAalhadkajhddkaadfwes",
-            'action': False,
-            'chat_messages': [
-                {"role": "user", "content": f'<p>{query}</p><p><br></p>'}
-            ]
-        }
-        response = requests.post(query_url, headers=headers, json=data)
-        question = response.json()
+        # Use module-level singleton IQS client
+        results = await _iqs_client.search(query, search_size=10)
 
-        rag_url = "http://101.200.137.30:1112/rag/v1/common_rag"
+        elapsed = time.time() - start_time
+        logging.info(f"[WebSearchRequester] Got {len(results)} results in {elapsed:.2f}s")
 
-        if not question['query_list']:
-            question['query_list'] = []
-        question["recall_params"] = {
-            "PaperDB": [
-                "meeting",
-                "pubmed_abstract",
-                "pubmed_full_text"
-            ],
-            "NewsDB": [
-                "press",
-                "media",
-                "wechat",
-                "wechat_realtime",
-                "press_realtime"
-            ],
-            "WebSearch": None,
-            "Clinicaltrial_DB": [
-                "clinicaltrials"
-            ],
-            "Policy_DB": [
-                "policy"
-            ],
-            "Principle_DB": [
-                "principle"
-            ],
-            "PatentLaw_DB": [
-                "patentlaw"
-            ]
-        }
-        question["top_k"] = 5
-        res = requests.post(rag_url, json=question)
-        #result = {"query": [query] + question['query_list'],
-        #          "result": res.json()["data"]}
-        #result = {"result": [i["text"] for i in res.json()["data"]]}
-        result = "\n\n\n".join([i["text"] for i in res.json()["data"]])
+        # Deduplicate by url
+        seen_urls = set()
+        result_texts = []
+        for item in results:
+            if item["url"] not in seen_urls:
+                if item["text"] is not None:
+                    result_texts.append(item["text"])
+                else:
+                    logging.warning(f"[WebSearchRequester] Skipping result with None text: {item['url']}")
+                seen_urls.add(item["url"])
+
+        result = "\n\n\n".join(result_texts) if result_texts else ""
+        logging.info(f"[WebSearchRequester] Returning {len(result_texts)} unique results")
         return [result], [result]
+
+    def run(self, query: str) -> Tuple[List[str], List[str]]:
+        """Sync wrapper for run_async"""
+        import warnings
+        warnings.warn("WebSearchRequester.run() is deprecated, use run_async()", DeprecationWarning)
+        return asyncio.run(self.run_async(query))
 
 
 class MMSeqsRequester(Requester):
