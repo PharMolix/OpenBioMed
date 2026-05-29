@@ -16,6 +16,7 @@
 | Skill | Task Name | Status | Notes |
 |-------|-----------|--------|-------|
 | antibody-structure-prediction-tfold | antibody_structure | Implementation Complete | Waiting for tFold model download (ESM-PPI 650M ~2.43GB) |
+| antibody-design-iggm | antibody_design | Implementation Complete | Needs IgGM installation for functional verification |
 
 ## Pending Skills
 

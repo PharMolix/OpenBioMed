@@ -182,6 +182,12 @@ class TaskRequest(BaseModel):
     heavy_chain: Optional[str] = None  # Heavy chain FASTA sequence
     light_chain: Optional[str] = None  # Light chain FASTA sequence
     antigen: Optional[str] = None  # Antigen FASTA sequence (for complex mode)
+    # Antibody design fields
+    fasta: Optional[str] = None  # FASTA file path with design requirement
+    antigen_pdb: Optional[str] = None  # Antigen PDB file path for antibody design
+    epitope: Optional[str] = None  # Epitope residue numbers (space-separated)
+    fasta_origin: Optional[str] = None  # Original antibody FASTA for affinity maturation
+    num_samples: Optional[int] = None  # Number of samples per residue
 
 
 class SearchRequest(BaseModel):
@@ -571,6 +577,54 @@ def handle_antibody_structure(request: TaskRequest, pipeline):
         "mode": mode,
         "pdb_path": pdb_path,
         "description": description
+    }
+
+
+def handle_antibody_design(request: TaskRequest, pipeline):
+    """
+    Design antibody using IgGM model.
+
+    Inputs:
+        - fasta: FASTA file path with design requirement (X marks design regions)
+        - antigen_pdb: Antigen PDB file path
+        - epitope: (optional) Epitope residue numbers, space-separated
+        - fasta_origin: (optional) Original antibody FASTA for affinity maturation
+        - task: (optional) "design" or "affinity_maturation", default "design"
+        - num_samples: (optional) Number of samples per residue, default 10
+
+    Outputs:
+        - output_files: List of designed antibody files
+        - description: Description message
+    """
+    fasta = request.fasta
+    antigen_pdb = request.antigen_pdb
+    epitope = request.epitope or ""
+    fasta_origin = request.fasta_origin or ""
+    task = request.mode or "design"
+    num_samples = request.num_samples or 10
+
+    if not fasta:
+        raise ValueError("fasta file path is required")
+    if not antigen_pdb:
+        raise ValueError("antigen_pdb file path is required")
+
+    if task == "affinity_maturation" and not fasta_origin:
+        raise ValueError("fasta_origin is required for affinity maturation")
+
+    outputs, messages = pipeline.run(
+        fasta=fasta,
+        antigen=antigen_pdb,
+        epitope=epitope,
+        fasta_origin=fasta_origin,
+        task=task,
+        num_samples=num_samples
+    )
+
+    return {
+        "task": request.task,
+        "mode": task,
+        "output_files": outputs,
+        "description": messages[0]
     }
 
 
@@ -1040,6 +1094,13 @@ TASK_CONFIGS = [
         "required_inputs": ["heavy_chain", "light_chain"],
         "pipeline_key": "antibody_structure",
         "handler_function": handle_antibody_structure,
+        "is_async": False
+    },
+    {
+        "task_name": "antibody_design",
+        "required_inputs": ["fasta", "antigen_pdb"],
+        "pipeline_key": "antibody_design",
+        "handler_function": handle_antibody_design,
         "is_async": False
     }
 

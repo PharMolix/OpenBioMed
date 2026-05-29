@@ -338,3 +338,189 @@ class TFoldAntibodyStructure(Tool):
         except Exception as e:
             logging.error(f"tFold prediction error: {e}")
             return [""], [f"Error: {str(e)}"]
+
+
+class IgGMAntibodyDesign(Tool):
+    """
+    Antibody design using IgGM model.
+
+    IgGM supports:
+    - Epitope-conditioned de novo antibody design
+    - Antibody affinity maturation
+    - Epitope prediction from antigen-antibody complex
+
+    Reference: Tencent AI4S IgGM (https://github.com/TencentAI4S/IgGM)
+    """
+
+    def __init__(self) -> None:
+        self._model_loaded = False
+        self._design_script = None
+
+    def print_usage(self) -> str:
+        return "\n".join([
+            'IgGM Antibody Design',
+            'Inputs:',
+            '  - fasta: FASTA file path with design requirement (X for design region)',
+            '  - antigen: Antigen PDB file path',
+            '  - epitope: (optional) Epitope residue numbers, e.g. "7 8 9 10 11"',
+            '  - fasta_origin: (optional) Original antibody FASTA for affinity maturation',
+            '  - task: "design" (default) or "affinity_maturation"',
+            '  - num_samples: Number of samples per residue (default: 10)',
+            'Outputs: Designed antibody FASTA and PDB files'
+        ])
+
+    def _load_model(self):
+        """Load IgGM model and check installation."""
+        if self._design_script is None:
+            # Check if IgGM is installed
+            try:
+                import IgGM
+                self._design_script = IgGM.design
+                logging.info("IgGM loaded successfully")
+            except ImportError:
+                # Try to find the design.py script
+                iggm_paths = [
+                    "./third_party/IgGM/design.py",
+                    "./IgGM/design.py",
+                    os.path.expanduser("~/IgGM/design.py")
+                ]
+                for path in iggm_paths:
+                    if os.path.exists(path):
+                        self._design_script = path
+                        logging.info(f"Found IgGM design.py at {path}")
+                        break
+                if self._design_script is None:
+                    logging.warning("IgGM not installed. Will use subprocess if available.")
+        return self._design_script
+
+    def run(
+        self,
+        fasta: str = "",
+        antigen: str = "",
+        epitope: str = "",
+        fasta_origin: str = "",
+        task: str = "design",
+        num_samples: int = 10,
+        output_path: str = None
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Design antibody using IgGM.
+
+        Args:
+            fasta: FASTA file path with design requirement (X marks design regions)
+            antigen: Antigen PDB file path
+            epitope: Epitope residue numbers (space-separated, optional for design)
+            fasta_origin: Original antibody FASTA for affinity maturation
+            task: "design" for de novo design, "affinity_maturation" for maturation
+            num_samples: Number of samples per residue
+            output_path: Output directory path
+
+        Returns:
+            Tuple of (output file paths list, description messages list)
+        """
+        import time
+        import shutil
+
+        # Validate inputs
+        if not fasta:
+            return [""], ["Error: FASTA file path is required"]
+        if not antigen:
+            return [""], ["Error: Antigen PDB file path is required"]
+
+        # Generate output path
+        if output_path is None:
+            timestamp = int(time.time() * 1000)
+            output_path = f"./tmp/antibody_design_{timestamp}"
+
+        # Ensure output directory exists
+        os.makedirs(output_path, exist_ok=True)
+
+        # Check if input files exist
+        if not os.path.exists(fasta):
+            return [""], [f"Error: FASTA file not found: {fasta}"]
+        if not os.path.exists(antigen):
+            return [""], [f"Error: Antigen PDB file not found: {antigen}"]
+
+        try:
+            # Try using IgGM Python package first
+            design_script = self._load_model()
+
+            if design_script is not None and not isinstance(design_script, str):
+                # Use IgGM Python API
+                logging.info(f"Running IgGM {task}...")
+
+                if task == "design":
+                    results = design_script(
+                        fasta=fasta,
+                        antigen=antigen,
+                        epitope=epitope.split() if epitope else None,
+                        output_dir=output_path,
+                        num_samples=num_samples
+                    )
+                elif task == "affinity_maturation":
+                    if not fasta_origin:
+                        return [""], ["Error: fasta_origin is required for affinity maturation"]
+                    results = design_script(
+                        fasta=fasta,
+                        antigen=antigen,
+                        fasta_origin=fasta_origin,
+                        run_task="affinity_maturation",
+                        output_dir=output_path,
+                        num_samples=num_samples
+                    )
+                else:
+                    return [""], [f"Error: Unknown task '{task}'. Use 'design' or 'affinity_maturation'"]
+
+                # Collect output files
+                output_files = []
+                for f in os.listdir(output_path):
+                    if f.endswith('.pdb') or f.endswith('.fasta'):
+                        output_files.append(os.path.join(output_path, f))
+
+                return output_files, [f"Antibody design completed. Output saved to {output_path}"]
+
+            else:
+                # Use subprocess to run design.py script
+                script_path = design_script
+                if script_path is None or not os.path.exists(script_path):
+                    # Check common installation paths
+                    script_path = "./third_party/IgGM/design.py"
+                    if not os.path.exists(script_path):
+                        return [""], ["Error: IgGM not installed. Please install from https://github.com/TencentAI4S/IgGM"]
+
+                # Build command
+                cmd = ["python", script_path]
+                cmd.extend(["--fasta", fasta])
+                cmd.extend(["--antigen", antigen])
+                cmd.extend(["--output", output_path])
+                cmd.extend(["--num_samples", str(num_samples)])
+
+                if epitope:
+                    cmd.extend(["--epitope"] + epitope.split())
+
+                if task == "affinity_maturation":
+                    cmd.extend(["--run_task", "affinity_maturation"])
+                    if fasta_origin:
+                        cmd.extend(["--fasta_origin", fasta_origin])
+
+                logging.info(f"Running command: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+
+                if result.returncode != 0:
+                    logging.error(f"IgGM error: {result.stderr}")
+                    return [""], [f"Error: {result.stderr}"]
+
+                # Collect output files
+                output_files = []
+                for f in os.listdir(output_path):
+                    if f.endswith('.pdb') or f.endswith('.fasta'):
+                        output_files.append(os.path.join(output_path, f))
+
+                return output_files, [f"Antibody design completed. Output saved to {output_path}"]
+
+        except subprocess.TimeoutExpired:
+            logging.error("IgGM timeout")
+            return [""], ["Error: IgGM execution timeout (max 600s)"]
+        except Exception as e:
+            logging.error(f"IgGM error: {e}")
+            return [""], [f"Error: {str(e)}"]

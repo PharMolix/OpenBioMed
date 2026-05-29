@@ -262,6 +262,15 @@ def get_curl_commands(base_url):
             -d '{{"task": "antibody_structure", "heavy_chain": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK", "light_chain": "DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK"}}'
             """
         },
+        {
+            "task": "antibody_design",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "antibody_design", "fasta": "./test_data/design.fasta", "antigen_pdb": "./test_data/antigen.pdb", "epitope": "7 8 9 10 11"}}'
+            """
+        },
     ]
 
 
