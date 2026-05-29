@@ -6,7 +6,10 @@ import random
 import copy
 import asyncio
 import logging
+import sys
 import subprocess
+import time
+import uuid
 from typing import Optional, List, Dict, Callable, Any, Literal
 
 # import function
@@ -17,6 +20,15 @@ from open_biomed.core.tool_registry import TOOLS
 
 
 app = FastAPI()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - [%(levelname)s] - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger('OpenBioMed')
+logger.setLevel(logging.INFO)
 
 
 class IO_Reader:
@@ -184,7 +196,7 @@ def handle_visualize_molecule(request: TaskRequest, pipeline):
     #ligand = Molecule.from_binary_file(request.molecule)
     #outputs = pipeline.run(ligand, config="ball_and_stick", rotate=False)
     vis_process = [
-                    "python3", "./open_biomed/core/visualize.py", 
+                    "python3", "./open_biomed/core/visualize.py",
                     "--task", "visualize_molecule",
                     "--molecule_config", request.visualize,
                     "--save_output_filename", "./tmp/molecule_visualization_file.txt",
@@ -240,20 +252,20 @@ def handle_protein_folding(request: TaskRequest, pipeline):
 
 # Handlers for web_search
 async def handle_molecule_name_request(request: SearchRequest, requester):
-    outputs = await requester.run(request.query)
+    outputs = await requester.run_async(request.query)
     smiles = outputs[0][0].smiles
     output = outputs[1][0]
     return {"task": request.task, "molecule": output, "molecule_preview": smiles}
 
-def handle_web_search(request: SearchRequest, requester):
-    outputs = requester.run(request.query)
+async def handle_web_search(request: SearchRequest, requester):
+    outputs = await requester.run_async(request.query)
     outputs = outputs[0][0]
     return {"task": request.task, "text": outputs}
 
 async def handle_molecule_structure_request(request: SearchRequest, requester):
     molecule = IO_Reader.get_molecule(request.molecule)
     threshold = request.threshold
-    outputs = await requester.run(molecule, threshold=float(threshold), max_records=1)
+    outputs = await requester.run_async(molecule, threshold=float(threshold), max_records=1)
     # Pick a random molecule
     index = random.randint(0, len(outputs[1])-1)
     molecule = outputs[1][index]
@@ -262,7 +274,7 @@ async def handle_molecule_structure_request(request: SearchRequest, requester):
 
 
 async def handle_protein_uniprot_request(request: SearchRequest, requester):
-    outputs = await requester.run(request.query)
+    outputs = await requester.run_async(request.query)
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
@@ -270,7 +282,7 @@ async def handle_protein_uniprot_request(request: SearchRequest, requester):
 
 
 async def handle_protein_pdb_request(request: SearchRequest, requester):
-    outputs = await requester.run(request.query)
+    outputs = await requester.run_async(request.query, mode="file_only")
     outputs = outputs[1][0]
     protein = IO_Reader.get_protein(outputs)
     protein_preview = str(protein)
@@ -483,7 +495,7 @@ TASK_CONFIGS = [
         "required_inputs": ["query"],
         "pipeline_key": "web_search",
         "handler_function": handle_web_search,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "molecule_structure_request",
@@ -591,21 +603,60 @@ for task_config in TASK_CONFIGS:
 @app.post("/run_pipeline/")
 async def run_pipeline(request: TaskRequest):
     task_name = request.task.lower()
-    logging.info(request)
+    request_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+
+    # Log request details
+    logger.info("=" * 80)
+    logger.info(f"[TASK] {task_name} | RequestID: {request_id}")
+    logger.info(f"[INPUT] Request details:")
+    request_dict = request.model_dump()
+    for key, value in request_dict.items():
+        if value is not None:
+            logger.info(f"  - {key}: {value}")
+    logger.info(f"[START] Task: {task_name}, Model: {request.model}")
+
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
         pipeline = TOOLS[task_config.pipeline_key]
+        logger.info(f"[EXEC] Running pipeline...")
         output = task_config.handler_function(request, pipeline)
+        elapsed = time.time() - start_time
+        logger.info(f"[DONE] Task: {task_name} completed in {elapsed:.2f}s")
+        logger.info(f"[OUTPUT] Response: {output}")
+        logger.info("=" * 80)
         return output
+    except asyncio.TimeoutError as e:
+        elapsed = time.time() - start_time
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"[TIMEOUT] Task: {task_name} after {elapsed:.2f}s")
+        logger.error(f"[ERROR] {e}\n{error_traceback}")
+        logger.info("=" * 80)
+        raise HTTPException(status_code=504, detail=f"Request timeout after {elapsed:.2f}s: {str(e)}")
     except Exception as e:
-        print(e)
+        elapsed = time.time() - start_time
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"[FAILED] Task: {task_name} in {elapsed:.2f}s")
+        logger.error(f"[ERROR] Exception: {e}")
+        logger.error(f"[TRACEBACK] {error_traceback}")
+        logger.info("=" * 80)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/web_search/")
 async def web_search(request: SearchRequest):
     task_name = request.task.lower()
+    request_id = str(uuid.uuid4())[:8]
+    start_time = time.time()
+
+    # Log request details
+    logger.info("=" * 80)
+    logger.info(f"[WEB_SEARCH] {task_name} | RequestID: {request_id}")
+    logger.info(f"[INPUT] Query: {request.query}")
+    logger.info(f"[START] Task: {task_name}")
 
     try:
         task_config = task_loader.get_task(task_name)
@@ -616,9 +667,27 @@ async def web_search(request: SearchRequest):
             output = await task_config.handler_function(request, requester)
         else:
             output = task_config.handler_function(request, requester)
+        elapsed = time.time() - start_time
+        logger.info(f"[DONE] Task: {task_name} completed in {elapsed:.2f}s")
+        logger.info(f"[OUTPUT] Response: {output}")
+        logger.info("=" * 80)
         return output
+    except asyncio.TimeoutError as e:
+        elapsed = time.time() - start_time
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"[TIMEOUT] Task: {task_name} after {elapsed:.2f}s")
+        logger.error(f"[ERROR] {e}\n{error_traceback}")
+        logger.info("=" * 80)
+        raise HTTPException(status_code=504, detail=f"Request timeout after {elapsed:.2f}s: {str(e)}")
     except Exception as e:
-        print(e)
+        elapsed = time.time() - start_time
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"[FAILED] Task: {task_name} in {elapsed:.2f}s")
+        logger.error(f"[ERROR] Exception: {e}")
+        logger.error(f"[TRACEBACK] {error_traceback}")
+        logger.info("=" * 80)
         raise HTTPException(status_code=500, detail=str(e))
 
 
