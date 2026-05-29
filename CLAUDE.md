@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 OpenBioMed is a Python deep learning toolkit for AI-empowered biomedicine. It provides flexible APIs for multi-modal biomedical data (molecules, proteins, pockets, cells, text) and includes 20+ tools for downstream applications including drug discovery, protein engineering, and multi-modal reasoning. It also provides 45 skills (in `skills/`) for end-to-end biomedical research tasks powered by Claude Code.
 
+## 每一次需要完成skill的改造工作 必须遵循 .claude/docs/skill-overwrite.md 要求
+
 ## Key Commands
 
 ### Environment Setup
@@ -53,10 +55,10 @@ python -m uvicorn open_biomed.scripts.run_server_workflow:app --host 0.0.0.0 --p
 
 ### Integration Testing
 ```bash
-# Requires server running (default: http://127.0.0.1:8090)
-python test/api_test.py --url http://127.0.0.1:8090
+# Requires server running (default: http://127.0.0.1:8095)
+python test/api_test.py --url http://127.0.0.1:8095
 # Filter specific tests
-python test/api_test.py --url http://127.0.0.1:8090 --test molecule
+python test/api_test.py --url http://127.0.0.1:8095 --test molecule
 ```
 
 ### Evaluation (using trained models)
@@ -236,4 +238,58 @@ Model checkpoints stored in `./checkpoints/`. Download links:
 ### Package Note
 `setup.py` registers package as `openbiomed` (no underscore) but source directory is `open_biomed` (with underscore). `find_packages` handles the mapping — imports use `open_biomed`.
 
-### 没有明确指令不要擅自git提交代码
+## Skill Refactoring Guidelines
+
+### 每一次需要完成skill的改造工作 必须遵循 .claude/docs/skill-overwrite.md 要求
+
+### Background
+Recent commits have been refactoring skills to use the `run_pipeline` and `web_search` APIs.
+
+**已重构 Skills (20个)**:
+- `target-based-lead-design`, `drug-candidate-discovery`, `pubchem-query`, `admet-prediction`
+- `text-based-molecule-editing`, `disease-drug-intelligence`, `kegg-query`, `chembl-query`
+- `molecule-biochemical-significance-query-biot5`, `biomedical-literature-search`
+- `target-drug-report`, `iupac-name-identification-biot5`, `drug-lead-analysis`
+- `uniprot-query`, `ppi-string-query`, `drug-drug-interaction-analysis`
+- `retrosynthesis-planning`, `biomed-skill-creator`, `biomed-skill-router`
+- `similar-protein-retrieval`, `binding-affinity-prediction-prodigy`
+
+**待重构 Skills (25个)**:
+1. `antibody-design-iggm`
+2. `antibody-structure-prediction-tfold`
+3. `cellxgene-census-query`
+4. `functional-protein-design`
+5. `mutation-design-aav`
+6. `mutation-design-gfp`
+7. `protein-function-prediction`
+8. `protein-ligand-binding-analysis-plip`
+9. `protein-mutation-analysis`
+10. `protein-structure-design-boltzgen`
+11. `protein-subcellular-localization-prediction-biot5`
+12. `single-cell-atac-seq-peak-calling-annotaion`
+13. `single-cell-atac-seq-qc-processing`
+14. `single-cell-foundation-model-scrna-seq-geneformer`
+15. `single-cell-foundation-model-scrna-seq-langcell`
+16. `single-cell-foundation-model-scrna-seq-scgpt`
+17. `single-cell-multi-omics-analysis-scvi`
+18. `single-cell-multi-omics-data-harmonization`
+19. `single-cell-proteomics-data-processing`
+20. `single-cell-proteomics-peptide-identification`
+21. `single-cell-scrna-seq-analysis-scanpy`
+22. `spatial-transcriptomics-foundation-model-stofm`
+23. `spatial-transcriptomics-spatial-data-io`
+24. `structure-prediction-boltz-2`
+
+### Refactoring Rules
+
+1. **Use run_pipeline API**: Skills should call the `/run_pipeline/` endpoint to execute tasks. Use existing tasks and tools whenever possible.
+
+2. **Reuse Before Adding**: Only create new tasks or tools when existing ones cannot meet the skill's requirements. Check `TASK_REGISTRY` and `TOOLS` before implementing new code.
+
+3. **Testing Environment**: Services run in Docker containers. See `scripts/run_docker.sh` for container configuration.
+
+4. **Unit Tests Required**: When adding new tasks, tools, or Python code, add comprehensive unit tests in `test/` directory.
+
+5. **Validation**: After refactoring a skill, simulate user usage to test the skill. The refactored skill must produce results consistent with the original implementation before the refactoring is considered complete.
+
+6. **没有明确指令禁止擅自git提交代码**: 只有功能完全验证通过后才提交代码。
