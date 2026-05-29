@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Edit(**)",
+      "Write(**)",
+      "Bash(scripts/*.sh)",
+      "Bash(ls *)",
+      "Bash(find *)",
+      "Bash(git *)",
+      "Bash(python open_biomed/scripts/*.py)",
+      "Bash(python test/*.py)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(mkdir *)",
+      "Bash(rm -rf ./tmp/*)",
+      "Bash(curl *)"
+    ],
+    "deny": []
+  }
+}

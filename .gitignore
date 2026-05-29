@@ -150,8 +150,8 @@ cython_debug/
 !/datasets/**/.placeholder
 !/third_party/.placeholder
 /outputs/*
-# Claude Code directory
-.claude/
+
+.claude/skills
 /boltzgen_configs/
 /mutation_analysis/
 /pdb_analysis/
