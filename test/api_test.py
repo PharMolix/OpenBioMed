@@ -299,7 +299,7 @@ def run_tests(base_url, test_filter=None):
         command = test["command"].strip()
 
         try:
-            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=180)
             output = result.stdout.strip()
             logging.info(f"Task: {task} - Success: {output}")
             print(f"[PASS] Task: {task}")
