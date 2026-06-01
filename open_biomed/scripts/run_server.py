@@ -718,7 +718,12 @@ def handle_molecule_property_calculation(request: TaskRequest, pipeline):
     molecule = IO_Reader.get_molecule(request.molecule)
     property = request.property
     outputs = pipeline.run(molecule=molecule, property=property)
-    score = outputs[0][0]
+    if isinstance(outputs, (int, float)):
+        score = outputs
+    elif isinstance(outputs, tuple):
+        score = outputs[0][0]
+    else:
+        score = outputs
     return {"task": request.task, "model":request.model, "score": round(score, 5)}
 
 def handle_drug_lead_analysis(request: TaskRequest, pipeline):
