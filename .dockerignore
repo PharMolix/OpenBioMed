@@ -1,2 +1,15 @@
 checkpoints/
 tmp/
+*.tar
+*.log
+docs/
+OPENBIOMED_API_MODELS*.md
+OPENBIOMED_SERVICE_REFACTOR_PLAN.md
+CLAUDE.md
+memory/
+.git/
+__pycache__/
+*.pyc
+start_server.sh
+start_workflow.sh
+test/test.md

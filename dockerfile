@@ -46,31 +46,55 @@ RUN /opt/conda/bin/conda install -n OpenBioMed \
     && /opt/conda/bin/conda clean -afy
 
 # ------------------------------
-# Install PyG (torch_scatter, etc.) using environment pip
+# Install PyG (CUDA versions) - pin exact versions with cu117 support
 # ------------------------------
 RUN /opt/conda/envs/OpenBioMed/bin/pip install --no-build-isolation \
-    pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+    pyg_lib==0.4.0+pt113cu117 \
+    torch_scatter==2.0.9 \
+    torch_sparse==0.6.16+pt113cu117 \
+    torch_cluster==1.6.0+pt113cu117 \
+    torch_spline_conv==1.2.2+pt113cu117 \
+    -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
 
 # ------------------------------
 # Install other Python packages
 # ------------------------------
-COPY requirements.txt . 
+COPY requirements.txt .
 RUN /opt/conda/envs/OpenBioMed/bin/pip install \
     pytorch_lightning==2.0.8 peft==0.9.0 accelerate==1.3.0 --no-deps -i https://mirrors.aliyun.com/pypi/simple \
     && /opt/conda/envs/OpenBioMed/bin/pip install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple
 
 # ------------------------------
-# Visualization & NLTK
+# Reinstall PyG CUDA versions (requirements.txt may override them)
+# ------------------------------
+RUN /opt/conda/envs/OpenBioMed/bin/pip install --no-build-isolation --force-reinstall --no-deps \
+    pyg_lib==0.4.0+pt113cu117 \
+    torch_scatter==2.0.9 \
+    torch_sparse==0.6.16+pt113cu117 \
+    torch_cluster==1.6.0+pt113cu117 \
+    torch_spline_conv==1.2.2+pt113cu117 \
+    -f https://data.pyg.org/whl/torch-1.13.1+cu117.html
+
+# ------------------------------
+# Install openbabel via conda (before pymol to avoid conflicts)
+# ------------------------------
+RUN /opt/conda/bin/conda install -n OpenBioMed -c conda-forge openbabel -y \
+    && /opt/conda/bin/conda clean -afy
+
+# ------------------------------
+# Visualization, NLTK, Alibaba Cloud SDK
 # ------------------------------
 RUN /opt/conda/bin/conda install -n OpenBioMed -c conda-forge pymol-open-source -y \
-    && /opt/conda/envs/OpenBioMed/bin/pip install imageio rouge_score nltk alibabacloud_iqs20241111 alibabacloud_tea_openapi -i https://mirrors.aliyun.com/pypi/simple \
+    && /opt/conda/envs/OpenBioMed/bin/pip install imageio rouge_score nltk \
+    alibabacloud_iqs20241111 alibabacloud_tea_openapi -i https://mirrors.aliyun.com/pypi/simple \
     && /opt/conda/envs/OpenBioMed/bin/python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4')"
 
 # ------------------------------
-# AutoDock Vina tools
+# AutoDock Vina tools + patch np.int for numpy 1.24+
 # ------------------------------
 RUN /opt/conda/envs/OpenBioMed/bin/pip install meeko==0.1.dev3 pdb2pqr vina==1.2.2 \
-    && /opt/conda/envs/OpenBioMed/bin/pip install git+https://github.com/Valdes-Tresanco-MS/AutoDockTools_py3
+    && /opt/conda/envs/OpenBioMed/bin/pip install git+https://github.com/Valdes-Tresanco-MS/AutoDockTools_py3 \
+    && sed -i 's/astype(np\.int)/astype(int)/' /opt/conda/envs/OpenBioMed/lib/python3.9/site-packages/vina/vina.py
 
 # ------------------------------
 # Set working directory
