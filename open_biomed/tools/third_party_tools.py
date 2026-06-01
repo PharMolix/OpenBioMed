@@ -72,27 +72,28 @@ class ProteinBindingSitePrediction(Tool):
                         try:
                             parts = i.split("_")
                             if len(parts) >= 2:
-                                parsed_residues.append(int(parts[1]))
+                                # Keep (chain, res_id) pair for multi-chain proteins
+                                parsed_residues.append((parts[0], int(parts[1])))
                         except (ValueError, IndexError):
                             pass
                     if parsed_residues:
                         pocket_residues.append(parsed_residues)
 
-            
+
             protein = Protein.from_pdb_file(pdb_file)
-            # 创建PDB编号到residue索引的映射
-            res_id_to_idx = {res.res_id: i for i, res in enumerate(protein.residues)}
+            # 创建PDB编号到residue索引的映射，包含chain信息
+            res_id_to_idx = {(res.chain, res.res_id): i for i, res in enumerate(protein.residues)}
 
             # 将PDB原始编号转换为protein.residues的索引
             pocket_indices = []
             for pdb_ids in pocket_residues:
                 indices = []
-                for pdb_id in pdb_ids:
-                    idx = res_id_to_idx.get(pdb_id)
+                for chain, res_id in pdb_ids:
+                    idx = res_id_to_idx.get((chain, res_id))
                     if idx is not None:
                         indices.append(idx)
                     else:
-                        logging.warning(f"Residue {pdb_id} not found in protein")
+                        logging.warning(f"Residue {chain}_{res_id} not found in protein")
                 if indices:
                     pocket_indices.append(indices)
 

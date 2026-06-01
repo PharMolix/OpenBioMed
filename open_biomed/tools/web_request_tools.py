@@ -123,6 +123,9 @@ class DBRequester(Requester):
                     if response.status == 200:
                         content = await response.read()
                         content = content.decode("utf-8")
+                        if content.strip().startswith("<"):
+                            logging.warning(f"[DBRequester] Received HTML error page instead of expected data from {url}")
+                            raise Exception(f"Database returned an HTML error page (likely rate-limited or blocked)")
                         elapsed = time.time() - start_time
                         logging.info(f"[DBRequester] Downloaded results successfully in {elapsed:.2f}s")
                     else:
@@ -187,9 +190,15 @@ class PubChemRequester(DBRequester):
             db_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{accession}/SDF"
         except ValueError:
             db_url = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{accession}/SDF"
-        return db_url.format(accession=accession)
+        url = db_url.format(accession=accession)
+        api_key = os.environ.get("PUBCHEM_API_KEY")
+        if api_key:
+            url += f"?api_key={api_key}"
+        return url
 
     def _parse_and_save_outputs(self, accession: str="", content: str="", **kwargs) -> Tuple[List[Molecule], List[str]]:
+        if content.strip().startswith("<") or content.strip().startswith("{"):
+            raise ValueError(f"PubChem returned non-SDF response for '{accession}'. Content may be an error page or JSON.")
         sdf_file = f"./tmp/pubchem_{accession}.sdf"
         with open(sdf_file, "w") as f:
             f.write(content)
@@ -221,17 +230,28 @@ class PubChemStructureRequester(Requester):
         try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
                 url = self.db_url.format(accession=molecule.smiles, threshold=int(threshold * 100), max_records=max_records)
+                api_key = os.environ.get("PUBCHEM_API_KEY")
+                if api_key:
+                    url += f"&api_key={api_key}"
                 async with session.get(url.replace("#", "%23")) as response:
                     if response.status == 200:
-                        content = await response.read()
-                        content = json.loads(content.decode("utf-8"))
+                        raw = await response.read()
+                        text = raw.decode("utf-8").strip()
+                        if not text:
+                            logging.warning("PubChem returned empty response for similarity search")
+                            return [molecule], [molecule.save_binary()]
+                        try:
+                            content = json.loads(text)
+                        except json.JSONDecodeError:
+                            logging.warning(f"PubChem returned non-JSON response: {text[:200]}")
+                            return [molecule], [molecule.save_binary()]
                         logging.info("Downloaded results successfully")
                     elif response.status == 404:
                         logging.info("No similar structures found!")
                         return [molecule], [molecule.save_binary()]
                     else:
                         logging.warning(f"HTTP request failed, status {response.status}")
-                        raise Exception()
+                        raise Exception(f"HTTP {response.status}")
         except Exception as e:
             content = None
             logging.error(f"Download failed. Exception: {e}")

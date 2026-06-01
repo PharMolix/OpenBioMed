@@ -34,7 +34,7 @@ class Oss_Warpper:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # 拼接文件名
-        file_name = f"{file_name_without_extension}_{timestamp}.{file_extension}"
+        file_name = f"{file_name_without_extension}_{timestamp}{file_extension}"
         return file_name
     
 
