@@ -7,6 +7,7 @@ import copy
 import asyncio
 import logging
 import subprocess
+import sys
 import time
 import uuid
 from typing import Optional, List, Dict, Callable, Any, Literal
@@ -116,6 +117,7 @@ class TaskRequest(BaseModel):
     molecule_1: Optional[str] = None
     molecule_2: Optional[str] = None
     similarity: Optional[float] = None
+    color: Optional[Literal["grey", "spectrum"]] = None
     value: Optional[str] = None
     # ChEMBL query extension
     query_type: Optional[str] = None
@@ -251,6 +253,8 @@ def handle_structure_based_drug_design(request: TaskRequest, pipeline):
     required_inputs = ["pocket"]
     pocket = Pocket.from_binary_file(request.pocket)
     outputs = pipeline.run(pocket=pocket)
+    if outputs[0][0] is None:
+        raise HTTPException(status_code=500, detail="Model failed to generate a valid molecule. This may be due to missing dependencies (e.g., OpenBabel) or invalid pocket input.")
     smiles = outputs[0][0].smiles
     path = outputs[1][0]
     return {"task": request.task, "model": request.model, "molecule": path, "molecule_preview": smiles}
@@ -378,19 +382,13 @@ async def handle_protein_uniprot_request(request: SearchRequest, requester):
     return {"task": request.task, "protein": outputs, "protein_preview": protein_preview}
 
 
-async def handle_protein_pdb_request(request: TaskRequest, requester):
-    mode = request.mode or "file_only"  # Default to file_only for drug discovery workflows
-    outputs = await requester.run_async(request.query, mode=mode)
-    if mode == "file_only":
-        # outputs[0] is the file path list, outputs[1] is the content list
-        pdb_file = outputs[0][0]
-        protein = IO_Reader.get_protein(pdb_file)
-        protein_preview = str(protein)
-        return {"task": request.task, "protein": pdb_file, "protein_preview": protein_preview}
-    else:
-        # metadata mode returns JSON content
-        outputs = outputs[1][0]
-        return {"task": request.task, "protein": outputs}
+async def handle_protein_pdb_request(request: SearchRequest, requester):
+    outputs = await requester.run_async(request.query, mode="file_only")
+    pdb_path = outputs[0][0]
+    protein = IO_Reader.get_protein(pdb_path)
+    protein_file = protein.save_binary()
+    protein_preview = str(protein)
+    return {"task": request.task, "protein": protein_file, "protein_preview": protein_preview}
 
 
 def handle_mutation_explanation(request: TaskRequest, pipeline):
@@ -431,7 +429,11 @@ def handle_protein_molecule_docking_score(request: TaskRequest, pipeline):
     molecule = IO_Reader.get_molecule(request.molecule)
     outputs = pipeline.run(protein=protein, molecule=molecule)
     output = outputs[0][0]
-    return {"task": request.task, "model":request.model, "score": str(output)}
+    if isinstance(output, tuple):
+        score = output[0]
+    else:
+        score = output
+    return {"task": request.task, "model":request.model, "score": str(score)}
 
 
 def handle_visualize_protein(request: TaskRequest, pipeline):
@@ -443,6 +445,8 @@ def handle_visualize_protein(request: TaskRequest, pipeline):
                     "--protein_config", request.visualize,
                     "--save_output_filename", "./tmp/protein_visualization_file.txt",
                     "--protein", request.protein]
+    if request.color:
+        vis_process.extend(["--color", request.color])
     subprocess.Popen(vis_process).communicate()
     outputs = open("./tmp/protein_visualization_file.txt", "r").read()
     oss_file_path = oss_warpper.generate_file_name(outputs)
@@ -705,7 +709,8 @@ def handle_molecule_similarity(request: TaskRequest, pipeline):
     molecule_1 = IO_Reader.get_molecule(request.molecule_1)
     molecule_2 = IO_Reader.get_molecule(request.molecule_2)
     outputs = pipeline.run(molecule_1=molecule_1, molecule_2=molecule_2)
-    return {"task": request.task, "model":request.model, "similarity": outputs}
+    similarity = outputs[0][0]
+    return {"task": request.task, "model":request.model, "similarity": similarity}
 
 # 26
 def handle_molecule_property_calculation(request: TaskRequest, pipeline):
@@ -713,7 +718,8 @@ def handle_molecule_property_calculation(request: TaskRequest, pipeline):
     molecule = IO_Reader.get_molecule(request.molecule)
     property = request.property
     outputs = pipeline.run(molecule=molecule, property=property)
-    return {"task": request.task, "model":request.model, "score": round(outputs, 5)}
+    score = outputs[0][0]
+    return {"task": request.task, "model":request.model, "score": round(score, 5)}
 
 def handle_drug_lead_analysis(request: TaskRequest, pipeline):
     required_inputs = ["molecule"]

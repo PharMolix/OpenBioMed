@@ -60,9 +60,13 @@ def visualize_complex_3D(
             for elem in config.protein.__dict__.keys():
                 if elem not in ["color", "show", "cnc"]:
                     cmd.set(elem, config.protein.__dict__[elem], "protein")
-            cmd.color(getattr(config.protein, "color", "grey"), "protein")
-            if getattr(config.protein, "cnc", False):
-                cmd.util.cnc("protein")
+            protein_color = getattr(config.protein, "color", "grey")
+            if protein_color == "spectrum":
+                cmd.spectrum("count", selection="protein")
+            else:
+                cmd.color(protein_color, "protein")
+                if getattr(config.protein, "cnc", False):
+                    cmd.util.cnc("protein")
             #cmd.orient("protein")
 
         cmd.zoom("all")
@@ -379,6 +383,7 @@ if __name__ == "__main__":
     parser.add_argument("--rotate", action="store_true")
     parser.add_argument("--output_file", type=str, default=None)
     parser.add_argument("--save_output_filename", type=str, default=None)
+    parser.add_argument("--color", type=str, default=None, choices=["grey", "spectrum"])
     
     args = parser.parse_args()
     if args.task == "visualize_molecule":
@@ -388,9 +393,20 @@ if __name__ == "__main__":
             img_file=args.output_file,
         )[0]
     elif args.task == "visualize_protein":
-        img_file = ProteinVisualizer().run(
+        protein_vis = ProteinVisualizer()
+        config = args.protein_config
+        if args.color and config:
+            # Load config first, then override color
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            cfg_path = os.path.join(project_root, "configs", "visualization", "protein", f"{config}.yaml")
+            config = merge_config(
+                Config(cfg_path),
+                Config(os.path.join(project_root, "configs", "visualization", "global_config.yaml"))
+            )
+            config.protein.color = args.color
+        img_file = protein_vis.run(
             create_tool_input("protein", args.protein),
-            config=args.protein_config,
+            config=config,
             img_file=args.output_file,
             rotate=args.rotate
         )[0]
