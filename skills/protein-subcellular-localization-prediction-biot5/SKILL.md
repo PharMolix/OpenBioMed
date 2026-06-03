@@ -1,7 +1,9 @@
 ---
 name: protein-subcellular-localization-prediction-biot5
 description: >
-  Predict protein subcellular localization from amino acid sequence using BioT5.
+  Call interface for protein subcellular localization prediction via the /run_pipeline/ endpoint of any OpenBioMed-compatible HTTP service.
+  Endpoint is configurable so this skill works against the OpenBioMed cloud service, a user-hosted instance, or a local dev server,
+  independent of the underlying server implementation.
   Use this skill when:
   (1) You have a protein sequence and want to know where it localizes in the cell,
   (2) You need to identify cellular compartment (nucleus, cytoplasm, membrane, etc.),
@@ -11,9 +13,29 @@ category: protein-engineering
 tags: [protein, subcellular-localization, localization, sequence-analysis, biot5]
 ---
 
-# Protein Subcellular Localization Prediction
+# Protein Subcellular Localization Prediction Call Interface
 
-Predict subcellular localization for proteins from their amino acid sequences using the BioT5 model.
+Predict subcellular localization for proteins from their amino acid sequences via /run_pipeline/ interface using the BioT5 model.
+
+## Endpoint Configuration (read this first)
+
+Defaults declared in this skill (edit these inline when the real values are known):
+
+- `OPENBIOMED_CLOUD_URL = http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`
+  Placeholder for the OpenBioMed cloud service base URL. Replace with the real published URL when available.
+
+This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
+
+1. If the user explicitly provides an endpoint in the current conversation, use it.
+2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set in the runtime environment.
+3. Otherwise, ask the user once which endpoint to use, and offer these options:
+   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value declared above.
+   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520` or `https://openbiomed.internal.example.com`.
+4. Remember the chosen base URL for the rest of the session and reuse it for subsequent calls without re-asking.
+
+Privacy note: if the protein sequence is proprietary or unpublished, recommend a self-hosted endpoint rather than the public cloud service, and let the user confirm before sending.
+
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is therefore `${OPENBIOMED_API_BASE_URL}/run_pipeline/`.
 
 ## When to Use
 
@@ -22,92 +44,186 @@ Predict subcellular localization for proteins from their amino acid sequences us
 - You need quick localization insights without experimental data
 - You're characterizing novel or unannotated protein sequences
 
-## Workflow
+## API Parameters
 
-```python
-from open_biomed.data import Protein, Text
-from open_biomed.core.pipeline import InferencePipeline
+**Required parameters:**
+- `task`: "protein_question_answering"
+- `model`: "biot5" (recommended)
+- `protein`: Protein sequence in FASTA format
+- `text`: Question about subcellular localization
 
-# Create protein from FASTA sequence
-protein = Protein.from_fasta("YOUR_AMINO_ACID_SEQUENCE")
-
-# Create the question for subcellular localization
-question = Text.from_str(
-    "Please provide information about the subcellular localization of this protein."
-)
-
-# Load the BioT5 model for protein question answering
-pipeline = InferencePipeline(
-    task="protein_question_answering",
-    model="biot5",
-    model_ckpt="./checkpoints/server/protein_question_answering_biot5.ckpt",
-    device="cuda:0"
-)
-
-# Run inference to get localization prediction
-outputs = pipeline.run(protein=protein, text=question)
-localization = outputs[0][0].str
-print(localization)
+```json
+{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "What is the subcellular localization of this protein?"
+}
 ```
 
-See `examples/basic_example.py` for a complete runnable script.
+## API Call Examples
 
-## Expected Outputs
+### 1. Basic Subcellular Localization Prediction
 
-The model returns subcellular localization information:
-
-| Output | Description |
-|--------|-------------|
-| **Cytoplasm** | Cytoplasmic proteins, soluble enzymes |
-| **Nucleus** | Nuclear proteins, transcription factors |
-| **Membrane** | Membrane-bound proteins, receptors |
-| **Secreted** | Extracellular proteins, secreted factors |
-| **Mitochondria** | Mitochondrial proteins |
-| **Peroxisome** | Peroxisomal enzymes |
-| **Endoplasmic reticulum** | ER-resident proteins |
-| **Golgi apparatus** | Golgi-localized proteins |
-
-### Example Output
-
-> Cytoplasm
-
-## Input Formats
-
-The skill accepts protein sequences in FASTA format (amino acid string):
-
-```python
-# From raw sequence string
-protein = Protein.from_fasta("MRVGVIRFPGSNCDRDVHHVLELAGAEPEYVWW...")
-
-# From UniProt (get sequence first)
-from open_biomed.tools.tool_registry import TOOLS
-tool = TOOLS["protein_uniprot_request"]
-protein, _ = tool.run(accession="P00533")  # Example: EGFR
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "What is the subcellular localization of this protein?"
+}'
 ```
 
-## Error Handling
+### 2. Detailed Localization Analysis
 
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `FileNotFoundError` | Model checkpoint not found | Download checkpoint to `./checkpoints/server/` |
-| `CUDA out of memory` | GPU memory insufficient | Use smaller batch or CPU device |
-| `Sequence too long` | Exceeds 512 amino acid limit | Truncate sequence or use sliding window |
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "Describe the subcellular localization and any membrane association or signal peptides."
+}'
+```
 
-## Model Details
+### 3. Secreted Protein Detection
 
-- **Model**: BioT5 (protein-text foundation model)
-- **Max sequence length**: 512 amino acids
-- **Inference time**: ~2-3 seconds per sequence on GPU
-- **Capabilities**: Subcellular localization prediction
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "Is this protein secreted? Does it have a signal peptide?"
+}'
+```
+
+### 4. Nuclear Protein Identification
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "Is this protein localized to the nucleus? Does it contain nuclear localization signals?"
+}'
+```
+
+### 5. Membrane Protein Analysis
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "Is this a membrane protein? Describe its membrane topology and any transmembrane domains."
+}'
+```
+
+### 6. Mitochondrial Localization
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "Is this protein localized to mitochondria? Does it have mitochondrial targeting signals?"
+}'
+```
+
+## 常见使用场景
+
+### 1. 基础亚细胞定位预测
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "这种蛋白质的亚细胞定位是什么？"
+}'
+```
+
+### 2. 信号肽与分泌蛋白检测
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "这种蛋白质是分泌蛋白吗？是否有信号肽？"
+}'
+```
+
+### 3. 膜蛋白分析
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "这是一种膜蛋白吗？描述它的膜拓扑结构。"
+}'
+```
+
+### 4. 线粒体定位
+
+```bash
+curl -X 'POST' \
+  '${OPENBIOMED_API_BASE_URL}/run_pipeline/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "task": "protein_question_answering",
+  "model": "biot5",
+  "protein": "YOUR_AMINO_ACID_SEQUENCE",
+  "text": "这种蛋白质是否定位在线粒体？是否有线粒体靶向信号？"
+}'
+```
 
 ## Limitations
 
 - Sequences longer than 512 residues are truncated
-- Model trained on known proteins; novel sequences may have lower accuracy
-- Single localization prediction (does not handle multi-localized proteins well)
+- Predictions are based on sequence patterns; experimental validation recommended
+- Novel protein families may have lower prediction accuracy
 
 ## Related Skills
 
-- `protein-function-annotation`: For function prediction
-- `protein-mutation-analysis`: For mutation effect prediction
+- `protein-function-prediction`: For comprehensive function prediction
+- `protein-structure-design-boltzgen`: For 3D structure prediction
+- `protein-mutation-analysis`: For mutation effect analysis
 - `uniprot-query`: For retrieving protein metadata from UniProt

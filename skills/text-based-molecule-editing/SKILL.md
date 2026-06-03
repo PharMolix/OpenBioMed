@@ -120,9 +120,34 @@ Response:
 }
 ```
 
-Extract `molecule_preview` — this is the SMILES of the edited molecule.
+**Note**: The `molecule` field contains a file path on the server. External agents cannot access this path directly. Use Step 4 below to get the molecule content.
 
-### Step 4: Compare Properties
+### Step 4: Read Molecule File Content (Recommended for External Agents)
+
+After receiving the molecule file path, call `read_molecule_file` to get the actual molecule content:
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "read_molecule_file", "molecule": "<molecule_file_path>", "value": "true"}'
+```
+
+Response:
+```json
+{
+  "task": "read_molecule_file",
+  "smiles": "<edited SMILES string>",
+  "name": "<molecule name>",
+  "sdf_content": "<SDF file content for 3D structure>",
+  "description": "Molecule content read from <file_path>: SMILES=<smiles>"
+}
+```
+
+**Parameters**:
+- `molecule`: The molecule file path from Step 3 response
+- `value`: "true" to include SDF content (3D structure), "false" for SMILES only
+
+### Step 5: Compare Properties
 
 Re-calculate properties for the edited molecule using the same method from Step 2 and compare with baseline values.
 
@@ -148,8 +173,10 @@ Summarize the before/after comparison.
 |------|-------------|---------------|--------|
 | 1 (optional) | `/web_search/` | `molecule_preview` | Original SMILES |
 | 2 (optional) | `/run_pipeline/` | `score` | Baseline property values |
-| 3 | `/run_pipeline/` | `molecule_preview` | Edited SMILES |
-| 4 (optional) | `/run_pipeline/` | `score` | New property values for comparison |
+| 3 | `/run_pipeline/` | `molecule` | Edited molecule file path |
+| 3 | `/run_pipeline/` | `molecule_preview` | Edited SMILES (preview) |
+| 4 | `/run_pipeline/` | `smiles`, `sdf_content` | Full molecule content accessible to external agents |
+| 5 (optional) | `/run_pipeline/` | `score` | New property values for comparison |
 
 ## Interpretation Guide
 
@@ -211,7 +238,19 @@ Expected response:
 {"task": "text_based_molecule_editing", "model": "biot5", "molecule": "./tmp/...", "molecule_preview": "CC(=O)Oc1ccc(C(=O)O)cc1C(=O)O"}
 ```
 
-**Step 4**: Calculate BBBP for edited molecule
+**Step 4**: Read molecule file content (for external agents)
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "read_molecule_file", "molecule": "./tmp/..."}'
+```
+
+Expected response:
+```json
+{"task": "read_molecule_file", "smiles": "CC(=O)Oc1ccc(C(=O)O)cc1C(=O)O", "sdf_content": "..."}
+```
+
+**Step 5**: Calculate BBBP for edited molecule
 ```bash
 curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
   -H "Content-Type: application/json" \

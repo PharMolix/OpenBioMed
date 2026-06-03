@@ -703,6 +703,74 @@ def handle_mutation_design_aav(request: TaskRequest, pipeline):
     }
 
 
+def handle_read_molecule_file(request: TaskRequest, pipeline):
+    """
+    Read molecule content from a file path.
+
+    Inputs:
+        - molecule_file: Path to molecule file (.pkl or .sdf)
+        - include_sdf: (optional) Whether to include SDF content, default True
+
+    Outputs:
+        - smiles: SMILES string of the molecule
+        - sdf_content: SDF file content (if include_sdf=True)
+        - description: Description message
+    """
+    molecule_file = request.molecule
+    include_sdf = request.value if request.value is not None else "true"
+    include_sdf = include_sdf.lower() == "true"
+
+    if not molecule_file:
+        raise ValueError("molecule_file (molecule parameter) is required")
+
+    outputs, messages = pipeline.run(
+        molecule_file=molecule_file,
+        include_sdf=include_sdf
+    )
+
+    return {
+        "task": request.task,
+        "smiles": outputs["smiles"],
+        "name": outputs["name"],
+        "sdf_content": outputs.get("sdf_content", ""),
+        "description": messages
+    }
+
+
+def handle_read_protein_file(request: TaskRequest, pipeline):
+    """
+    Read protein content from a file path.
+
+    Inputs:
+        - protein_file: Path to protein file (.pkl or .pdb)
+        - include_pdb: (optional) Whether to include PDB content, default True
+
+    Outputs:
+        - sequence: FASTA sequence of the protein
+        - pdb_content: PDB file content (if include_pdb=True)
+        - description: Description message
+    """
+    protein_file = request.protein
+    include_pdb = request.value if request.value is not None else "true"
+    include_pdb = include_pdb.lower() == "true"
+
+    if not protein_file:
+        raise ValueError("protein_file (protein parameter) is required")
+
+    outputs, messages = pipeline.run(
+        protein_file=protein_file,
+        include_pdb=include_pdb
+    )
+
+    return {
+        "task": request.task,
+        "sequence": outputs["sequence"],
+        "name": outputs["name"],
+        "pdb_content": outputs.get("pdb_content", ""),
+        "description": messages
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1197,6 +1265,20 @@ TASK_CONFIGS = [
         "required_inputs": [],
         "pipeline_key": "mutation_design_aav",
         "handler_function": handle_mutation_design_aav,
+        "is_async": False
+    },
+    {
+        "task_name": "read_molecule_file",
+        "required_inputs": ["molecule"],
+        "pipeline_key": "read_molecule_file",
+        "handler_function": handle_read_molecule_file,
+        "is_async": False
+    },
+    {
+        "task_name": "read_protein_file",
+        "required_inputs": ["protein"],
+        "pipeline_key": "read_protein_file",
+        "handler_function": handle_read_protein_file,
         "is_async": False
     }
 
