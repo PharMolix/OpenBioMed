@@ -59,7 +59,7 @@ Use web search and database query tools to find target information:
 | 1.2 | `literature_search` | PubMed search for target research papers |
 | 1.3 | `chembl_query` | Query ChEMBL for known drugs/inhibitors |
 
-### Phase 2: Structure Retrieval & Validation
+### Phase 2: Structure Retrieval & Preparation
 
 Retrieve and process protein structures:
 
@@ -68,6 +68,7 @@ Retrieve and process protein structures:
 | 2.1 | `protein_uniprot_request` | Get protein metadata from UniProt |
 | 2.2 | `protein_pdb_request` | Download PDB structure with bound ligand |
 | 2.3 | `extract_molecules_from_pdb_file` | Extract protein chains and ligand molecules |
+| 2.4 | `create_pocket_from_ligand` | Create binding pocket from reference ligand |
 
 ### Phase 3: Molecule Generation & Optimization
 
@@ -168,6 +169,26 @@ Response:
   "metadata": "Total 1 protein chains, 1 molecules and 0 ions extracted..."
 }
 ```
+
+#### create_pocket_from_ligand
+Creates a binding pocket from protein and reference ligand coordinates. **This step is REQUIRED before calling `structure_based_drug_design`.**
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d '{"task": "create_pocket_from_ligand", "protein": "./tmp/{pdb_id}_A.pkl", "molecule": "./tmp/{ligand_name}.pkl", "similarity": 10.0}'
+```
+
+Response:
+```json
+{
+  "task": "create_pocket_from_ligand",
+  "pocket": "./tmp/pocket.pkl",
+  "pocket_preview": "Pocket(...)"
+}
+```
+
+**Note**: The `similarity` field is used as the radius parameter (default 10.0 Angstroms). The pocket parameter for `structure_based_drug_design` must be a Pocket object created by this API, not a Protein object.
 
 ### Phase 3 APIs
 
@@ -317,15 +338,23 @@ EXTRACT_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
   -H "Content-Type: application/json" \
   -d "{\"task\": \"extract_molecules_from_pdb_file\", \"protein\": \"./tmp/pdb_${PDB_ID}.pdb\"}")
 
-# Phase 3: Molecule Generation (requires pocket)
+# Extract protein and ligand file paths
+PROTEIN_FILE=$(echo "$EXTRACT_RESULT" | jq -r '.results[] | select(.type=="protein") | .file')
+LIGAND_FILE=$(echo "$EXTRACT_RESULT" | jq -r '.results[] | select(.type=="molecule") | .file')
+
+# Create pocket from ligand (REQUIRED for molecule generation)
+POCKET_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+  -H "Content-Type: application/json" \
+  -d "{\"task\": \"create_pocket_from_ligand\", \"protein\": \"${PROTEIN_FILE}\", \"molecule\": \"${LIGAND_FILE}\", \"similarity\": 10.0}")
+
+POCKET_FILE=$(echo "$POCKET_RESULT" | jq -r '.pocket')
+
+# Phase 3: Molecule Generation
 echo "[Phase 3] Generating candidate molecules..."
 
-# Note: structure_based_drug_design requires a pocket file
-# The pocket must be created from protein and reference ligand coordinates
-# If pocket file is available:
 GENERATED_MOL=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
   -H "Content-Type: application/json" \
-  -d "{\"task\": \"structure_based_drug_design\", \"model\": \"molcraft\", \"pocket\": \"./tmp/pocket.pkl\"}")
+  -d "{\"task\": \"structure_based_drug_design\", \"model\": \"molcraft\", \"pocket\": \"${POCKET_FILE}\"}")
 
 # Calculate properties
 QED_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
@@ -389,6 +418,7 @@ CHEMBL_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
 |--------|-------------|-------------------|
 | Protein structure | Downloaded PDB file | `protein` from `protein_pdb_request` |
 | Ligand molecule | Extracted ligand from PDB | `results[].file` from `extract_molecules_from_pdb_file` |
+| Binding pocket | Pocket centered on reference ligand | `pocket` from `create_pocket_from_ligand` |
 | Generated molecules | New candidate molecules | `molecule` from `structure_based_drug_design` |
 | Property scores | QED, LogP, SA | `score` from `molecule_property_calculation` |
 | Drug analysis report | Comprehensive lead analysis | `report` from `drug_lead_analysis` |
@@ -411,6 +441,27 @@ CHEMBL_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
 
 **Solution**: Try alternative PDB IDs from web search results. Use RCSB PDB search API directly.
 
+### Molecule Generation Failed
+
+**Symptom**: `structure_based_drug_design` returns error: `'Protein' object has no attribute 'atoms'`.
+
+**Cause**: The `pocket` parameter was passed a Protein file instead of a Pocket file.
+
+**Solution**: Call `create_pocket_from_ligand` first to create a proper pocket file:
+```bash
+# Step 1: Extract protein and ligand from PDB
+# Step 2: Create pocket from ligand
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -d '{"task": "create_pocket_from_ligand", "protein": "./tmp/protein_A.pkl", "molecule": "./tmp/ligand.pkl"}'
+# Step 3: Use the returned pocket file for molecule generation
+```
+
+### Pocket Creation Failed
+
+**Symptom**: `create_pocket_from_ligand` returns error.
+
+**Solution**: Ensure both protein and ligand files exist and are valid pickle files extracted from `extract_molecules_from_pdb_file`.
+
 ### No Ligands Extracted
 
 **Symptom**: `extract_molecules_from_pdb_file` returns no molecules.
@@ -427,7 +478,7 @@ CHEMBL_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
 
 ## Limitations
 
-- `structure_based_drug_design` requires valid pocket file (created from protein-ligand coordinates)
+- `structure_based_drug_design` requires a valid Pocket file created by `create_pocket_from_ligand` (not a Protein file)
 - MolCraft model checkpoint must be available at `./checkpoints/molcraft/`
 - KEGG/PubChem coverage limited to known molecules
 - API rate limits apply for external database queries
@@ -440,9 +491,10 @@ CHEMBL_RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
 1. Search for BACE1 UniProt ID (P56817) and PDB structures
 2. Download PDB structure with inhibitor (e.g., 4DJW)
 3. Extract protein and ligand molecules
-4. Generate new molecules for the binding pocket
-5. Calculate drug-likeness properties
-6. Analyze and export top candidates
+4. Create binding pocket from reference ligand
+5. Generate new molecules for the binding pocket
+6. Calculate drug-likeness properties
+7. Analyze and export top candidates
 
 **Input**: "Find potential KRAS G12C inhibitors"
 
