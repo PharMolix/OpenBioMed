@@ -14,7 +14,7 @@ tags: [protein-similarity, foldseek, homolog-search, structure-search]
 
 # Similar Protein Retrieval
 
-Retrieve proteins with similar structures, sequences, or from the same family using MSA (sequence) or FoldSeek (structure) via the OpenBioMed API.
+Retrieve proteins with similar structures, sequences, or from the same family using MSA (sequence) or FoldSeek (structure).
 
 ## When to Use
 
@@ -24,21 +24,33 @@ Retrieve proteins with similar structures, sequences, or from the same family us
 - User wants to search by sequence similarity
 - User provides UniProt ID, PDB ID, FASTA sequence, or PDB file as input
 
-## API Endpoint Resolution
+## API Endpoints
 
-The skill resolves the OpenBioMed API base URL in this order:
+### MSA Service (Sequence Similarity)
 
-1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
-2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
-3. **Local development default**: `http://127.0.0.1:8090`
+Remote MSA service for fast asynchronous sequence search.
 
-In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
+**Base URL**: `${MSA_API_BASE_URL}` (default: `http://43.142.171.112:11280`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/msa/search/submit` | POST | Submit MSA job (returns job_id immediately) |
+| `/msa/search/status/{job_id}` | GET | Poll job status |
+| `/msa/search/result/{job_id}` | GET | Fetch results when completed |
+
+### OpenBioMed API (Structure Similarity)
+
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520` → local `http://127.0.0.1:8090`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Run FoldSeek structure search |
 
 ## Workflow
 
 ### Step 1: Parse Input and Load Protein
 
-Detect input type and prepare protein input for API call.
+Detect input type and prepare protein input.
 
 | Input Type | Example | How to Handle |
 |------------|---------|---------------|
@@ -70,33 +82,136 @@ curl -L -o protein.pdb "https://files.rcsb.org/download/<PDB_ID>.pdb"
 
 | Search Type | Description | When to Use |
 |-------------|-------------|-------------|
-| `msa` | Sequence similarity (MMSeqs2/ColabFold) | Sequence-only input, finding homologs |
+| `msa` | Sequence similarity (self-hosted service) | Sequence-only input, finding homologs |
 | `foldseek` | Structure similarity (FoldSeek) | Has 3D structure, finding similar folds |
 
 If the input has 3D structure (PDB file or structure from PDB ID), ask user which method to use. Default to `foldseek` for structural inputs.
 
-### Step 3: Call similar_protein_search API
+### Step 3: Execute Search
 
-#### MSA Search (Sequence Similarity)
+#### MSA Search (Sequence Similarity) — Direct API Call
+
+The MSA service uses a **submit-job + poll-status + fetch-result** pattern. You must execute these steps manually:
+
+##### 3.1 Submit MSA Job
+
+Submit the sequence to get a job_id (returns immediately, no timeout):
 
 ```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "similar_protein_search", "search_type": "msa", "protein": "<FASTA_SEQUENCE>"}'
+curl -s -X POST "${MSA_API_BASE_URL}/msa/search/submit" \
+  -H "Content-Type: application/json" \
+  -d '{"sequence": "<FASTA_SEQUENCE>"}'
 ```
 
 **Response**:
 ```json
 {
-  "task": "similar_protein_search",
-  "search_type": "msa",
-  "result_path": "./tmp/msa_results_xxx/uniref.a3m",
-  "description": "MSA results saved to .a3m file"
+  "job_id": "58d375eb-c738-4621-8554-8821c303934e",
+  "status": "PENDING",
+  "message": "Job submitted successfully."
 }
 ```
 
+Extract the `job_id` for subsequent polling.
+
+##### 3.2 Poll Job Status
+
+Poll until status becomes `COMPLETED` or `FAILED`:
+
+```bash
+curl -s "${MSA_API_BASE_URL}/msa/search/status/${JOB_ID}"
+```
+
+**Status Values**:
+
+| Status | Meaning |
+|--------|---------|
+| `PENDING` | Job queued, waiting to start |
+| `RUNNING` | Jackhmmer search in progress |
+| `COMPLETED` | Search finished successfully |
+| `FAILED` | Search failed |
+
+**Polling Response Examples**:
+
+```json
+// Running
+{
+  "job_id": "58d375eb-...",
+  "status": "RUNNING",
+  "message": "Jackhmmer search in progress.",
+  "elapsed_seconds": null
+}
+
+// Completed
+{
+  "job_id": "58d375eb-...",
+  "status": "COMPLETED",
+  "message": "Search finished successfully.",
+  "elapsed_seconds": 651.77
+}
+
+// Failed
+{
+  "job_id": "58d375eb-...",
+  "status": "FAILED",
+  "message": "Search failed."
+}
+```
+
+**Polling Strategy**:
+- Poll every 60 seconds
+- Continue until `status == "COMPLETED"` and `message == "Search finished successfully."`
+- If `status == "FAILED"`, report the error
+
+##### 3.3 Fetch MSA Results
+
+When job is completed, fetch the results directly from API:
+
+```bash
+curl -s "${MSA_API_BASE_URL}/msa/search/result/${JOB_ID}"
+```
+
+**Result JSON Structure**:
+```json
+{
+  "job_id": "58d375eb-...",
+  "status": "COMPLETED",
+  "result": {
+    "unpaired_msa": ">Original query\nMKTAYIAK...\n>hit_1\n...\n",
+    "paired_msa": ">Original query\nMKTAYIAK...\n>hit_1\n...\n",
+    "databases": {
+      "uniref90": {
+        "a3m": ">Original query\nMKTAYIAK...\n...",
+        "depth": 2818
+      },
+      "mgnify": {
+        "a3m": ">Original query\nMKTAYIAK...\n...",
+        "depth": 5000
+      },
+      "small_bfd": {
+        "a3m": ">Original query\nMKTAYIAK...\n...",
+        "depth": 51
+      },
+      "uniprot_cluster_annot": {
+        "a3m": ">Original query\nMKTAYIAK...\n...",
+        "depth": 7729
+      }
+    },
+    "elapsed_seconds": 651.77
+  }
+}
+```
+
+**Key Fields**:
+- `result.unpaired_msa` — Primary MSA alignment result (A3M format string)
+- `result.paired_msa` — Paired alignment with curated sequences
+- `result.elapsed_seconds` — Total search time
+
+**Note**: The `depth` field in `databases` may show 0 even when hits exist. Use `unpaired_msa` or `paired_msa` content to determine actual hit count.
+
 #### FoldSeek Search (Structure Similarity)
+
+Call the OpenBioMed API for structure search:
 
 ```bash
 curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
@@ -122,96 +237,66 @@ Available databases: `pdb100`, `afdb50`, `afdb-swissprot`, `afdb-proteome`, `cat
   "task": "similar_protein_search",
   "search_type": "foldseek",
   "result_path": "./tmp/foldseek_results_xxx/result.m8",
-  "result_dir": "./tmp/foldseek_results_xxx",
-  "database": ["pdb100", "afdb50"],
   "description": "FoldSeek results saved to .m8 file"
 }
 ```
 
-### Step 4: Parse Results
-
-#### MSA Results (.a3m file)
-
-The `.a3m` file contains multiple sequence alignment. Parse to extract top hits:
+Parse the `.m8` file:
 
 ```bash
-# Read the first N hits from a3m file
-head -n 20 "${result_path}"
-# Each hit format: >hit_id\naligned_sequence
-```
-
-#### FoldSeek Results (.m8 file)
-
-The `.m8` file is tab-separated with columns:
-
-| Column | Description |
-|--------|-------------|
-| 0 | Query ID |
-| 1 | Target ID |
-| 2 | Sequence identity |
-| 3 | Alignment length |
-| 4-9 | Alignment details |
-| 10 | Probability |
-| 11 | E-value |
-
-Parse to display top results:
-
-```bash
-# Sort by e-value (column 11), show top 10
+# Tab-separated: Query ID, Target ID, Identity, AlnLen, ..., E-value
 cat "${result_path}" | sort -t'\t' -k11,11g | head -10
-
-# Or use Python for structured output
-python3 -c "
-import pandas as pd
-df = pd.read_csv('${result_path}', sep='\t', header=None)
-print(df[[1, 2, 3, 11]].head(10).to_string(index=False, header=['Target', 'Identity', 'AlnLen', 'E-value']))
-"
 ```
 
 ## Example Usage
 
-### Example 1: Sequence Similarity Search
+### Example 1: MSA Sequence Search (Manual API Flow)
 
 ```
-Input: "Find similar proteins to this sequence: MKFLILLFNILCLFPVLAADNH..."
+Input: "Find similar proteins to sequence MKTAYIAKQRQISFVK..."
 
 Step 1: Detected FASTA sequence input
 Step 2: No structure available → use MSA
-Step 3: Call API
+Step 3: Execute MSA search manually
 
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "similar_protein_search", "search_type": "msa", "protein": "MKFLILLFNILCLFPVLAADNH..."}'
+  # 3.1 Submit job
+  curl -s -X POST "${MSA_API_BASE_URL:-http://43.142.171.112:11280}/msa/search/submit" \
+    -H "Content-Type: application/json" \
+    -d '{"sequence": "MKTAYIAKQRQISFVK..."}'
+  → job_id: "58d375eb-c738-4621-8554-8821c303934e"
 
-Step 4: Parse .a3m results
+  # 3.2 Poll status (repeat until COMPLETED)
+  # Note: MSA jobs typically take ~120 seconds, poll at 60s intervals
+  curl -s "${MSA_API_BASE_URL:-http://43.142.171.112:11280}/msa/search/status/58d375eb-..."
+  → status: "RUNNING" (wait 60s, poll again)
+  → status: "COMPLETED", message: "Search finished successfully."
 
-Output (Top similar sequences):
-  Target            | Identity | Description
-  -------------------|----------|------------
-  sp|P00533|EGFR_HUMAN | 95%    | Epidermal growth factor receptor
-  sp|P04626|ERBB2_HUMAN | 78%   | Receptor tyrosine-protein kinase erbB-2
+  # 3.3 Fetch and parse results directly from API
+  curl -s "${MSA_API_BASE_URL:-http://43.142.171.112:11280}/msa/search/result/58d375eb-..."
+
+  # Parse unpaired_msa to show top hits and total count
+  → Top hit: UniRef90_Q8ZKW4 Aspartate--ammonia ligase (Salmonella typhi)
+  → Total hits: ~7500 sequences
+  → Elapsed time: 146 seconds
+
+Output: MSA found ~7500 similar sequences, primarily Aspartate--ammonia ligase homologs from Enterobacteriaceae
 ```
 
-### Example 2: Structure Similarity Search
+### Example 2: FoldSeek Structure Search
 
 ```
 Input: "Find proteins with similar structure to PDB 6LZG"
 
 Step 1: Download PDB file
-  curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
-    -H 'accept: application/json' \
-    -H 'Content-Type: application/json' \
-    -d '{"task": "protein_pdb_request", "query": "6LZG", "mode": "file_only"}'
-  → protein file: ./tmp/protein_6lzg.pdb
+  curl -L -o protein.pdb "https://files.rcsb.org/download/6LZG.pdb"
 
 Step 2: Structure available → use FoldSeek
-Step 3: Call API
+Step 3: Call OpenBioMed API
 
-  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  curl -X POST "http://127.0.0.1:8090/run_pipeline/" \
     -H 'accept: application/json' \
     -H 'Content-Type: application/json' \
-    -d '{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./tmp/protein_6lzg.pdb"}'
+    -d '{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./protein.pdb"}'
 
 Step 4: Parse .m8 results
 
@@ -220,44 +305,42 @@ Output (Top similar structures):
   ----------------------------|----------|---------
   6LZG_A (SARS-CoV-2 RBD)     | 100.0%   | 0.0
   6M0J_B (SARS-CoV RBD)       | 89.2%    | 1.4e-80
-  7A2N_A (Mink ACE2+RBD)      | 84.2%    | 6.3e-77
 ```
 
 ## Expected Outputs
 
-| Step | Output | Description |
-|------|--------|-------------|
-| Input Parse | Protein ready | FASTA string or PDB file path |
-| API Call | result_path | Path to results file |
-| MSA | .a3m file | Multiple sequence alignment with homologs |
-| FoldSeek | .m8 file | Similar structures with identity/e-value |
+| Method | Output | Format |
+|--------|--------|--------|
+| MSA | JSON with `unpaired_msa`/`paired_msa` A3M strings | API response |
+| FoldSeek | JSON with `result_path` to `.m8` file | API response |
+
+**For Remote Agents**: Results are returned directly in API response. Parse JSON to extract alignment data. File paths in FoldSeek results are server-side paths that require additional API calls to retrieve content.
 
 ## Error Handling
 
-### Invalid Input Format
+### MSA Job Failed
 
-**Symptom**: API returns error about invalid protein format.
+**Symptom**: Status returns `FAILED`.
 
-**Solution**: Check input format. Supported formats:
-- FASTA sequence string (letters only)
-- PDB file path (must exist on server filesystem)
-- Use `protein_uniprot_request` or `protein_pdb_request` to convert IDs first
+**Solution**: Check the `message` field for error details. Common causes:
+- Invalid sequence format
+- MSA service temporarily unavailable
 
-### API Unavailable
+### MSA Result Not Ready
+
+**Symptom**: `/msa/search/result/{job_id}` returns 404.
+
+**Solution**: Job may still be running. Verify status is `COMPLETED` before fetching results.
+
+### FoldSeek API Unavailable
 
 **Symptom**: curl returns "Connection refused" or timeout.
 
-**Solution**: Verify the endpoint is reachable:
+**Solution**: Verify the endpoint:
 ```bash
 curl "${OPENBIOMED_API_BASE_URL}/healthz"
 # Should return "Service available"
 ```
-
-### Search Timeout
-
-**Symptom**: Long wait time or timeout error from MSA/FoldSeek.
-
-**Solution**: These external services may be busy. Wait and retry, or use smaller sequence/structure input.
 
 ## Interpretation Guide
 
