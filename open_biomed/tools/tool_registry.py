@@ -33,7 +33,7 @@ class LazyDictForTool(dict):
             "drug_lead_analysis",
             "extract_molecules_from_pdb_file", "analyze_complex_interaction", "summarize_content", "chembl_query",
             "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search",
-            "binding_affinity", "antibody_structure", "antibody_design", "similar_protein_search",
+            "binding_affinity", "antibody_design", "similar_protein_search",
             "mutation_design_aav",
             "read_molecule_file", "read_protein_file"
         ]
@@ -130,8 +130,6 @@ class LazyDictForTool(dict):
             self[key] = LiteratureSearchTool()
         elif key == "binding_affinity":
             self[key] = ProdigyBindingAffinity()
-        elif key == "antibody_structure":
-            self[key] = TFoldAntibodyStructure()
         elif key == "antibody_design":
             self[key] = IgGMAntibodyDesign()
         elif key == "similar_protein_search":

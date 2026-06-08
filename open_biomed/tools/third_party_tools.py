@@ -202,145 +202,6 @@ class ProdigyBindingAffinity(Tool):
             return [0.0], [f"Error: {e}"]
 
 
-class TFoldAntibodyStructure(Tool):
-    """
-    Predict antibody structure and antigen-antibody complex structure using tFold.
-
-    tFold is a deep learning model for antibody-related structure prediction:
-    - Antibody/nanobody structure prediction from heavy and light chain sequences
-    - Antigen-antibody complex structure prediction
-
-    Reference: Tencent AI4S tFold (https://github.com/TencentAI4S/tfold)
-    """
-
-    def __init__(self) -> None:
-        self._model_loaded = False
-        self._ab_model = None
-        self._ag_model = None
-
-    def print_usage(self) -> str:
-        return "\n".join([
-            'tFold Antibody Structure Prediction',
-            'Inputs:',
-            '  - For antibody: {"heavy_chain": FASTA sequence, "light_chain": FASTA sequence}',
-            '  - For complex: {"heavy_chain": FASTA, "light_chain": FASTA, "antigen": FASTA}',
-            'Outputs: PDB file path of predicted structure',
-            'Modes: "antibody" (default) or "complex"'
-        ])
-
-    def _load_ab_model(self):
-        """Load tFold-AB model for antibody structure prediction."""
-        if self._ab_model is None:
-            import tfold
-            logging.info("Loading tFold-AB models...")
-            ppi_model_path = tfold.model.esm_ppi_650m_ab()
-            tfold_model_path = tfold.model.tfold_ab_trunk()
-            self._ab_model = tfold.deploy.PLMComplexPredictor.restore_from_module(
-                ppi_model_path, tfold_model_path
-            )
-            logging.info("tFold-AB model loaded successfully")
-        return self._ab_model
-
-    def _load_ag_model(self):
-        """Load tFold-Ag model for antigen-antibody complex prediction."""
-        if self._ag_model is None:
-            import tfold
-            logging.info("Loading tFold-Ag models...")
-            ppi_model_path = tfold.model.esm_ppi_650m_ab()
-            alphafold_path = tfold.model.alpha_fold_4_ptm()
-            tfold_model_path = tfold.model.tfold_ag_base()
-            self._ag_model = tfold.deploy.AgPredictor(
-                ppi_model_path, alphafold_path, tfold_model_path
-            )
-            logging.info("tFold-Ag model loaded successfully")
-        return self._ag_model
-
-    def run(
-        self,
-        heavy_chain: str = "",
-        light_chain: str = "",
-        antigen: str = "",
-        mode: str = "antibody",
-        output_path: str = None
-    ) -> Tuple[List[str], List[str]]:
-        """
-        Predict antibody or antigen-antibody complex structure.
-
-        Args:
-            heavy_chain: Heavy chain FASTA sequence
-            light_chain: Light chain FASTA sequence
-            antigen: Antigen FASTA sequence (required for complex mode)
-            mode: "antibody" for antibody-only, "complex" for antigen-antibody complex
-            output_path: Output PDB file path (default: auto-generated in ./tmp/)
-
-        Returns:
-            Tuple of (pdb file path list, description message list)
-        """
-        import time
-
-        # Validate inputs
-        if not heavy_chain or not light_chain:
-            return [""], ["Error: heavy_chain and light_chain sequences are required"]
-
-        if mode == "complex" and not antigen:
-            return [""], ["Error: antigen sequence is required for complex mode"]
-
-        # Generate output path
-        if output_path is None:
-            timestamp = int(time.time() * 1000)
-            output_path = f"./tmp/antibody_structure_{timestamp}.pdb"
-
-        # Ensure output directory exists
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
-        try:
-            if mode == "antibody":
-                # Antibody structure prediction
-                model = self._load_ab_model()
-
-                data = [
-                    {"sequence": heavy_chain, "id": "H"},
-                    {"sequence": light_chain, "id": "L"}
-                ]
-
-                logging.info(f"Predicting antibody structure...")
-                model.infer_pdb(data, output_path)
-                logging.info(f"Antibody structure saved to {output_path}")
-
-                return [output_path], [f"Antibody structure predicted and saved to {output_path}"]
-
-            elif mode == "complex":
-                # Antigen-antibody complex structure prediction
-                model = self._load_ag_model()
-
-                # Generate MSA for antigen (simplified - using single sequence)
-                # Note: Full MSA generation requires external tools (HHblits)
-                msa = [[antigen]]
-                deletion_matrix = [[0] * len(antigen)]
-
-                data = [
-                    {"id": "H", "sequence": heavy_chain},
-                    {"id": "L", "sequence": light_chain},
-                    {"id": "A", "sequence": antigen, "msa": msa, "deletion_matrix": deletion_matrix}
-                ]
-
-                logging.info(f"Predicting antigen-antibody complex structure...")
-                model.infer_pdb(data, output_path)
-                logging.info(f"Complex structure saved to {output_path}")
-
-                return [output_path], [f"Complex structure predicted and saved to {output_path}"]
-
-            else:
-                return [""], [f"Error: Unknown mode '{mode}'. Use 'antibody' or 'complex'"]
-
-        except ImportError:
-            logging.error("tFold not installed. Install with: pip install tfold")
-            return [""], ["Error: tFold not installed"]
-        except Exception as e:
-            logging.error(f"tFold prediction error: {e}")
-            return [""], [f"Error: {str(e)}"]
-
-
 class IgGMAntibodyDesign(Tool):
     """
     Antibody design using IgGM model.
@@ -529,39 +390,28 @@ class IgGMAntibodyDesign(Tool):
 
 class SimilarProteinSearch(Tool):
     """
-    Search for similar proteins using MSA (sequence) or FoldSeek (structure).
+    Search for similar proteins using FoldSeek (structure similarity).
 
-    Supports two search methods:
-    1. MSA: Sequence similarity search using MMSeqs2/ColabFold
-    2. FoldSeek: Structure similarity search using FoldSeek
+    Note: MSA (sequence similarity) search is now handled via direct API calls
+    documented in skills/similar-protein-retrieval/SKILL.md, not through this tool.
 
     Outputs:
-    - MSA: .a3m file with multiple sequence alignment
     - FoldSeek: .m8 file with similar structure hits
     """
 
     def __init__(self) -> None:
-        self._msa_requester = None
         self._foldseek_requester = None
 
     def print_usage(self) -> str:
         return "\n".join([
-            'Similar Protein Search',
+            'Similar Protein Search (Structure)',
             'Inputs:',
-            '  - protein: Protein sequence (FASTA) or PDB file path',
-            '  - search_type: "msa" for sequence similarity, "foldseek" for structure similarity',
+            '  - protein: PDB file path',
             '  - database: (optional) List of databases for FoldSeek ["pdb100", "afdb50"]',
             'Outputs:',
-            '  - MSA: Path to .a3m file',
-            '  - FoldSeek: Path to result directory with .m8 file'
+            '  - FoldSeek: Path to result directory with .m8 file',
+            'Note: MSA sequence search is handled via direct API calls (see SKILL.md)'
         ])
-
-    def _load_msa_requester(self):
-        """Load MSA requester."""
-        if self._msa_requester is None:
-            from open_biomed.tools.web_request_tools import MSARequester
-            self._msa_requester = MSARequester()
-        return self._msa_requester
 
     def _load_foldseek_requester(self):
         """Load FoldSeek requester."""
@@ -573,83 +423,44 @@ class SimilarProteinSearch(Tool):
     def run(
         self,
         protein: str = "",
-        search_type: str = "foldseek",
         database: List[str] = None
     ) -> Tuple[List[str], List[str]]:
         """
-        Search for similar proteins.
+        Search for similar protein structures using FoldSeek.
 
         Args:
-            protein: FASTA sequence or PDB file path
-            search_type: "msa" for sequence similarity, "foldseek" for structure similarity
+            protein: PDB file path (must exist on server)
             database: List of FoldSeek databases (optional)
 
         Returns:
             Tuple of (result paths list, description messages list)
         """
         import asyncio
-        import time
 
         if not protein:
-            return [""], ["Error: protein input is required"]
+            return [""], ["Error: protein input (PDB file path) is required"]
 
-        # Determine if input is sequence or file path
-        is_sequence = not os.path.exists(protein) and all(c in 'ACDEFGHIKLMNPQRSTVWY\n\r\t ' for c in protein.strip())
+        # Check if file exists
+        if not os.path.exists(protein):
+            return [""], [f"Error: PDB file not found: {protein}"]
 
         try:
-            if search_type == "msa":
-                # MSA search for sequence similarity
-                if not is_sequence:
-                    # If input is a file, read the sequence
-                    if os.path.exists(protein):
-                        from open_biomed.data import Protein
-                        protein_obj = Protein.from_pdb_file(protein)
-                        sequence = protein_obj.sequence
-                    else:
-                        return [""], ["Error: Invalid protein input for MSA search"]
-                else:
-                    sequence = protein.strip()
+            # Load protein from PDB file
+            from open_biomed.data import Protein
+            protein_obj = Protein.from_pdb_file(protein)
 
-                # Create protein object with sequence
-                from open_biomed.data import Protein
-                protein_obj = Protein.from_fasta(sequence)
+            requester = self._load_foldseek_requester()
 
-                requester = self._load_msa_requester()
-                logging.info(f"Running MSA search...")
+            # Override database if specified
+            if database:
+                requester.database = database
 
-                # Run async method
-                result_paths, messages = asyncio.run(requester.run_async(protein_obj))
+            logging.info(f"Running FoldSeek search with databases: {requester.database}")
 
-                return result_paths, [f"MSA results saved to {messages[0]}"]
+            # Run async method
+            result_paths, messages = asyncio.run(requester.run_async(protein_obj))
 
-            elif search_type == "foldseek":
-                # FoldSeek search for structure similarity
-                if is_sequence:
-                    return [""], ["Error: FoldSeek requires a PDB structure file, not sequence"]
-
-                # Check if file exists
-                if not os.path.exists(protein):
-                    return [""], [f"Error: PDB file not found: {protein}"]
-
-                # Load protein from PDB file
-                from open_biomed.data import Protein
-                protein_obj = Protein.from_pdb_file(protein)
-
-                requester = self._load_foldseek_requester()
-
-                # Override database if specified
-                if database:
-                    requester.database = database
-
-                logging.info(f"Running FoldSeek search with databases: {requester.database}")
-
-                # Run async method
-                result_paths, messages = asyncio.run(requester.run_async(protein_obj))
-
-                return result_paths, [f"FoldSeek results saved to {messages[0]}"]
-
-            else:
-                return [""], [f"Error: Unknown search_type '{search_type}'. Use 'msa' or 'foldseek'"]
+            return result_paths, [f"FoldSeek results saved to {messages[0]}"]
 
         except ImportError as e:
             logging.error(f"Import error: {e}")

@@ -550,49 +550,6 @@ def handle_binding_affinity(request: TaskRequest, pipeline):
     }
 
 
-def handle_antibody_structure(request: TaskRequest, pipeline):
-    """
-    Predict antibody structure or antigen-antibody complex structure using tFold.
-
-    Inputs:
-        - heavy_chain: Heavy chain FASTA sequence
-        - light_chain: Light chain FASTA sequence
-        - antigen: (optional) Antigen FASTA sequence for complex mode
-        - mode: (optional) "antibody" or "complex", default "antibody"
-
-    Outputs:
-        - pdb_path: Path to predicted PDB file
-        - description: Description message
-    """
-    heavy_chain = request.heavy_chain
-    light_chain = request.light_chain
-    antigen = request.antigen
-    mode = request.mode or "antibody"
-
-    if not heavy_chain or not light_chain:
-        raise ValueError("heavy_chain and light_chain sequences are required")
-
-    if mode == "complex" and not antigen:
-        raise ValueError("antigen sequence is required for complex mode")
-
-    outputs, messages = pipeline.run(
-        heavy_chain=heavy_chain,
-        light_chain=light_chain,
-        antigen=antigen or "",
-        mode=mode
-    )
-
-    pdb_path = outputs[0]
-    description = messages[0]
-
-    return {
-        "task": request.task,
-        "mode": mode,
-        "pdb_path": pdb_path,
-        "description": description
-    }
-
-
 def handle_antibody_design(request: TaskRequest, pipeline):
     """
     Design antibody using IgGM model.
@@ -1237,13 +1194,6 @@ TASK_CONFIGS = [
         "required_inputs": ["protein_complex"],
         "pipeline_key": "binding_affinity",
         "handler_function": handle_binding_affinity,
-        "is_async": False
-    },
-    {
-        "task_name": "antibody_structure",
-        "required_inputs": ["heavy_chain", "light_chain"],
-        "pipeline_key": "antibody_structure",
-        "handler_function": handle_antibody_structure,
         "is_async": False
     },
     {

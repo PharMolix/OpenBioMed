@@ -1,196 +1,416 @@
 ---
 name: antibody-structure-prediction-tfold
 description: >
-  Antibody-related structure prediction using tFold model.
+  Antibody-related structure prediction using tFold external API.
   Use this skill when:
   (1) Predict antibody and nanobody structure of a given sequence,
   (2) Predict antigen-antibody complex structure of given sequences,
-  (3) Using local GPU resources.
+  (3) Determine epitope residues from antigen-antibody complex PDB,
+  (4) External GPU resources (no local model weights required).
 
   For binding affinity evaluation, use binding-affinity-prediction-prodigy.
 license: MIT
 category: design-tools
-tags: [structure-prediction, antibody, nanobody, antigen-antibody complex, tfold]
+tags: [structure-prediction, antibody, nanobody, antigen-antibody complex, epitope, tfold]
 ---
 
 # tFold Antibody-related Structure Prediction
 
-Predict antibody structure and antigen-antibody complex structure using tFold deep learning model.
+Predict antibody structure, antigen-antibody complex structure, and epitope residues using external tFold API via curl commands.
 
-## When to Use
+## API Endpoints
 
-- User wants to predict antibody/nanobody structure from sequence
-- User wants to predict antigen-antibody complex structure
-- User provides heavy chain and light chain sequences (for antibody)
-- User provides antigen + heavy chain + light chain (for complex)
+**tFold API**: `http://43.142.171.112:11280/tFold`
 
-## API Endpoint Resolution
+**OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
 
-The skill resolves the OpenBioMed API base URL in this order:
+Environment variable override: `TFOLD_API_BASE_URL` (if set, use this instead of default)
 
-1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
-2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
-3. **Local development default**: `http://127.0.0.1:8090`
+## Execution Flow
 
-In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
+1. **Health Check**: Verify tFold API availability
+2. **Prepare Input**: Collect sequences based on task type
+3. **Construct curl Command**: Build JSON payload for tFold
+4. **Execute tFold Request**: Run curl and save PDB file
+5. **Read and Display**: Call `/run_pipeline/` with `read_protein_file` task to display content
 
-## Workflow
+## Remote Agent Consideration
 
-### Step 1: Prepare Input Sequences
+When running as a remote agent, the file system is not accessible. After saving the PDB file, call `/run_pipeline/` endpoint with `task: read_protein_file` to read and display the protein content.
 
-Collect FASTA sequences for:
+**Pattern**: tFold curl → Save PDB → `/run_pipeline/` read_protein_file → Display
 
-| Mode | Required Inputs | Description |
-|------|-----------------|-------------|
-| `antibody` | heavy_chain + light_chain | Antibody/nanobody structure |
-| `complex` | heavy_chain + light_chain + antigen | Antigen-antibody complex |
+## Task Types
 
-**Example sequences**:
-```
-Heavy chain: EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK
+| Task | tFold Endpoint | Required Inputs | Output |
+|------|----------------|-----------------|--------|
+| antibody | `/predict/ab` | heavy_chain, light_chain | PDB file |
+| nanobody | `/predict/ab` | heavy_chain (single) | PDB file |
+| complex | `/predict/ag` | heavy_chain, light_chain, antigen | PDB file |
+| epitope | `/predict/epitope` | pdb_file, antigen_id | JSON |
 
-Light chain: DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK
-```
+## Step 1: Health Check
 
-### Step 2: Call antibody_structure API
-
-#### Antibody Structure Prediction
+Before any prediction, verify the tFold API is available:
 
 ```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "antibody_structure", "heavy_chain": "<HEAVY_CHAIN>", "light_chain": "<LIGHT_CHAIN>"}'
+curl http://43.142.171.112:11280/tFold/health
 ```
 
-**Response**:
+Expected response:
 ```json
 {
-  "task": "antibody_structure",
-  "mode": "antibody",
-  "pdb_path": "./tmp/antibody_structure_xxx.pdb",
-  "description": "Antibody structure predicted and saved to ./tmp/antibody_structure_xxx.pdb"
+  "status": "healthy",
+  "gpu": "cuda:0",
+  "models_loaded": ["ab", "ag"]
 }
 ```
 
-#### Antigen-Antibody Complex Prediction
+## Step 2: Antibody Structure Prediction
+
+### Input Collection
+- `heavy_chain`: Heavy chain FASTA sequence (required)
+- `light_chain`: Light chain FASTA sequence (required)
+- `output_name`: Output file name (optional, auto-generated if not provided)
+
+### curl Command Construction
 
 ```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "antibody_structure", "heavy_chain": "<HEAVY_CHAIN>", "light_chain": "<LIGHT_CHAIN>", "antigen": "<ANTIGEN_SEQUENCE>", "mode": "complex"}'
+curl -X POST http://43.142.171.112:11280/tFold/predict/ab \
+  -H "Content-Type: application/json" \
+  -d '{"chains": [{"id": "H", "sequence": "<HEAVY_CHAIN>"}, {"id": "L", "sequence": "<LIGHT_CHAIN>"}], "output_name": "<OUTPUT_NAME>"}' \
+  -o <OUTPUT_NAME>.pdb
 ```
 
-**Response**:
+### Example Execution
+
+Input:
+```
+heavy_chain: EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK
+light_chain: DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK
+output_name: my_antibody
+```
+
+Execute:
+```bash
+# 1. Save PDB file from tFold
+curl -X POST http://43.142.171.112:11280/tFold/predict/ab \
+  -H "Content-Type: application/json" \
+  -d '{"chains": [{"id": "H", "sequence": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK"}, {"id": "L", "sequence": "DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK"}], "output_name": "my_antibody"}' \
+  -o my_antibody.pdb
+
+# 2. Read and display via run_pipeline
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{"task": "read_protein_file", "protein": "my_antibody.pdb", "value": "true"}'
+```
+
+Response from `read_protein_file`:
 ```json
 {
-  "task": "antibody_structure",
-  "mode": "complex",
-  "pdb_path": "./tmp/antibody_structure_xxx.pdb",
-  "description": "Complex structure predicted and saved to ./tmp/antibody_structure_xxx.pdb"
+  "task": "read_protein_file",
+  "sequence": "EVQLVESGGGLVQPGGSLRLSCAAS...",
+  "name": "my_antibody",
+  "pdb_content": "REMARK 250\nREMARK 250 Predicted lDDT-Ca score: 0.9482\n...",
+  "description": "Protein content read from my_antibody.pdb: sequence length=..."
 }
 ```
 
-### Step 3: View and Use Results
+## Step 3: Nanobody Structure Prediction
 
-The predicted structure is saved as a PDB file. You can:
+### Input Collection
+- `heavy_chain`: Single chain FASTA sequence (required)
+- `output_name`: Output file name (optional)
 
-1. **Visualize**: Use `visualize_protein` task or PyMol
-2. **Analyze binding**: Use `binding_affinity` task to predict binding affinity
-3. **Download**: Copy the PDB file from the server
+### curl Command Construction
 
-## Example Usage
+For nanobody, only provide one chain with id "H":
 
-### Example 1: Predict Antibody Structure
-
-```
-Input: "Predict the structure of this antibody with heavy chain EVQL... and light chain DIQMT..."
-
-Step 1: Prepare sequences
-  Heavy chain: EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK
-  Light chain: DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK
-
-Step 2: Call API
-
-  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-    -H 'accept: application/json' \
-    -H 'Content-Type: application/json' \
-    -d '{"task": "antibody_structure", "heavy_chain": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK", "light_chain": "DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK"}'
-
-Output:
-  PDB file: ./tmp/antibody_structure_xxx.pdb
-  Contains predicted 3D structure of the antibody
+```bash
+curl -X POST http://43.142.171.112:11280/tFold/predict/ab \
+  -H "Content-Type: application/json" \
+  -d '{"chains": [{"id": "H", "sequence": "<HEAVY_CHAIN>"}], "output_name": "<OUTPUT_NAME>"}' \
+  -o <OUTPUT_NAME>.pdb
 ```
 
-## Expected Outputs
+### Example Execution
 
-| Output | Type | Description |
-|--------|------|-------------|
-| pdb_path | string | Path to predicted PDB file |
-| mode | string | "antibody" or "complex" |
-| description | string | Human-readable description |
+Input:
+```
+heavy_chain: MSIQEIQKEIAQIQAVIAGIQKYIYTMSIEEIQKQIAAIQCQIAAIQKQIYAMSIEEIQKQIAAIQEQILAIYKQIMAMVT
+output_name: my_nanobody
+```
+
+Execute:
+```bash
+# 1. Save PDB file from tFold
+curl -X POST http://43.142.171.112:11280/tFold/predict/ab \
+  -H "Content-Type: application/json" \
+  -d '{"chains": [{"id": "H", "sequence": "MSIQEIQKEIAQIQAVIAGIQKYIYTMSIEEIQKQIAAIQCQIAAIQKQIYAMSIEEIQKQIAAIQEQILAIYKQIMAMVT"}], "output_name": "my_nanobody"}' \
+  -o my_nanobody.pdb
+
+# 2. Read and display via run_pipeline
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{"task": "read_protein_file", "protein": "my_nanobody.pdb", "value": "true"}'
+```
+
+## Step 4: Antigen-Antibody Complex Prediction
+
+### Input Collection
+- `heavy_chain`: Heavy chain FASTA sequence (required)
+- `light_chain`: Light chain FASTA sequence (required)
+- `antigen`: Antigen FASTA sequence (required)
+- `antigen_id`: Chain ID for antigen (default: "A")
+- `msa_content`: MSA content in a3m format (optional, improves accuracy)
+- `output_name`: Output file name (optional)
+
+### Mode A: Without MSA (Simpler)
+
+```bash
+curl -X POST http://43.142.171.112:11280/tFold/predict/ag \
+  -H "Content-Type: application/json" \
+  -d '{"antibody_chains": [{"id": "H", "sequence": "<HEAVY_CHAIN>"}, {"id": "L", "sequence": "<LIGHT_CHAIN>"}], "antigen_sequence": "<ANTIGEN>", "antigen_id": "<ANTIGEN_ID>", "output_name": "<OUTPUT_NAME>"}' \
+  -o <OUTPUT_NAME>.pdb
+```
+
+### Mode B: With MSA (Recommended)
+
+Use Python to construct JSON (handles escaping properly):
+
+```bash
+# Read MSA file
+MSA_TEXT=$(cat /path/to/antigen.a3m)
+
+# Construct JSON payload
+JSON_BODY=$(python3 -c "
+import json, sys
+body = {
+  'antibody_chains': [
+    {'id': 'H', 'sequence': '<HEAVY_CHAIN>'},
+    {'id': 'L', 'sequence': '<LIGHT_CHAIN>'}
+  ],
+  'antigen_sequence': '<ANTIGEN>',
+  'antigen_id': '<ANTIGEN_ID>',
+  'msa_content': sys.argv[1],
+  'output_name': '<OUTPUT_NAME>'
+}
+print(json.dumps(body))
+" "$MSA_TEXT")
+
+# Execute curl
+curl -X POST http://43.142.171.112:11280/tFold/predict/ag \
+  -H "Content-Type: application/json" \
+  -d "$JSON_BODY" \
+  -o <OUTPUT_NAME>.pdb
+```
+
+### Example Execution (Without MSA)
+
+Input:
+```
+heavy_chain: EVQLVQSGAEVKKPGESLKISCKGSGYSFSNYWIGWVRQMPGKGLEWMGIIDPSNSYTRYSPSFQGQVTISADKSISTAYLQWSSLKASDTAMYYCARWYYKPFDVWGQGTLVTVSS
+light_chain: QSVLTQPPSVSGAPGQRVTISCTGSSSNIGSGYDVHWYQQLPGTAPKLLIYGNSKRPSGVPDRFSGSKSGTSASLAITGLQSEDEADYYCASWTDGLSLVVFGGGTKLTVL
+antigen: RAVPGGSSPAWTQCQQLSQKLCTLAWSAHPLVGHMDLREEDVPHIQCGDGCDPQGLRDNSQFCLQRIHQGLIFYEKLLGSDIFTGEPSLLPDSPVGQLHASLLGLSQLLQPEGHHWETQQIPSLSPSQPWQRLLLRFKILRSLQAFVAVAARVFAHGAATL
+antigen_id: A
+output_name: my_complex
+```
+
+Execute:
+```bash
+# 1. Save PDB file from tFold
+curl -X POST http://43.142.171.112:11280/tFold/predict/ag \
+  -H "Content-Type: application/json" \
+  -d '{"antibody_chains': [{"id": "H", "sequence": "EVQLVQSGAEVKKPGESLKISCKGSGYSFSNYWIGWVRQMPGKGLEWMGIIDPSNSYTRYSPSFQGQVTISADKSISTAYLQWSSLKASDTAMYYCARWYYKPFDVWGQGTLVTVSS"}, {"id": "L", "sequence": "QSVLTQPPSVSGAPGQRVTISCTGSSSNIGSGYDVHWYQQLPGTAPKLLIYGNSKRPSGVPDRFSGSKSGTSASLAITGLQSEDEADYYCASWTDGLSLVVFGGGTKLTVL"}], "antigen_sequence": "RAVPGGSSPAWTQCQQLSQKLCTLAWSAHPLVGHMDLREEDVPHIQCGDGCDPQGLRDNSQFCLQRIHQGLIFYEKLLGSDIFTGEPSLLPDSPVGQLHASLLGLSQLLQPEGHHWETQQIPSLSPSQPWQRLLLRFKILRSLQAFVAVAARVFAHGAATL", "antigen_id": "A", "output_name": "my_complex"}' \
+  -o my_complex.pdb
+
+# 2. Read and display via run_pipeline
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{"task": "read_protein_file", "protein": "my_complex.pdb", "value": "true"}'
+```
+
+## Step 5: Epitope Determination
+
+### Input Collection
+- `pdb_file`: Path to antigen-antibody complex PDB file (required)
+- `antigen_id`: Chain ID for antigen (default: "A")
+- `distance_threshold`: Distance threshold in Angstroms (default: 5.0)
+
+### curl Command Construction
+
+Use multipart form upload (`-F` flag):
+
+```bash
+curl -X POST http://43.142.171.112:11280/tFold/predict/epitope \
+  -F "pdb_file=@<PDB_FILE_PATH>" \
+  -F "antigen_id=<ANTIGEN_ID>" \
+  -F "distance_threshold=<THRESHOLD>"
+```
+
+### Example Execution
+
+Input:
+```
+pdb_file: my_complex.pdb
+antigen_id: A
+distance_threshold: 5.0
+```
+
+Execute:
+```bash
+# Epitope returns JSON directly (no read_protein_file needed)
+curl -X POST http://43.142.171.112:11280/tFold/predict/epitope \
+  -F "pdb_file=@my_complex.pdb" \
+  -F "antigen_id=A" \
+  -F "distance_threshold=5.0"
+```
+
+Output (JSON displayed directly):
+```json
+{
+  "status": "success",
+  "task": "Epitope",
+  "antigen_id": "A",
+  "distance_threshold": 5.0,
+  "epitope_residues": [
+    [27, "SER", "A"],
+    [28, "ALA", "A"],
+    ...
+  ],
+  "epitope_count": 65
+}
+```
+
+## Step 6: Read and Display for Remote Agent
+
+After saving PDB file, call `/run_pipeline/` to read and display content.
+
+### API Endpoint
+
+```bash
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{"task": "read_protein_file", "protein": "<PDB_FILE_PATH>", "value": "true"}'
+```
+
+### Request Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `task` | string | `"read_protein_file"` |
+| `protein` | string | PDB file path |
+| `value` | string | `"true"` to include PDB content, `"false"` for sequence only |
+
+### Response Structure
+
+```json
+{
+  "task": "read_protein_file",
+  "sequence": "EVQLVESGGGLVQPGGSLRLSCAAS...",
+  "name": "my_antibody",
+  "pdb_content": "REMARK 250\nREMARK 250 Predicted lDDT-Ca score: 0.9482\nATOM ...",
+  "description": "Protein content read from my_antibody.pdb: sequence length=..."
+}
+```
+
+### Key Information to Display
+
+From the response:
+
+1. **Description**: `"Protein content read from my_antibody.pdb: sequence length=..."`
+2. **Sequence**: Full FASTA sequence
+3. **PDB Content**: Contains REMARK lines with confidence scores
+
+Extract confidence from `pdb_content`:
+```
+REMARK 250 Predicted lDDT-Ca score: 0.9482
+REMARK 250 Predicted pTM score: 0.7861
+REMARK 250 Predicted ipTM score: 0.8023
+```
+
+## Output Interpretation
+
+### PDB File Confidence Scores
+
+Key scores in REMARK lines:
+- **lDDT-Ca score** (0-1): Local structure confidence, >0.8 is high
+- **pTM score** (0-1): Overall topology confidence
+- **ipTM score** (0-1): Interface confidence (complex mode)
+
+### Epitope JSON
+
+- `epitope_residues`: `[residue_number, residue_name, chain_id]`
+- `epitope_count`: Total number of epitope residues
 
 ## Error Handling
 
-### Missing Sequences
+### curl Command Format Errors
 
-**Symptom**: API returns error about missing sequences.
+**Symptom**: `-: command not found`
 
-**Solution**: Ensure both heavy_chain and light_chain are provided. For complex mode, also provide antigen.
+**Solution**: Ensure proper line continuation with `\` - no spaces after `\`
 
-### Model Loading Error
-
-**Symptom**: API returns "tFold not installed" error.
-
-**Solution**: tFold needs to be installed in the server environment:
 ```bash
-pip install tfold termcolor deepspeed ml-collections dm-tree modelcif
+# WRONG (space after backslash):
+curl -X POST URL \
+  -H "Content-Type: application/json" \  # <-- space here causes error
+  -d '...'
+
+# CORRECT:
+curl -X POST URL \
+  -H "Content-Type: application/json" \
+  -d '...'
 ```
 
-### GPU Memory Error
+### API Returns Empty Body
 
-**Symptom**: Prediction fails with CUDA out of memory.
+**Symptom**: `{"detail":[{"type":"missing","loc":["body"],"msg":"Field required"}]}`
 
-**Solution**: tFold requires significant GPU memory (24GB+ recommended). Try:
-- Using a GPU with more memory
-- Reducing sequence length
+**Solution**: Check `-d` parameter is properly formatted JSON. Use single-line or proper escaping.
+
+### GPU Memory Timeout
+
+**Symptom**: Request takes very long or fails
+
+**Solution**: Wait for API to free GPU (check `/health` endpoint), then retry.
+
+### read_protein_file Error
+
+**Symptom**: `FileNotFoundError` in response
+
+**Solution**: Ensure PDB file was successfully saved by tFold curl before calling read_protein_file.
+
+## Sequence Format Requirements
+
+- Plain amino acid string (no FASTA header)
+- Standard 20 amino acid codes (ACDEFGHIKLMNPQRSTVWY)
+- No spaces or special characters
 
 ## Decision Tree
 
 ```
-Should I use tFold?
+What task type?
 │
-└─ What are you predicting?
-   ├─ Antibody/nanobody structure → antibody-structure-prediction-tfold ✓
-   ├─ Antigen-antibody complex → antibody-structure-prediction-tfold ✓
-   ├─ General protein-protein complex → structure-prediction-boltz-2
-   └─ Protein-ligand complex → structure-prediction-boltz-2
+├─ Antibody structure → /predict/ab (H + L chains)
+│   └─ After: read_protein_file via /run_pipeline/
+│
+├─ Nanobody structure → /predict/ab (single H chain)
+│   └─ After: read_protein_file via /run_pipeline/
+│
+├─ Antigen-antibody complex → /predict/ag
+│   ├─ Have MSA? → Include msa_content
+│   └─ No MSA? → Single sequence mode
+│   └─ After: read_protein_file via /run_pipeline/
+│
+└─ Epitope residues → /predict/epitope (upload PDB)
+    └─ Returns JSON directly, no read step needed
 ```
 
 ## Next Steps
 
 After structure prediction:
-- **Binding Affinity**: Use `binding_affinity` task to evaluate binding strength
-- **Visualization**: Use `visualize_protein` to view the structure
-- **Analysis**: Analyze interface residues and contacts
-
-## Technical Details
-
-### tFold Models
-
-tFold uses two model architectures:
-
-1. **tFold-AB**: For antibody-only prediction
-   - ESM-PPI 650M for sequence encoding
-   - Structure trunk for coordinate prediction
-
-2. **tFold-Ag**: For antigen-antibody complex
-   - AlphaFold2 for antigen MSA
-   - ESM-PPI + tFold trunk for complex
-
-### Sequence Format
-
-- Input sequences should be in FASTA format (plain amino acid string)
-- Use standard 20 amino acid codes
-- No headers or special characters
+1. **Visualize**: Open PDB in PyMol or molecular viewer
+2. **Binding Affinity**: Use `binding-affinity-prediction-prodigy` skill
+3. **Analysis**: Examine interface residues and contacts
+4. **Epitope**: If complex predicted, run epitope determination
