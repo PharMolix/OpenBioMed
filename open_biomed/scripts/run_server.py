@@ -550,54 +550,6 @@ def handle_binding_affinity(request: TaskRequest, pipeline):
     }
 
 
-def handle_antibody_design(request: TaskRequest, pipeline):
-    """
-    Design antibody using IgGM model.
-
-    Inputs:
-        - fasta: FASTA file path with design requirement (X marks design regions)
-        - antigen_pdb: Antigen PDB file path
-        - epitope: (optional) Epitope residue numbers, space-separated
-        - fasta_origin: (optional) Original antibody FASTA for affinity maturation
-        - task: (optional) "design" or "affinity_maturation", default "design"
-        - num_samples: (optional) Number of samples per residue, default 10
-
-    Outputs:
-        - output_files: List of designed antibody files
-        - description: Description message
-    """
-    fasta = request.fasta
-    antigen_pdb = request.antigen_pdb
-    epitope = request.epitope or ""
-    fasta_origin = request.fasta_origin or ""
-    task = request.mode or "design"
-    num_samples = request.num_samples or 10
-
-    if not fasta:
-        raise ValueError("fasta file path is required")
-    if not antigen_pdb:
-        raise ValueError("antigen_pdb file path is required")
-
-    if task == "affinity_maturation" and not fasta_origin:
-        raise ValueError("fasta_origin is required for affinity maturation")
-
-    outputs, messages = pipeline.run(
-        fasta=fasta,
-        antigen=antigen_pdb,
-        epitope=epitope,
-        fasta_origin=fasta_origin,
-        task=task,
-        num_samples=num_samples
-    )
-
-    return {
-        "task": request.task,
-        "mode": task,
-        "output_files": outputs,
-        "description": messages[0]
-    }
-
-
 def handle_similar_protein_search(request: TaskRequest, pipeline):
     """
     Search for similar proteins using MSA or FoldSeek.
@@ -1194,13 +1146,6 @@ TASK_CONFIGS = [
         "required_inputs": ["protein_complex"],
         "pipeline_key": "binding_affinity",
         "handler_function": handle_binding_affinity,
-        "is_async": False
-    },
-    {
-        "task_name": "antibody_design",
-        "required_inputs": ["fasta", "antigen_pdb"],
-        "pipeline_key": "antibody_design",
-        "handler_function": handle_antibody_design,
         "is_async": False
     },
     {
