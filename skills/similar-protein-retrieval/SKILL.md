@@ -30,7 +30,7 @@ Retrieve proteins with similar structures, sequences, or from the same family us
 
 Remote MSA service for fast asynchronous sequence search.
 
-**Base URL**: `${MSA_API_BASE_URL}` (default: `http://43.142.171.112:11280`)
+**Base URL**: `${MSA_API_BASE_URL}` (default: `http://172.16.20.26:11280`)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -266,19 +266,19 @@ Step 2: No structure available → use MSA
 Step 3: Execute MSA search manually
 
   # 3.1 Submit job
-  curl -s -X POST "${MSA_API_BASE_URL:-http://43.142.171.112:11280}/msa/search/submit" \
+  curl -s -X POST "${MSA_API_BASE_URL:-http://172.16.20.26:11280}/msa/search/submit" \
     -H "Content-Type: application/json" \
     -d '{"sequence": "MKTAYIAKQRQISFVK..."}'
   → job_id: "58d375eb-c738-4621-8554-8821c303934e"
 
   # 3.2 Poll status (repeat until COMPLETED)
   # Note: MSA jobs typically take ~120 seconds, poll at 60s intervals
-  curl -s "${MSA_API_BASE_URL:-http://43.142.171.112:11280}/msa/search/status/58d375eb-..."
+  curl -s "${MSA_API_BASE_URL:-http://172.16.20.26:11280}/msa/search/status/58d375eb-..."
   → status: "RUNNING" (wait 60s, poll again)
   → status: "COMPLETED", message: "Search finished successfully."
 
   # 3.3 Fetch and parse results directly from API
-  curl -s "${MSA_API_BASE_URL:-http://43.142.171.112:11280}/msa/search/result/58d375eb-..."
+  curl -s "${MSA_API_BASE_URL:-http://172.16.20.26:11280}/msa/search/result/58d375eb-..."
 
   # Parse unpaired_msa to show top hits and total count
   → Top hit: UniRef90_Q8ZKW4 Aspartate--ammonia ligase (Salmonella typhi)

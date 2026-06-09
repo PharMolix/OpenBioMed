@@ -20,7 +20,7 @@ logger = logging.getLogger('OpenBioMed')
 # API endpoints - configurable via environment variables
 IGGM_API_BASE_URL = os.environ.get(
     "IGGM_API_BASE_URL",
-    "http://43.142.171.112:11280/IgGM"
+    "http://172.16.20.26:11280/IgGM"
 )
 PIPELINE_API_URL = os.environ.get(
     "PIPELINE_API_URL",

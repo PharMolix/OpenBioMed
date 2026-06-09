@@ -20,7 +20,7 @@ Design antibodies using IgGM external API for epitope-conditioned de novo design
 
 ## API Endpoints
 
-**IgGM API**: `http://43.142.171.112:11280/IgGM`
+**IgGM API**: `http://172.16.20.26:11280/IgGM`
 
 **OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
 

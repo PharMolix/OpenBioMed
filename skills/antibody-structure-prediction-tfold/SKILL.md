@@ -20,7 +20,7 @@ Predict antibody structure, antigen-antibody complex structure, and epitope resi
 
 ## API Endpoints
 
-**tFold API**: `http://43.142.171.112:11280/tFold`
+**tFold API**: `http://172.16.20.26:11280/tFold`
 
 **OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
 

@@ -19,7 +19,7 @@ logger = logging.getLogger('OpenBioMed')
 # API endpoints - configurable via environment variables
 TFOLD_API_BASE_URL = os.environ.get(
     "TFOLD_API_BASE_URL",
-    "http://43.142.171.112:11280/tFold"
+    "http://172.16.20.26:11280/tFold"
 )
 PIPELINE_API_URL = os.environ.get(
     "PIPELINE_API_URL",
