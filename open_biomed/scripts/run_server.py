@@ -205,6 +205,11 @@ class TaskRequest(BaseModel):
     msa_content: Optional[str] = None  # MSA content in a3m format (for complex)
     antigen_id: Optional[str] = None  # Chain ID for antigen (default: "A")
     pdb_file: Optional[str] = None  # PDB file path (for epitope)
+    # IgGM antibody design fields
+    design_type: Optional[str] = None  # "nanobody" or "heavy_light"
+    heavy_chain_mask: Optional[str] = None  # Heavy chain with X for design regions
+    light_chain_mask: Optional[str] = None  # Light chain with X (for heavy_light)
+    steps: Optional[int] = None  # Sampling steps for IgGM design
 
 
 class SearchRequest(BaseModel):
@@ -732,6 +737,50 @@ def handle_tfold_antibody_structure(request: TaskRequest, pipeline):
     }
 
 
+def handle_iggm_antibody_design(request: TaskRequest, pipeline):
+    """
+    IgGM antibody de novo design.
+
+    Supports:
+    - nanobody: Single chain antibody design
+    - heavy_light: Full antibody design (two chains)
+
+    Inputs:
+        - design_type: "nanobody" or "heavy_light"
+        - antigen_pdb: Antigen PDB file path
+        - heavy_chain_mask: Heavy chain sequence with X for design regions
+        - light_chain_mask: Light chain sequence with X (for heavy_light)
+        - epitope: Epitope residue numbers (JSON list or comma-separated)
+        - num_samples: Number of design samples (default 1)
+        - steps: Sampling steps (default 10)
+        - antigen_chain_id: Antigen chain ID (default "A")
+        - output_name: Output file name prefix (optional)
+
+    Outputs:
+        - PDB files: Designed antibody structures
+        - FASTA files: Designed sequences
+        - JSON file: Complete result metadata
+    """
+    outputs, messages = pipeline.run(
+        design_type=request.design_type or "nanobody",
+        antigen_pdb=request.antigen_pdb,
+        heavy_chain_mask=request.heavy_chain_mask,
+        light_chain_mask=request.light_chain_mask,
+        epitope=request.epitope,
+        num_samples=request.num_samples or 1,
+        steps=request.steps or 10,
+        antigen_chain_id=request.antigen_id or "A",
+        output_name=request.output_name
+    )
+
+    return {
+        "task": request.task,
+        "design_type": request.design_type,
+        "output_files": outputs,
+        "description": messages[0]
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1233,6 +1282,13 @@ TASK_CONFIGS = [
         "required_inputs": [],
         "pipeline_key": "tfold_antibody_structure",
         "handler_function": handle_tfold_antibody_structure,
+        "is_async": False
+    },
+    {
+        "task_name": "iggm_antibody_design",
+        "required_inputs": ["antigen_pdb", "heavy_chain_mask", "epitope"],
+        "pipeline_key": "iggm_antibody_design",
+        "handler_function": handle_iggm_antibody_design,
         "is_async": False
     }
 

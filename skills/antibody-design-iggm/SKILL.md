@@ -16,228 +16,152 @@ tags: [structure-design, sequence-design, antibody, nanobody, iggm]
 
 # IgGM Antibody De Novo Design
 
-Design antibodies using IgGM external API for epitope-conditioned de novo design.
+Design antibodies using IgGM external API for epitope-conditioned de novo design via the `/run_pipeline/` endpoint.
 
-## API Endpoint
+## API Endpoints
 
-**IgGM API**: `http://43.142.171.112:11280/IgGM/design`
+**IgGM API**: `http://43.142.171.112:11280/IgGM`
 
 **OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
 
-Environment variable override: `IGGM_API_BASE_URL` (if set, use this instead of default)
+Environment variable override:
+- `IGGM_API_BASE_URL`: Override IgGM API base URL
+- `PIPELINE_API_URL`: Override OpenBioMed pipeline API URL
 
 ## Execution Flow
 
-1. **Health Check**: Verify IgGM API availability
-2. **Prepare Input**: Collect antigen PDB and chain sequences with X masks
-3. **Construct curl Command**: Build multipart form request
-4. **Execute IgGM Request**: Run curl and save JSON response
-5. **Decode and Save Files**: Decode base64 PDB/FASTA content
-6. **Read and Display**: Use `/run_pipeline/` to display content for remote agent
-
-## Remote Agent Consideration
-
-IgGM API returns base64-encoded file content in JSON response. You MUST:
-1. Decode base64 content to save PDB/FASTA files
-2. Use `read_protein_file` via `/run_pipeline/` to display content
-
-**Pattern**: curl → JSON response → decode base64 → save files → `/run_pipeline/` display
+1. **Health Check**: Verify IgGM API availability (optional)
+2. **Prepare Input**: Collect antigen PDB, chain masks, and epitope information
+3. **Execute Design**: Call `/run_pipeline/` with `task: iggm_antibody_design`
+4. **Decode Files**: IgGM returns base64-encoded content, decoded to PDB/FASTA files
+5. **Save and Display**: Files saved to `./tmp/iggm/`, read for display
 
 ## Design Types
 
-| Type | Input | light_chain_mask | antibody_type |
-|------|-------|------------------|---------------|
-| Heavy-Light Antibody | H chain + L chain | Required | heavy_light |
-| Nanobody | H chain only | Not provided | nanobody |
+| Type | Required Inputs | Output |
+|------|-----------------|--------|
+| nanobody | antigen_pdb, heavy_chain_mask, epitope | PDB + FASTA |
+| heavy_light | antigen_pdb, heavy_chain_mask, light_chain_mask, epitope | PDB + FASTA |
 
-## Step 1: Health Check
-
-```bash
-curl http://43.142.171.112:11280/IgGM/health
-```
-
-## Step 2: Nanobody Design
+## Step 1: Nanobody Design
 
 ### Input Collection
+- `task`: `"iggm_antibody_design"` (OpenBioMed task name)
+- `design_type`: `"nanobody"`
 - `antigen_pdb`: Antigen PDB file path (required)
 - `heavy_chain_mask`: Heavy chain sequence with X marking design regions (required)
 - `epitope`: JSON list of epitope residue numbers, e.g., `[109,110,111]` (required)
-- `num_samples`: Number of design samples (optional, default 1)
-- `steps`: Sampling steps (optional, default 10)
+- `num_samples`: Number of design samples (default: 1)
+- `steps`: Sampling steps (default: 10)
+- `antigen_chain_id`: Antigen chain ID in PDB (default: `"A"`)
+- `output_name`: Output file name prefix (optional)
 
-### Example Execution
-
-Input:
-```
-antigen_pdb: antigen.pdb
-heavy_chain_mask: QVQLVESGGDLVQSGGSLKLACAVSXXXXXXXSIGWFRQAPGKEREAVSYSXXXXXXTYYVASVKGRFTISRDNAKNTAYLQMNNLKPEDTGIYYCAAXXXXXXXXXXXXXXXXXXWGQGTQVTVSS
-epitope: [109,110,111,112,113,114,115,116,117]
-num_samples: 1
-steps: 10
-```
-
-Execute:
-```bash
-# 1. Call IgGM API
-curl -s -X POST http://43.142.171.112:11280/IgGM/design \
-  -F "antigen_pdb=@antigen.pdb" \
-  -F "heavy_chain_mask=QVQLVESGGDLVQSGGSLKLACAVSXXXXXXXSIGWFRQAPGKEREAVSYSXXXXXXTYYVASVKGRFTISRDNAKNTAYLQMNNLKPEDTGIYYCAAXXXXXXXXXXXXXXXXXXWGQGTQVTVSS" \
-  -F "epitope=[109,110,111,112,113,114,115,116,117]" \
-  -F "num_samples=1" \
-  -F "steps=10" \
-  -o design_response.json
-
-# 2. Decode and save files from response
-python3 -c "
-import json, base64
-with open('design_response.json') as f:
-    d = json.load(f)
-print('job_id:', d['job_id'])
-print('antibody_type:', d['antibody_type'])
-for i, seq in enumerate(d['sequences']):
-    print(f'--- sample {i} ---')
-    print('Heavy:', seq['heavy_chain'])
-    print('Antigen:', seq['antigen'][:50], '...')
-# Save PDB file
-open('design_result.pdb', 'wb').write(base64.b64decode(d['pdb_files'][0]['content_base64']))
-# Save FASTA file
-open('design_result.fasta', 'wb').write(base64.b64decode(d['fasta_files'][0]['content_base64']))
-print('Files saved: design_result.pdb, design_result.fasta')
-"
-
-# 3. Read and display via run_pipeline
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
-  -H "Content-Type: application/json" \
-  -d '{"task": "read_protein_file", "protein": "design_result.pdb", "value": "true"}'
-```
-
-## Step 3: Heavy-Light Antibody Design
-
-### Input Collection
-- `antigen_pdb`: Antigen PDB file path (required)
-- `heavy_chain_mask`: Heavy chain sequence with X marking design regions (required)
-- `light_chain_mask`: Light chain sequence with X marking design regions (required)
-- `epitope`: JSON list of epitope residue numbers (required)
-- `num_samples`: Number of design samples (optional, default 1)
-- `steps`: Sampling steps (optional, default 10)
-
-### Example Execution
-
-Input:
-```
-antigen_pdb: antigen.pdb
-heavy_chain_mask: VQLVESGGGLVQPGGSLRLSCAASXXXXXXXYMNWVRQAPGKGLEWVSVVXXXXXTFYTDSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARXXXXXXXXXXXXXXWGQGTMVTVSS
-light_chain_mask: DIQMTQSPSSLSASVGDRVSITCXXXXXXXXXXXWYQQKPGKAPKLLISXXXXXXXGVPSRFSGSGSGTDFTLTITSLQPEDFATYYCXXXXXXXXXXXFGGGTKVEIK
-epitope: [7,8,9,10,11,12,13,14,108,109,110,111,112,113,114,115,116,118,167,157,158,160,161,162,163,164]
-num_samples: 1
-steps: 10
-```
-
-Execute:
-```bash
-# 1. Call IgGM API
-curl -s -X POST http://43.142.171.112:11280/IgGM/design \
-  -F "antigen_pdb=@antigen.pdb" \
-  -F "heavy_chain_mask=VQLVESGGGLVQPGGSLRLSCAASXXXXXXXYMNWVRQAPGKGLEWVSVVXXXXXTFYTDSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARXXXXXXXXXXXXXXWGQGTMVTVSS" \
-  -F "light_chain_mask=DIQMTQSPSSLSASVGDRVSITCXXXXXXXXXXXWYQQKPGKAPKLLISXXXXXXXGVPSRFSGSGSGTDFTLTITSLQPEDFATYYCXXXXXXXXXXXFGGGTKVEIK" \
-  -F "epitope=[7,8,9,10,11,12,13,14,108,109,110,111,112,113,114,115,116,118,167,157,158,160,161,162,163,164]" \
-  -F "num_samples=1" \
-  -F "steps=10" \
-  -o design_response.json
-
-# 2. Decode and save files
-python3 -c "
-import json, base64
-with open('design_response.json') as f:
-    d = json.load(f)
-print('job_id:', d['job_id'])
-print('antibody_type:', d['antibody_type'])
-for i, seq in enumerate(d['sequences']):
-    print(f'--- sample {i} ---')
-    print('Heavy:', seq['heavy_chain'])
-    print('Light:', seq['light_chain'])
-    print('Antigen:', seq['antigen'][:50], '...')
-# Save files
-open('design_result.pdb', 'wb').write(base64.b64decode(d['pdb_files'][0]['content_base64']))
-open('design_result.fasta', 'wb').write(base64.b64decode(d['fasta_files'][0]['content_base64']))
-print('Files saved: design_result.pdb, design_result.fasta')
-"
-
-# 3. Read and display via run_pipeline
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
-  -H "Content-Type: application/json" \
-  -d '{"task": "read_protein_file", "protein": "design_result.pdb", "value": "true"}'
-```
-
-## Step 4: Decode Base64 Files
-
-IgGM returns base64-encoded file content. Use Python to decode and save.
-
-### Decode Script
-
-```python
-import json, base64
-
-# Load response
-with open('design_response.json') as f:
-    d = json.load(f)
-
-# Display summary
-print('job_id:', d['job_id'])
-print('antibody_type:', d['antibody_type'])
-
-# Display sequences
-for i, seq in enumerate(d['sequences']):
-    print(f'--- sample {i} ---')
-    print('Heavy:', seq['heavy_chain'])
-    if seq['light_chain']:
-        print('Light:', seq['light_chain'])
-    print('Antigen:', seq['antigen'][:50], '...')
-
-# Save PDB file
-for pdb_file in d['pdb_files']:
-    filename = pdb_file['filename']
-    content = base64.b64decode(pdb_file['content_base64'])
-    with open(filename, 'wb') as f:
-        f.write(content)
-    print(f'Saved: {filename}')
-
-# Save FASTA file
-for fasta_file in d['fasta_files']:
-    filename = fasta_file['filename']
-    content = base64.b64decode(fasta_file['content_base64'])
-    with open(filename, 'wb') as f:
-        f.write(content)
-    print(f'Saved: {filename}')
-```
-
-## Step 5: Read and Display for Remote Agent
-
-After saving PDB file, call `/run_pipeline/` to display content.
-
-### API Endpoint
+### API Call
 
 ```bash
 curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
   -H "Content-Type: application/json" \
-  -d '{"task": "read_protein_file", "protein": "<PDB_FILE_PATH>", "value": "true"}'
+  -d '{
+    "task": "iggm_antibody_design",
+    "design_type": "nanobody",
+    "antigen_pdb": "./tmp/antigen.pdb",
+    "heavy_chain_mask": "QVQLVESGGDLVQSGGSLKLSCAVSXXXXXXXSIGWFRQAPGKEREAVSYSXXXXXXTYYVASVKGRFTISRDNAKNTAYLQMNNLKPEDTGIYYCAAXXXXXXXXXXXXXXXXXXWGQGTQVTVSS",
+    "epitope": "[109,110,111,112,113,114,115,116,117]",
+    "num_samples": 1,
+    "steps": 10,
+    "output_name": "my_nanobody"
+  }'
 ```
 
-### Response Structure
+### Response
 
 ```json
 {
-  "task": "read_protein_file",
-  "sequence": "QVQLVESGGDLVQSGGSLKLACAVS...",
-  "name": "design_result",
-  "pdb_content": "REMARK 250\nATOM ...",
-  "description": "Protein content read from design_result.pdb: sequence length=..."
+  "task": "iggm_antibody_design",
+  "design_type": "nanobody",
+  "output_files": [
+    "./tmp/iggm/my_nanobody_0.pdb",
+    "./tmp/iggm/my_nanobody_0.fasta",
+    "./tmp/iggm/my_nanobody_result.json"
+  ],
+  "description": "Nanobody antibody design completed.\nJob ID: 4d617f6c-54ca...\nHeavy chain: QVQLVESGGDLVQSGGSLKLSCAVS..."
 }
 ```
 
-## Response JSON Structure
+## Step 2: Heavy-Light Antibody Design
 
-IgGM API returns:
+### Input Collection
+- `task`: `"iggm_antibody_design"` (OpenBioMed task name)
+- `design_type`: `"heavy_light"`
+- `antigen_pdb`: Antigen PDB file path (required)
+- `heavy_chain_mask`: Heavy chain sequence with X marks (required)
+- `light_chain_mask`: Light chain sequence with X marks (required)
+- `epitope`: JSON list of epitope residue numbers (required)
+- `num_samples`: Number of design samples (default: 1)
+- `steps`: Sampling steps (default: 10)
+- `output_name`: Output file name prefix (optional)
+
+### API Call
+
+```bash
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "iggm_antibody_design",
+    "design_type": "heavy_light",
+    "antigen_pdb": "./tmp/antigen.pdb",
+    "heavy_chain_mask": "VQLVESGGGLVQPGGSLRLSCAASXXXXXXXYMNWVRQAPGKGLEWVSVVXXXXXTFYTDSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARXXXXXXXXXXXXXXWGQGTMVTVSS",
+    "light_chain_mask": "DIQMTQSPSSLSASVGDRVSITCXXXXXXXXXXXWYQQKPGKAPKLLISXXXXXXXGVPSRFSGSGSGTDFTLTITSLQPEDFATYYCXXXXXXXXXXXFGGGTKVEIK",
+    "epitope": "[7,8,9,10,11,12,13,14,108,109,110,111,112,113,114,115,116]",
+    "num_samples": 1,
+    "steps": 10,
+    "output_name": "my_antibody"
+  }'
+```
+
+### Response
+
+```json
+{
+  "task": "iggm_antibody_design",
+  "design_type": "heavy_light",
+  "output_files": [
+    "./tmp/iggm/my_antibody_0.pdb",
+    "./tmp/iggm/my_antibody_0.fasta",
+    "./tmp/iggm/my_antibody_result.json"
+  ],
+  "description": "Heavy-light antibody design completed.\nJob ID: ...\nHeavy chain: VQLVESGG...\nLight chain: DIQMTQ..."
+}
+```
+
+## Sequence Mask Format
+
+Use `X` to mark regions to be designed (typically CDR regions):
+- Other amino acids remain fixed (affinity maturation scenario)
+- All positions can be marked with X for full de novo design
+
+Example with CDR3 marked:
+```
+QVQLVESGGDLVQSGGSLKLSCAVSGFTFSSYAMSWVRQAPGKGLEWVAISSSGGSTYYADSVKGRLTISRDNAKNTVYLQMNSLKPEDTAVYYCAAVSYLSTASSLDYXXXXXXXXXXWGQGTQVTVSS
+```
+
+## Epitope Format
+
+- JSON array: `[109,110,111,112,113]`
+- Comma-separated string: `109,110,111,112,113`
+- Must be valid residue numbers in the antigen PDB
+
+## Output Interpretation
+
+### Generated Files
+
+| File Type | Content |
+|-----------|---------|
+| `.pdb` | Designed antibody 3D structure |
+| `.fasta` | Designed sequences in FASTA format |
+| `_result.json` | Job metadata and all sequences |
+
+### JSON Result Structure
 
 ```json
 {
@@ -245,77 +169,43 @@ IgGM API returns:
   "antibody_type": "nanobody",
   "sequences": [
     {
-      "heavy_chain": "QVQLVESGGDLVQSGGSLKLACAVS...",
+      "heavy_chain": "QVQLVESGGDLVQSGGSLKLSCAVS...",
       "light_chain": null,
       "antigen": "NLCPFDEVFDATRFASVYAWNRK..."
     }
   ],
-  "pdb_files": [
-    {
-      "filename": "output_0.pdb",
-      "content_base64": "RE1BUkUgMjUwIFN0cnVjdHVyZSBwcmVkaWN0ZWQgYnk..."
-    }
-  ],
-  "fasta_files": [
-    {
-      "filename": "output_0.fasta",
-      "content_base64": "PkhRDlFWUUxWRVNHR0RMVlFTR1N...="
-    }
-  ]
+  "pdb_files": ["output_0.pdb"],
+  "fasta_files": ["output_0.fasta"]
 }
 ```
 
-## Request Parameters
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `antigen_pdb` | File | ✓ | Antigen PDB file upload |
-| `heavy_chain_mask` | string | ✓ | Heavy chain with X for design regions |
-| `light_chain_mask` | string | - | Light chain (omit for nanobody) |
-| `epitope` | JSON list | ✓ | Epitope residue numbers, e.g., `[109,110,111]` |
-| `num_samples` | int | - | Number of samples (default 1) |
-| `steps` | int | - | Sampling steps (default 10) |
-| `task` | string | - | design/inverse_design/fr_design (default design) |
-| `temperature` | float | - | Sampling temperature (default 1.0) |
-| `relax` | bool | - | Structure relaxation (default false) |
-| `antigen_chain_id` | string | - | Antigen chain ID in PDB (default "A") |
-
-## Sequence Mask Format
-
-- Use `X` to mark regions to be designed (typically CDR regions)
-- Other amino acids remain fixed
-- Example: `QVQLVESGGDLVQSGGSLKLACAVSXXXXXXXSIGWFRQAPGK...`
-
-## Epitope Format
-
-- JSON array format: `[109,110,111,112,113]`
-- Must be valid residue numbers in the antigen PDB
-
 ## Error Handling
 
-### File Upload Error
+### Missing Required Parameters
 
-**Symptom**: API returns error about missing file
+**Symptom**: Error message about missing inputs
 
-**Solution**: Ensure `antigen_pdb` file exists and use `@` prefix for upload:
-```bash
--F "antigen_pdb=@/path/to/file.pdb"
-```
+**Solution**: Ensure all required parameters are provided:
+- nanobody: antigen_pdb + heavy_chain_mask + epitope
+- heavy_light: antigen_pdb + heavy_chain_mask + light_chain_mask + epitope
+
+### File Not Found
+
+**Symptom**: FileNotFoundError for antigen PDB
+
+**Solution**: Verify antigen_pdb path exists and is accessible
 
 ### Epitope Format Error
 
-**Symptom**: API returns invalid epitope error
+**Symptom**: Invalid epitope format error
 
-**Solution**: Use JSON array format with square brackets:
-```bash
--F "epitope=[109,110,111]"
-```
+**Solution**: Use JSON array `[109,110,111]` or comma-separated `109,110,111`
 
 ### GPU Timeout
 
 **Symptom**: Request takes very long
 
-**Solution**: Reduce `num_samples` or `steps`, wait and retry
+**Solution**: Reduce num_samples or steps, wait and retry
 
 ## Decision Tree
 
@@ -324,11 +214,11 @@ What design type?
 │
 ├─ Nanobody (single chain)
 │   └─ Only provide heavy_chain_mask
-│   └─ antibody_type = nanobody
+│   └─ design_type = "nanobody"
 │
 ├─ Heavy-Light Antibody
 │   └─ Provide both heavy_chain_mask and light_chain_mask
-│   └─ antibody_type = heavy_light
+│   └─ design_type = "heavy_light"
 │
 └─ Need multiple samples?
     └─ Increase num_samples parameter
@@ -338,5 +228,5 @@ What design type?
 
 After antibody design:
 1. **Binding Affinity**: Use `binding-affinity-prediction-prodigy` to evaluate
-2. **Visualization**: Open PDB in PyMol
-3. **Structure Validation**: Use `antibody-structure-prediction-tfold` for comparison
+2. **Structure Prediction**: Use `antibody-structure-prediction-tfold` for comparison
+3. **Visualization**: Open PDB in PyMol to examine design
