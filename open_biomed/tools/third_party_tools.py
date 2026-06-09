@@ -240,7 +240,18 @@ class SimilarProteinSearch(Tool):
         database: List[str] = None
     ) -> Tuple[List[str], List[str]]:
         """
-        Search for similar protein structures using FoldSeek.
+        Synchronous wrapper for run_async. Uses asyncio.run() for standalone usage.
+        """
+        import asyncio
+        return asyncio.run(self.run_async(protein=protein, database=database))
+
+    async def run_async(
+        self,
+        protein: str = "",
+        database: List[str] = None
+    ) -> Tuple[List[str], List[str]]:
+        """
+        Search for similar protein structures using FoldSeek (async version for use within running event loop).
 
         Args:
             protein: PDB file path (must exist on server)
@@ -249,8 +260,6 @@ class SimilarProteinSearch(Tool):
         Returns:
             Tuple of (result paths list, description messages list)
         """
-        import asyncio
-
         if not protein:
             return [""], ["Error: protein input (PDB file path) is required"]
 
@@ -271,8 +280,8 @@ class SimilarProteinSearch(Tool):
 
             logging.info(f"Running FoldSeek search with databases: {requester.database}")
 
-            # Run async method
-            result_paths, messages = asyncio.run(requester.run_async(protein_obj))
+            # Call async method directly (no asyncio.run needed)
+            result_paths, messages = await requester.run_async(protein_obj)
 
             return result_paths, [f"FoldSeek results saved to {messages[0]}"]
 
