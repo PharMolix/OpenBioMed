@@ -561,35 +561,32 @@ def handle_binding_affinity(request: TaskRequest, pipeline):
     }
 
 
-def handle_similar_protein_search(request: TaskRequest, pipeline):
+async def handle_similar_protein_search(request: TaskRequest, pipeline):
     """
-    Search for similar proteins using MSA or FoldSeek.
+    Search for similar proteins using FoldSeek (structure similarity).
+    MSA (sequence similarity) search is handled via direct API calls documented in skills/similar-protein-retrieval/SKILL.md.
 
     Inputs:
-        - protein: FASTA sequence or PDB file path
-        - search_type: "msa" for sequence similarity, "foldseek" for structure similarity
+        - protein: PDB file path (must exist on server)
         - database: (optional) List of FoldSeek databases
 
     Outputs:
-        - result_path: Path to results file (.a3m for MSA, .m8 for FoldSeek)
+        - result_path: Path to results file (.m8 for FoldSeek)
         - description: Description message
     """
     protein = request.protein
-    search_type = request.search_type or "foldseek"
     database = request.database
 
     if not protein:
         raise ValueError("protein input is required")
 
-    outputs, messages = pipeline.run(
+    outputs, messages = await pipeline.run_async(
         protein=protein,
-        search_type=search_type,
         database=database
     )
 
     return {
         "task": request.task,
-        "search_type": search_type,
         "result_path": outputs[0] if outputs else "",
         "description": messages[0]
     }
@@ -1254,7 +1251,7 @@ TASK_CONFIGS = [
         "required_inputs": ["protein"],
         "pipeline_key": "similar_protein_search",
         "handler_function": handle_similar_protein_search,
-        "is_async": False
+        "is_async": True
     },
     {
         "task_name": "mutation_design_aav",
@@ -1307,22 +1304,13 @@ for task_config in TASK_CONFIGS:
         is_async=task_config["is_async"]
     ))
 
-for task_config in TASK_CONFIGS:
-    task_loader.register_task(TaskConfig(
-        task_name=task_config["task_name"],
-        required_inputs=task_config["required_inputs"],
-        pipeline_key=task_config["pipeline_key"],
-        handler_function=task_config["handler_function"],
-        is_async=task_config["is_async"]
-    ))
-
 
 
 
 @app.post("/run_pipeline/")
 async def run_pipeline(request: TaskRequest):
     task_name = request.task.lower()
-    logging.info(request)
+    logger.info(f"Request | task={task_name} | model={request.model} | inputs={request.model_dump(exclude={'task', 'model'}, exclude_none=True)}")
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
@@ -1332,27 +1320,53 @@ async def run_pipeline(request: TaskRequest):
             output = await task_config.handler_function(request, pipeline)
         else:
             output = task_config.handler_function(request, pipeline)
+        logger.info(f"Response | task={task_name} | output={output}")
         return output
     except Exception as e:
-        print(e)
+        logger.error(f"Error | task={task_name} | error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/web_search/")
 async def web_search(request: SearchRequest):
     task_name = request.task.lower()
+    logger.info(f"WebSearch | task={task_name} | inputs={request.model_dump(exclude={'task'}, exclude_none=True)}")
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
         requester = TOOLS[task_config.pipeline_key]
 
+        # Check PubChem rate limiter status for PubChem-related tasks
+        pubchem_tasks = ["molecule_name_request", "molecule_structure_request", "pubchem_bioactivity"]
+        if task_name in pubchem_tasks:
+            from open_biomed.tools.web_request_tools import _pubchem_limiter
+            if _pubchem_limiter.is_in_cooldown:
+                blocks = _pubchem_limiter.consecutive_blocks
+                logger.warning(f"WebSearch | task={task_name} | PubChem is in cooldown (blocked {blocks}x), returning degraded response")
+                # Return a graceful 503 response instead of 500
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"PubChem API is temporarily blocked due to rate limiting. "
+                           f"Please retry in a few minutes. (consecutive blocks: {blocks})"
+                )
+
         if task_config.is_async:
             output = await task_config.handler_function(request, requester)
         else:
             output = task_config.handler_function(request, requester)
+        logger.info(f"WebSearch Response | task={task_name} | output={output}")
         return output
+    except HTTPException:
+        raise  # Re-raise HTTPExceptions (including our 503)
     except Exception as e:
-        print(e)
+        error_str = str(e)
+        logger.error(f"WebSearch Error | task={task_name} | error={error_str}")
+        # Check if this is a PubChem block error — return 503 instead of 500
+        if "Blocked" in error_str or "rate-limited" in error_str or "HTML error page" in error_str:
+            raise HTTPException(
+                status_code=503,
+                detail=f"PubChem API is temporarily unavailable: {error_str}. Please retry in a few minutes."
+            )
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/healthz")
