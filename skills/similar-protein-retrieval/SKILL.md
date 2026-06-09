@@ -80,10 +80,12 @@ curl -L -o protein.pdb "https://files.rcsb.org/download/<PDB_ID>.pdb"
 
 ### Step 2: Choose Search Method
 
-| Search Type | Description | When to Use |
-|-------------|-------------|-------------|
-| `msa` | Sequence similarity (self-hosted service) | Sequence-only input, finding homologs |
-| `foldseek` | Structure similarity (FoldSeek) | Has 3D structure, finding similar folds |
+| Search Type | Description | When to Use | Expected Runtime |
+|-------------|-------------|-------------|------------------|
+| `msa` | Sequence similarity (self-hosted service) | Sequence-only input, finding homologs | **2–5+ 分钟**（取决于序列长度和服务器负载）|
+| `foldseek` | Structure similarity (FoldSeek) | Has 3D structure, finding similar folds | **10–30 秒**（单数据库），多数据库搜索可能更长 |
+
+⚠️ **MSA 搜索耗时较长**：MSA 模式需要远程调用服务，典型耗时 2–5 分钟，长序列或服务器繁忙时可能超过 10 分钟。调用 API 后请耐心等待，不要重复提交。FoldSeek 通常较快，但如果搜索多个大型数据库（如 `afdb-swissprot`）也可能需要 1–2 分钟。
 
 If the input has 3D structure (PDB file or structure from PDB ID), ask user which method to use. Default to `foldseek` for structural inputs.
 
@@ -96,6 +98,8 @@ The MSA service uses a **submit-job + poll-status + fetch-result** pattern. You 
 ##### 3.1 Submit MSA Job
 
 Submit the sequence to get a job_id (returns immediately, no timeout):
+
+> ⏱️ **注意：MSA 搜索通常需要 2–5 分钟，请耐心等待响应。**
 
 ```bash
 curl -s -X POST "${MSA_API_BASE_URL}/msa/search/submit" \
@@ -212,6 +216,8 @@ curl -s "${MSA_API_BASE_URL}/msa/search/result/${JOB_ID}"
 #### FoldSeek Search (Structure Similarity)
 
 Call the OpenBioMed API for structure search:
+
+> ⏱️ FoldSeek 通常 10–30 秒返回结果，搜索多个大型数据库时可能需要 1–2 分钟。
 
 ```bash
 curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
@@ -342,6 +348,11 @@ curl "${OPENBIOMED_API_BASE_URL}/healthz"
 # Should return "Service available"
 ```
 
+### Search Timeout
+
+**Symptom**: Long wait time or timeout error from MSA/FoldSeek.
+
+**Solution**: These external services may be busy. MSA search typically takes 2–5 minutes, FoldSeek 10–30 seconds. If waiting exceeds 10 minutes for MSA or 2 minutes for FoldSeek, the remote service may be unavailable — wait and retry later, or use smaller sequence/structure input.
 ## Interpretation Guide
 
 ### Sequence Identity (MSA)

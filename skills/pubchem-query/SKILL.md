@@ -17,24 +17,14 @@ tags: [pubchem, compound-search, bioactivity, similarity-search]
 
 # PubChem Query
 
-Query PubChem database for drug discovery and chemistry applications via the run_pipeline API.
+Query PubChem database for drug discovery and chemistry applications via the OpenBioMed server API.
 
-## Endpoint Configuration (read this first)
+## Endpoint Configuration
 
-Defaults declared in this skill:
+- `OPENBIOMED_CLOUD_URL = http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`
+  The OpenBioMed cloud service base URL.
 
-- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
-  Placeholder for the OpenBioMed cloud service base URL.
-
-This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
-
-1. If the user explicitly provides an endpoint in the current conversation, use it.
-2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set.
-3. Otherwise, ask the user once which endpoint to use, offering these options:
-   - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value.
-   - **Self-hosted OpenBioMed server**: user provides their own base URL.
-
-In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash). The full endpoint is `${OPENBIOMED_API_BASE_URL}/run_pipeline/`.
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL (no trailing slash).
 
 ## Inputs
 
@@ -55,7 +45,7 @@ In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for 
 Convert drug name or PubChem CID to molecular structure.
 
 ```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
   -H "Content-Type: application/json" \
   -d '{"task": "molecule_name_request", "query": "aspirin"}'
 ```
@@ -71,7 +61,7 @@ Response:
 
 Query by PubChem CID:
 ```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
   -H "Content-Type: application/json" \
   -d '{"task": "molecule_name_request", "query": "2244"}'
 ```
@@ -81,7 +71,7 @@ curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
 Find similar compounds based on structure.
 
 ```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
   -H "Content-Type: application/json" \
   -d '{"task": "molecule_structure_request", "molecule": "CC(=O)OC1=CC=CC=C1C(=O)O", "threshold": "0.85"}'
 ```
@@ -99,6 +89,7 @@ Response:
 - SMILES string (e.g., `"CC(=O)OC1=CC=CC=C1C(=O)O"`)
 - SDF file path (e.g., `"./tmp/molecule.sdf"`)
 - Pickle file path (e.g., `"./tmp/molecule.pkl"`)
+- File paths must be accessible on the server filesystem
 
 ### 3. Bioactivity Queries (`pubchem_bioactivity`)
 
@@ -186,7 +177,7 @@ Response:
 BASE_URL="${OPENBIOMED_API_BASE_URL}"
 
 # Query aspirin
-RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+RESULT=$(curl -s -X POST "${BASE_URL}/web_search/" \
   -H "Content-Type: application/json" \
   -d '{"task": "molecule_name_request", "query": "aspirin"}')
 
@@ -204,7 +195,7 @@ BASE_URL="${OPENBIOMED_API_BASE_URL}"
 QUERY_SMILES="CC(=O)OC1=CC=CC=C1C(=O)O"  # aspirin
 
 # Find compounds with >85% similarity
-RESULT=$(curl -s -X POST "${BASE_URL}/run_pipeline/" \
+RESULT=$(curl -s -X POST "${BASE_URL}/web_search/" \
   -H "Content-Type: application/json" \
   -d "{\"task\": \"molecule_structure_request\", \"molecule\": \"${QUERY_SMILES}\", \"threshold\": \"0.85\"}")
 
@@ -244,6 +235,14 @@ echo "$COMPOUNDS" | jq '.results'
 | Bioactivity (target) | `results` - list of assay IDs |
 | Bioactivity (compound) | `results` - list of assay IDs |
 | Bioactivity (assay) | `results` - list of compound IDs |
+
+---
+
+## Reading Response Data
+
+**After receiving the response:**
+- For `molecule_name_request` and `molecule_structure_request`: Use `molecule_preview` field for the SMILES string. The `molecule` field is a `.pkl` binary file — note its path for downstream use (e.g., as input to other APIs like `pocket_molecule_docking`), but it cannot be directly read as text.
+- For `pubchem_bioactivity`: The `results` field contains structured data (AID/CID lists) — parse directly from the JSON response.
 
 ---
 
@@ -298,13 +297,20 @@ echo "$COMPOUNDS" | jq '.results'
 - Bioactivity data depends on what PubChem has indexed
 - Large result sets may be truncated
 
+## Related Skills
+
+- **molecule-property-prediction**: Predict molecular properties (QED, LogP, etc.) for compounds retrieved from PubChem
+- **protein-binding-site-prediction**: Predict binding sites on proteins identified via bioactivity queries
+- **pocket-molecule-docking**: Dock PubChem-retrieved compounds into protein pockets
+- **drug-lead-analysis**: Comprehensive drug lead analysis for retrieved compounds
+
 ## Example Usage
 
 **Input**: "Get the structure of ibuprofen"
 
 **Workflow**:
 ```bash
-curl -X POST "${BASE_URL}/run_pipeline/" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
   -d '{"task": "molecule_name_request", "query": "ibuprofen"}'
 ```
 
@@ -312,7 +318,7 @@ curl -X POST "${BASE_URL}/run_pipeline/" \
 
 **Workflow**:
 ```bash
-curl -X POST "${BASE_URL}/run_pipeline/" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
   -d '{"task": "molecule_structure_request", "molecule": "CC(=O)OC1=CC=CC=C1C(=O)O", "threshold": "0.80"}'
 ```
 
@@ -320,6 +326,6 @@ curl -X POST "${BASE_URL}/run_pipeline/" \
 
 **Workflow**:
 ```bash
-curl -X POST "${BASE_URL}/run_pipeline/" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
   -d '{"task": "pubchem_bioactivity", "query_type": "target", "gene_symbol": "HMGCR"}'
 ```
