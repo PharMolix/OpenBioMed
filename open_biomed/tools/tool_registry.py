@@ -11,6 +11,7 @@ from open_biomed.tools.disease_drug_intel_tool import DiseaseDrugIntelTool
 from open_biomed.tools.drug_drug_interaction_tool import DrugDrugInteractionTool
 from open_biomed.tools.literature_search_tool import LiteratureSearchTool
 from open_biomed.tools.mutation_design_aav_tool import MutationDesignAAV
+from open_biomed.tools.tfold_tool import TFoldRequester
 
 
 from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile
@@ -35,6 +36,7 @@ class LazyDictForTool(dict):
             "kegg_query", "retrosynthesis", "disease_drug_intel", "ddi_analysis", "literature_search",
             "binding_affinity", "similar_protein_search",
             "mutation_design_aav",
+            "tfold_antibody_structure",
             "read_molecule_file", "read_protein_file"
         ]
     
@@ -134,6 +136,8 @@ class LazyDictForTool(dict):
             self[key] = SimilarProteinSearch()
         elif key == "mutation_design_aav":
             self[key] = MutationDesignAAV()
+        elif key == "tfold_antibody_structure":
+            self[key] = TFoldRequester()
         elif key == "read_molecule_file":
             self[key] = ReadMoleculeFile()
         elif key == "read_protein_file":

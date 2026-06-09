@@ -199,6 +199,12 @@ class TaskRequest(BaseModel):
     population_size: Optional[int] = None  # Number of mutants per round
     max_mutations: Optional[int] = None  # Max point mutations per sequence
     diversity_weight: Optional[float] = None  # Weight for diversity in selection
+    # tFold antibody structure prediction fields
+    prediction_type: Optional[str] = None  # "antibody", "nanobody", "complex", or "epitope"
+    output_name: Optional[str] = None  # Output file name
+    msa_content: Optional[str] = None  # MSA content in a3m format (for complex)
+    antigen_id: Optional[str] = None  # Chain ID for antigen (default: "A")
+    pdb_file: Optional[str] = None  # PDB file path (for epitope)
 
 
 class SearchRequest(BaseModel):
@@ -677,6 +683,52 @@ def handle_read_protein_file(request: TaskRequest, pipeline):
         "name": outputs["name"],
         "pdb_content": outputs.get("pdb_content", ""),
         "description": messages
+    }
+
+
+def handle_tfold_antibody_structure(request: TaskRequest, pipeline):
+    """
+    tFold antibody structure prediction.
+
+    Supports:
+    - antibody: Heavy + light chain structure prediction
+    - nanobody: Single chain structure prediction
+    - complex: Antigen-antibody complex prediction
+    - epitope: Epitope residue determination from complex PDB
+
+    Inputs:
+        - prediction_type: "antibody", "nanobody", "complex", or "epitope"
+        - heavy_chain: Heavy chain FASTA sequence
+        - light_chain: Light chain FASTA sequence (for antibody/complex)
+        - antigen: Antigen FASTA sequence (for complex)
+        - antigen_id: Chain ID for antigen (default: "A")
+        - msa_content: MSA content in a3m format (optional, for complex)
+        - pdb_file: PDB file path (for epitope)
+        - distance_cutoff: Distance threshold for epitope (default: 5.0)
+        - output_name: Output file name (optional)
+
+    Outputs:
+        - pdb_file: Path to predicted PDB file (for structure tasks)
+        - result_file: Path to JSON result file (for epitope)
+        - description: Summary with confidence scores
+    """
+    outputs, messages = pipeline.run(
+        prediction_type=request.prediction_type or "antibody",
+        heavy_chain=request.heavy_chain,
+        light_chain=request.light_chain,
+        antigen=request.antigen,
+        antigen_id=request.antigen_id or "A",
+        msa_content=request.msa_content,
+        pdb_file=request.pdb_file,
+        distance_cutoff=request.distance_cutoff or 5.0,
+        output_name=request.output_name
+    )
+
+    return {
+        "task": request.task,
+        "prediction_type": request.prediction_type,
+        "result_path": outputs[0] if outputs else "",
+        "description": messages[0]
     }
 
 
@@ -1174,6 +1226,13 @@ TASK_CONFIGS = [
         "required_inputs": ["protein"],
         "pipeline_key": "read_protein_file",
         "handler_function": handle_read_protein_file,
+        "is_async": False
+    },
+    {
+        "task_name": "tfold_antibody_structure",
+        "required_inputs": [],
+        "pipeline_key": "tfold_antibody_structure",
+        "handler_function": handle_tfold_antibody_structure,
         "is_async": False
     }
 
