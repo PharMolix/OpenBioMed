@@ -13,6 +13,7 @@ from open_biomed.tools.literature_search_tool import LiteratureSearchTool
 from open_biomed.tools.mutation_design_aav_tool import MutationDesignAAV
 from open_biomed.tools.tfold_tool import TFoldRequester
 from open_biomed.tools.iggm_tool import IgGMRequester
+from open_biomed.tools.boltz2_tool import Boltz2Requester
 
 
 from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile
@@ -39,6 +40,7 @@ class LazyDictForTool(dict):
             "mutation_design_aav",
             "tfold_antibody_structure",
             "iggm_antibody_design",
+            "boltz2_structure_prediction",
             "read_molecule_file", "read_protein_file"
         ]
     
@@ -142,6 +144,8 @@ class LazyDictForTool(dict):
             self[key] = TFoldRequester()
         elif key == "iggm_antibody_design":
             self[key] = IgGMRequester()
+        elif key == "boltz2_structure_prediction":
+            self[key] = Boltz2Requester()
         elif key == "read_molecule_file":
             self[key] = ReadMoleculeFile()
         elif key == "read_protein_file":

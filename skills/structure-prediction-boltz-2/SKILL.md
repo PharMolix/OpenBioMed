@@ -5,218 +5,208 @@ description: >
   Use this skill when:
   (1) Predicting protein complex structures,
   (2) Validating designed binders,
-  (3) Predicting protein-ligand complexes,
-  (4) Using local GPU resources.
+  (3) Predicting protein-ligand complexes and binding affinity,
+  (4) External GPU resources (no local model weights required).
 
   For protein complex binding affinity evaluation, use prodigy.
 license: MIT
 category: design-tools
-tags: [structure-prediction, protein complex, protein-ligand complex]
+tags: [structure-prediction, protein complex, protein-ligand complex, affinity]
 ---
 
 # Boltz-2 Structure Prediction
 
-## Prerequisites
+Predict protein complex structures and protein-ligand affinity using Boltz-2 external API via the `/run_pipeline/` endpoint.
 
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| Python | 3.10+ | 3.10 |
-| CUDA | 12.0+ | 12.2 |
-| GPU VRAM | 24GB | 80GB (A800) |
-| RAM | 32GB | 64GB |
+## API Endpoints
 
-## How to run
+**OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
 
-### Local installation
+Environment variable override:
+- `BOLTZ2_API_BASE_URL`: Override Boltz-2 API base URL
+- `PIPELINE_API_URL`: Override OpenBioMed pipeline API URL
+
+## Execution Flow
+
+1. **Submit Job**: Send request to Boltz-2 API (returns job_id immediately)
+2. **Poll Status**: Wait for job completion (submit + poll pattern)
+3. **Fetch Result**: Retrieve structure and affinity data when completed
+4. **Save and Display**: Files saved to `./tmp/boltz2/`
+
+## Task Types
+
+| Task | Required Inputs | Output |
+|------|-----------------|--------|
+| affinity | sequence, smiles | PDB file + IC50 value |
+| prot_complex | sequence_1, sequence_2 | PDB file |
+
+## Step 1: Protein-Ligand Affinity Prediction
+
+### Input Collection
+- `task`: `"boltz2_structure_prediction"` (OpenBioMed task name)
+- `prediction_type`: `"affinity"` (prediction mode)
+- `sequence`: Protein amino acid sequence (required)
+- `smiles`: Ligand SMILES string (required)
+- `task_id`: Project/batch ID (optional, auto-generated)
+- `task_name`: Task name (optional, auto-generated)
+- `output_name`: Output file name prefix (optional)
+
+### API Call
+
 ```bash
-pip install boltz[cuda] -U -i
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "boltz2_structure_prediction",
+    "prediction_type": "affinity",
+    "sequence": "GSHMGSSGMSSGMG",
+    "smiles": "CCO",
+    "output_name": "my_affinity_pred"
+  }'
 ```
 
-### Predict protein complex structure
-```python
-import os, yaml, subprocess
+### Response
 
-def predict_protein_complex_structure(sequence_1, sequence_2, project_dir):
-    """
-    :param sequence_1: sequence of the first protein
-    :param sequence_2: sequence of the second protein
-    :param project_dir: path to the project
-    :return structure of the protein complex in PDB format
-    """
-    # init project dir
-    os.makedirs(project_dir, exist_ok=True)
-    log_file = os.join(project_dir, 'log.txt')
-    # init input yaml file
-    data = {
-        "sequences": [
-            {
-                "protein": {
-                    "id": "A",
-                    "sequence": sequence_1,
-                    "msa": "empty"
-                }
-            },
-            {
-                "protein": {
-                    "id": "B",
-                    "sequence": sequence_2,
-                    "msa": "empty"
-                }
-            },
-        ]
-    }
-    input_file = os.path.join(project_dir, "input.yaml")
-    with open(input_file, "w") as f:
-        yaml.dump(data, f)
-    # init output file
-    output_dir = os.path.join(project_dir, "boltz")
-    # prediction
-    command = [
-        'boltz', 'predict', input_file,
-        "--out_dir", output_dir,
-        '--use_msa_server',
-        '--output_format', "pdb",
-        "--seed", "42"
-    ]
-    with open(log_file, 'a') as f:
-        process = subprocess.Popen(command, stdout=f, stderr=f, env=self.env)
-        process.communicate()
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill() 
-        process.wait()
-
-    # extract structure
-    with open(os.path.join(output_dir, "boltz_results_input", "predictions", "input", "input_model_0.pdb"), 'r') as f:
-        pred_struc = f.read()
-
-    return pred_struc
-
-# Predict protein complex structure for sequence_1 and sequence_2
-# pred_structure is the structure prediction in PDB format
-pred_structure = predict_protein_complex_structure(sequence_1, sequence_2, project_dir)
+```json
+{
+  "task": "boltz2_structure_prediction",
+  "prediction_type": "affinity",
+  "output_files": [
+    "./tmp/boltz2/my_affinity_pred.pdb",
+    "./tmp/boltz2/my_affinity_pred_affinity.json",
+    "./tmp/boltz2/my_affinity_pred_result.json"
+  ],
+  "description": "Boltz-2 Affinity prediction completed.\nJob ID: 83573f9c-bd2a-...\nStructure: ./tmp/boltz2/my_affinity_pred.pdb\nAffinity prediction: 0.6200\nIC50: 7.34 nM"
+}
 ```
 
-### Predict protein ligand complex structure and IC50
+## Step 2: Protein Complex Structure Prediction
 
-```python
-import os, yaml, subprocess
+### Input Collection
+- `task`: `"boltz2_structure_prediction"` (OpenBioMed task name)
+- `prediction_type`: `"prot_complex"` (prediction mode)
+- `sequence_1`: First protein sequence (chain A, required)
+- `sequence_2`: Second protein sequence (chain B, required)
+- `task_id`: Project/batch ID (optional)
+- `task_name`: Task name (optional)
+- `output_name`: Output file name prefix (optional)
 
-def predict_protein_ligand_complex_affinity(sequence, smiles, project_dir):
-    """
-    :param sequence: sequence of the first protein
-    :param smiles: SMILES string of the ligand
-    :param project_dir: path to the project
-    :return pred_struct: structure of protein-ligand complex in PDB format
-    :return pred_ic50: binding affinity prediction of the protein-ligand complex
-    """
-    # init project dir
-    os.makedirs(project_dir, exist_ok=True)
-    log_file = os.join(project_dir, 'log.txt')
-    # init input yaml file
-    data = {
-        "sequences": [
-            {
-                "protein": {
-                    "id": "A",
-                    "sequence": sequence,
-                    "msa": "empty"
-                }
-            },
-            {
-                "ligand":{
-                    "id": "B",
-                    "smiles": smiles,
-                }
-            }
-        ],
-        "properties": [
-            {
-                "affinity":{
-                    "binder": "B"
-                }
-            }
-        ]
-    }
-    input_file = os.path.join(project_dir, "input.yaml")
-    with open(input_file, "w") as f:
-        yaml.dump(data, f)
+### API Call
 
-    # init output file
-    output_dir = os.path.join(project_dir, "boltz")
-    # prediction
-    command = [
-        'boltz', 'predict', input_file,
-        "--out_dir", output_dir,
-        '--use_msa_server',
-        '--output_format', "pdb",
-        "--seed", "42"
-    ]
-    with open(log_file, 'a') as f:
-        process = subprocess.Popen(command, stdout=f, stderr=f, env=self.env)
-        process.communicate()
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill() 
-        process.wait()
-
-    # extract affinity
-    with open(os.path.join(output_dir, "boltz_results_input", "predictions", "input", "affinity_input.json"), 'r') as f:
-        pred_ic50 = (6 - json.load(f)["affinity_pred_value"]) * 1.364
-    # extract structure
-    with open(os.path.join(output_dir, "boltz_results_input", "predictions", "input", "input_model_0.pdb"), 'r') as f:
-        pred_struc = f.read()
-
-    return pred_struc, pred_ic50
-
-# Predict protein-ligand complex structure and the corresponding binding affinity (IC50)
-# pred_structure is the structure prediction in PDB format
-# pred_ic50 is the binding affinity prediction in IC50 format
-pred_structure, pred_ic50 = predict_protein_ligand_complex_affinity(sequence, smiles, project_dir):
+```bash
+curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "task": "boltz2_structure_prediction",
+    "prediction_type": "prot_complex",
+    "sequence_1": "GSHMGSSGMSSGMG",
+    "sequence_2": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVVHSLAKWKRQTLGQHDFSAGEGLYTHMKALRPDEDRLSPLHSVYVDQWDWERVMGDGERQFSTLKSTVEAIWAGIKATEAAVSEEFGLAPFLPDQIHFVHSQELLSRYPDLDAKGRERAIAKDLGAVFLVGIGGKLSDGHRHDVRAPDYDDWSTPSELGHAGLNGDILVWNPVLEDAFELSSMGIRVDADTLKHQLALTGDEDRLELEWHQALLRGEMPQTIGGGIGQSRLTMLLLQLPHIGQVQAGVWPAAVRESVPSLL",
+    "output_name": "my_complex"
+  }'
 ```
 
-## Output format
+### Response
 
-### Protein complex structure prediction
-```
-project_dir/boltz/boltz_results_input/predictions/input/
-├── input_model_0.pdb               # structure prediction (PDB format)
-├── confidence_input_model_0.json   # pTM, ipTM
-├── pae_input_model_0.npz           # PAE matrix
-└── plddt_input_model_0.npz         # pLDDT matrix
-```
-
-### Protein-ligand complex structure prediction
-```
-project_dir/boltz/boltz_results_input/predictions/input/
-├── input_model_0.pdb               # structure prediction (PDB format)
-└── affinity_input.json             # affinity_pred_value
+```json
+{
+  "task": "boltz2_structure_prediction",
+  "prediction_type": "prot_complex",
+  "output_files": [
+    "./tmp/boltz2/my_complex.pdb",
+    "./tmp/boltz2/my_complex_result.json"
+  ],
+  "description": "Boltz-2 Prot-complex prediction completed.\nJob ID: 4a961520-...\nStructure: ./tmp/boltz2/my_complex.pdb\nStructure length: 150 residues"
+}
 ```
 
-## Decision tree
+## Output Interpretation
+
+### Generated Files
+
+| File Type | Content |
+|-----------|---------|
+| `.pdb` | Predicted 3D structure |
+| `_affinity.json` | Affinity prediction (for affinity mode) |
+| `_result.json` | Complete job metadata |
+
+### Affinity JSON Structure
+
+```json
+{
+  "affinity": 0.6200282573699951,
+  "ic50": 7.338281456947327
+}
+```
+
+- `affinity`: Raw affinity prediction value (higher = stronger binding)
+- `ic50`: Converted IC50 value in nM (lower = stronger binding)
+
+## Polling Behavior
+
+The Boltz-2 API uses a submit + poll pattern:
+- **Submit**: Returns job_id immediately
+- **Poll**: Wait for status = "completed" (default 10s interval, 600s timeout)
+- **MSA Search**: Typically takes 30s-3min (cached for repeated sequences)
+- **Structure Prediction**: Typically takes 20s-5min
+
+## Error Handling
+
+### Missing Required Parameters
+
+**Symptom**: Error message about missing inputs
+
+**Solution**: Ensure required parameters for prediction type:
+- affinity: sequence + smiles
+- prot_complex: sequence_1 + sequence_2
+
+### Job Timeout
+
+**Symptom**: Request takes very long (>10 minutes)
+
+**Solution**: MSA search may be running. Wait and retry, or check job status via API.
+
+### Job Failed
+
+**Symptom**: API returns status "failed"
+
+**Solution**: Check error message in response. Common causes:
+- Invalid sequence format
+- MSA search failed
+- GPU memory exhausted
+
+## Sequence Format Requirements
+
+- Plain amino acid string (no FASTA header)
+- Standard 20 amino acid codes (ACDEFGHIKLMNPQRSTVWY)
+- No spaces or special characters
+
+## Decision Tree
 
 ```
-Should I use Boltz-2?
+What task type?
 │
-└─ What are you predicting?
-   ├─ Structure prediction for general protein-protein complex → boltz-2 ✓
-   ├─ Structure prediction for protein-ligand complex → boltz-2 ✓
-   ├─ Antibody and nanobody structure prediction → tfold
-   └─ Antigen-antibody structure prediction → tfold
+├─ Protein-ligand affinity → prediction_type: "affinity"
+│   └─ Provide sequence + smiles
+│   └─ Returns structure + IC50
+│
+└─ Protein complex structure → prediction_type: "prot_complex"
+    └─ Provide sequence_1 + sequence_2
+    └─ Returns structure (two chains)
 ```
 
-## Typical performance
+## Typical Performance
 
-| Campaign Size | Time (L40S) | Cost (Modal) | Notes |
-|---------------|-------------|--------------|-------|
-| 100 complexes | 30-45 min | ~$8 | Standard validation |
-| 500 complexes | 2-3h | ~$35 | Large campaign |
-| 1000 complexes | 4-6h | ~$70 | Comprehensive |
+| Campaign Size | Time | Notes |
+|---------------|------|-------|
+| 1 affinity prediction | 1-3 min | Includes MSA search |
+| 10 complexes | 10-30 min | Batch processing |
+| 100 complexes | 30-90 min | Parallel queue |
 
-**Per-complex**: ~15-30s for typical binder-target complex.
+**Per-complex**: ~20s-5min depending on sequence length and MSA complexity.
 
-**Next**: Evaluate protein complex binding affinity with `prodigy`.
+## Next Steps
+
+After structure prediction:
+1. **Binding Affinity**: For protein complexes, use `binding-affinity-prediction-prodigy`
+2. **Visualization**: Open PDB in PyMol or molecular viewer
+3. **Analysis**: Examine interface residues and contacts

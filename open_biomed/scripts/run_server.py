@@ -210,6 +210,13 @@ class TaskRequest(BaseModel):
     heavy_chain_mask: Optional[str] = None  # Heavy chain with X for design regions
     light_chain_mask: Optional[str] = None  # Light chain with X (for heavy_light)
     steps: Optional[int] = None  # Sampling steps for IgGM design
+    # Boltz2 structure prediction fields
+    task_id: Optional[str] = None  # Project/batch ID for Boltz2
+    task_name: Optional[str] = None  # Task name for Boltz2
+    sequence: Optional[str] = None  # Protein sequence (for Boltz2 affinity)
+    smiles: Optional[str] = None  # Ligand SMILES (for Boltz2 affinity)
+    sequence_1: Optional[str] = None  # First protein sequence (for Boltz2 prot_complex)
+    sequence_2: Optional[str] = None  # Second protein sequence (for Boltz2 prot_complex)
 
 
 class SearchRequest(BaseModel):
@@ -778,6 +785,48 @@ def handle_iggm_antibody_design(request: TaskRequest, pipeline):
     }
 
 
+def handle_boltz2_structure_prediction(request: TaskRequest, pipeline):
+    """
+    Boltz-2 structure and affinity prediction.
+
+    Supports:
+    - affinity: Protein-ligand affinity prediction (with structure)
+    - prot_complex: Protein complex structure prediction
+
+    Inputs:
+        - prediction_type: "affinity" or "prot_complex"
+        - task_id: Project/batch ID for directory organization
+        - task_name: Task name for directory organization
+        - sequence: Protein sequence (for affinity)
+        - smiles: Ligand SMILES (for affinity)
+        - sequence_1: First protein sequence (for prot_complex)
+        - sequence_2: Second protein sequence (for prot_complex)
+        - output_name: Output file name prefix (optional)
+
+    Outputs:
+        - PDB files: Predicted structures
+        - JSON files: Affinity scores (for affinity mode)
+        - description: Summary with prediction details
+    """
+    outputs, messages = pipeline.run(
+        prediction_type=request.prediction_type or "affinity",
+        task_id=request.task_id,
+        task_name=request.task_name,
+        sequence=request.sequence,
+        smiles=request.smiles,
+        sequence_1=request.sequence_1,
+        sequence_2=request.sequence_2,
+        output_name=request.output_name
+    )
+
+    return {
+        "task": request.task,
+        "prediction_type": request.prediction_type,
+        "output_files": outputs,
+        "description": messages[0]
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1286,6 +1335,13 @@ TASK_CONFIGS = [
         "required_inputs": ["antigen_pdb", "heavy_chain_mask", "epitope"],
         "pipeline_key": "iggm_antibody_design",
         "handler_function": handle_iggm_antibody_design,
+        "is_async": False
+    },
+    {
+        "task_name": "boltz2_structure_prediction",
+        "required_inputs": [],
+        "pipeline_key": "boltz2_structure_prediction",
+        "handler_function": handle_boltz2_structure_prediction,
         "is_async": False
     }
 
