@@ -280,6 +280,72 @@ def get_curl_commands(base_url):
             -d '{{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./checkpoints/server/test_data/pdb_6LVN.pdb"}}'
             """
         },
+        # tFold antibody structure prediction tests
+        {
+            "task": "tfold_antibody_structure_antibody",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "tfold_antibody_structure", "prediction_type": "antibody", "heavy_chain": "EVQLVESGGGLVQPGGSLRLSCAASGFTFSDYYMAWVRQAPGKGLEWVSAISSSGGSTYYADSVKGRLTISRDNSKNTLYLQMNSLRAEDTAVYYCAKVSYLSTASSLDYKHNWFGTEVTVELTK", "light_chain": "DIQMTQSPSSLSASVGDRVTITCRASQSISSYLNWYQQKPGKAPKLLIYAASSLQSGVPSRFSGSGSGTDFTLTISSLQPEDFATYYCQQSYSTPPTFGQGTKVEIK", "output_name": "test_antibody"}}'
+            """
+        },
+        {
+            "task": "tfold_antibody_structure_nanobody",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "tfold_antibody_structure", "prediction_type": "nanobody", "heavy_chain": "MSIQEIQKEIAQIQAVIAGIQKYIYTMSIEEIQKQIAAIQCQIAAIQKQIYAMSIEEIQKQIAAIQEQILAIYKQIMAMVT", "output_name": "test_nanobody"}}'
+            """
+        },
+        {
+            "task": "tfold_antibody_structure_complex",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "tfold_antibody_structure", "prediction_type": "complex", "heavy_chain": "EVQLVQSGAEVKKPGESLKISCKGSGYSFSNYWIGWVRQMPGKGLEWMGIIDPSNSYTRYSPSFQGQVTISADKSISTAYLQWSSLKASDTAMYYCARWYYKPFDVWGQGTLVTVSS", "light_chain": "QSVLTQPPSVSGAPGQRVTISCTGSSSNIGSGYDVHWYQQLPGTAPKLLIYGNSKRPSGVPDRFSGSKSGTSASLAITGLQSEDEADYYCASWTDGLSLVVFGGGTKLTVL", "antigen": "RAVPGGSSPAWTQCQQLSQKLCTLAWSAHPLVGHMDLREEDVPHIQCGDGCDPQGLRDNSQFCLQRIHQGLIFYEKLLGSDIFTGEPSLLPDSPVGQLHASLLGLSQLLQPEGHHWETQQIPSLSPSQPWQRLLLRFKILRSLQAFVAVAARVFAHGAATL", "antigen_id": "A", "output_name": "test_complex"}}'
+            """
+        },
+        # IgGM antibody design tests
+        {
+            "task": "iggm_antibody_design_nanobody",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "iggm_antibody_design", "design_type": "nanobody", "antigen_pdb": "./tmp/pdb_4xli.pdb", "heavy_chain_mask": "QVQLVESGGDLVQSGGSLKLSCAVSXXXXXXXSIGWFRQAPGKEREAVSYSXXXXXXTYYVASVKGRFTISRDNAKNTAYLQMNNLKPEDTGIYYCAAXXXXXXXXXXXXXXXXXXWGQGTQVTVSS", "epitope": "[109,110,111,112,113,114,115,116,117]", "num_samples": 1, "steps": 10, "output_name": "test_nanobody_design"}}'
+            """
+        },
+        {
+            "task": "iggm_antibody_design_heavy_light",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "iggm_antibody_design", "design_type": "heavy_light", "antigen_pdb": "./tmp/pdb_4xli.pdb", "heavy_chain_mask": "VQLVESGGGLVQPGGSLRLSCAASXXXXXXXYMNWVRQAPGKGLEWVSVVXXXXXTFYTDSVKGRFTISRDNSKNTLYLQMNSLRAEDTAVYYCARXXXXXXXXXXXXXXWGQGTMVTVSS", "light_chain_mask": "DIQMTQSPSSLSASVGDRVSITCXXXXXXXXXXXWYQQKPGKAPKLLISXXXXXXXGVPSRFSGSGSGTDFTLTITSLQPEDFATYYCXXXXXXXXXXXFGGGTKVEIK", "epitope": "[7,8,9,10,11,12,13,14,108,109,110,111,112,113,114,115,116]", "num_samples": 1, "steps": 10, "output_name": "test_heavy_light_design"}}'
+            """
+        },
+        # Boltz-2 structure prediction tests
+        {
+            "task": "boltz2_affinity_prediction",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "boltz2_structure_prediction", "prediction_type": "affinity", "sequence": "GSHMGSSGMSSGMG", "smiles": "CCO", "output_name": "test_affinity"}}'
+            """
+        },
+        {
+            "task": "boltz2_prot_complex_prediction",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "boltz2_structure_prediction", "prediction_type": "prot_complex", "sequence_1": "GSHMGSSGMSSGMG", "sequence_2": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVVHSLAKWKRQTLGQHDFSAGEGLYTHMKALRPDEDRLSPLHSVYVDQWDWERVMGDGERQFSTLKSTVEAIWAGIKATEAAVSEEFGLAPFLPDQIHFVHSQELLSRYPDLDAKGRERAIAKDLGAVFLVGIGGKLSDGHRHDVRAPDYDDWSTPSELGHAGLNGDILVWNPVLEDAFELSSMGIRVDADTLKHQLALTGDEDRLELEWHQALLRGEMPQTIGGGIGQSRLTMLLLQLPHIGQVQAGVWPAAVRESVPSLL", "output_name": "test_prot_complex"}}'
+            """
+        },
     ]
 
 
