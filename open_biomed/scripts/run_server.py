@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Header, BackgroundTasks
 from pydantic import BaseModel
 import torch.nn.functional as F
 import uvicorn
@@ -7,6 +7,7 @@ import copy
 import asyncio
 import logging
 import subprocess
+import os
 import sys
 import time
 import uuid
@@ -29,6 +30,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger('OpenBioMed')
 logger.setLevel(logging.INFO)
+
+# File upload configuration
+# UPLOAD_API_KEY: middleware专属密钥，用于middleware→云服务之间的内部认证
+# 用户认证由Open WebUI middleware层负责，用户不接触此key
+UPLOAD_DIR = "./tmp/uploads"
+MAX_SIZE = 50 * 1024 * 1024  # 50MB
+ALLOWED_EXT = {".pdb", ".sdf", ".mol", ".mol2", ".smi", ".pkl", ".csv", ".txt"}
+UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
+
+def cleanup_old_uploads():
+    """Remove uploaded files older than 24 hours."""
+    now = time.time()
+    max_age = 24 * 3600  # 24 hours
+    if not os.path.exists(UPLOAD_DIR):
+        return
+    count = 0
+    for filename in os.listdir(UPLOAD_DIR):
+        filepath = os.path.join(UPLOAD_DIR, filename)
+        if os.path.isfile(filepath) and now - os.path.getmtime(filepath) > max_age:
+            os.remove(filepath)
+            count += 1
+    if count > 0:
+        logger.info(f"Upload cleanup: removed {count} files older than 24h")
 
 
 class IO_Reader:
@@ -1428,6 +1452,59 @@ async def web_search(request: SearchRequest):
 @app.get("/healthz")
 def ping():
     return "Service available"
+
+@app.on_event("startup")
+async def startup_create_upload_dir():
+    """Create upload directory on startup and run initial cleanup."""
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    cleanup_old_uploads()
+    logger.info(f"Upload directory ready: {UPLOAD_DIR}")
+
+@app.post("/api/upload")
+async def upload_file(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    x_api_key: str = Header(...),
+):
+    """Upload a file to the server for Skill consumption.
+
+    Requires X-API-Key header for authentication.
+    Returns the absolute path where the file is stored.
+    """
+    # Auth check
+    if not UPLOAD_API_KEY:
+        raise HTTPException(status_code=403, detail="Upload API key not configured on server")
+    if x_api_key != UPLOAD_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # File type check
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_EXT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type {ext} not allowed. Allowed types: {', '.join(sorted(ALLOWED_EXT))}"
+        )
+
+    # Size check — read content once, check size, then write
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large ({len(content) // (1024*1024)}MB, max {MAX_SIZE // (1024*1024)}MB)"
+        )
+
+    # UUID rename and save
+    new_name = f"{uuid.uuid4()}{ext}"
+    save_path = os.path.join(UPLOAD_DIR, new_name)
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    # Schedule cleanup in background (runs after response is sent)
+    background_tasks.add_task(cleanup_old_uploads)
+
+    logger.info(f"Upload saved: {save_path} ({len(content)} bytes, original={file.filename})")
+    return {"path": save_path, "filename": new_name}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8095)

@@ -2,18 +2,25 @@
 
 echo "server start"
 
+# Load environment variables from .env
+set -a
+source .env
+set +a
+
+# Use empty GPUs (GPU 0,1 have zombie processes)
+export CUDA_VISIBLE_DEVICES=2,3
+
 # Activate the Conda environment
-source /opt/conda/etc/profile.d/conda.sh
-conda activate OpenBioMed
+source /opt/conda/bin/activate OpenBioMed
 
 python -m uvicorn open_biomed.scripts.run_server:app \
     --host 0.0.0.0 \
-    --port 8095 \
+    --port 32520 \
     --log-level info > ./tmp/server.log 2>&1 &
 
 python -m uvicorn open_biomed.scripts.run_server_workflow:app \
     --host 0.0.0.0 \
-    --port 8094 \
+    --port 32521 \
     --log-level info > ./tmp/workflow.log 2>&1 &
 
 tail -f /dev/null

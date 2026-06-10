@@ -400,13 +400,134 @@ def run_tests(base_url, test_filter=None):
     return results
 
 
+def run_upload_tests(base_url, upload_key):
+    """测试 /api/upload 接口"""
+    print("\n" + "=" * 50)
+    print("Upload API Tests")
+    print("=" * 50)
+
+    test_file = "./checkpoints/server/test_data/4xli_B.pdb"
+    results = {"success": [], "failed": []}
+
+    # Test 1: 正常上传 PDB 文件
+    task = "upload_pdb_valid_key"
+    cmd = f"curl -s -X POST '{base_url}/api/upload' -H 'X-API-Key: {upload_key}' -F 'file=@{test_file}'"
+    print(f"\n[1] Upload PDB file with valid key...")
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        output = result.stdout.strip()
+        if '"path"' in output and '"filename"' in output:
+            logging.info(f"Task: {task} - Success: {output}")
+            print(f"[PASS] {task}")
+            print(f"       Response: {output}")
+            results["success"].append(task)
+        else:
+            logging.error(f"Task: {task} - Unexpected response: {output}")
+            print(f"[FAIL] {task}")
+            print(f"       Response: {output[:200]}")
+            results["failed"].append({"task": task, "error": f"Unexpected response: {output[:200]}"})
+    except Exception as e:
+        logging.error(f"Task: {task} - Error: {str(e)}")
+        print(f"[FAIL] {task} - {str(e)}")
+        results["failed"].append({"task": task, "error": str(e)})
+
+    # Test 2: 不带 API Key 上传（应返回 422：FastAPI Header 参数校验先于业务逻辑）
+    task = "upload_no_key"
+    cmd = f"curl -s -w '\\n%{{http_code}}' -X POST '{base_url}/api/upload' -F 'file=@{test_file}'"
+    print(f"\n[2] Upload without API key (expect 422)...")
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        lines = result.stdout.strip().split('\n')
+        http_code = lines[-1].strip() if lines else ""
+        body = '\n'.join(lines[:-1]) if len(lines) > 1 else result.stdout.strip()
+        if http_code == "422":
+            logging.info(f"Task: {task} - Success: returned 422 as expected")
+            print(f"[PASS] {task} (returned 422: missing required header)")
+            print(f"       Response: {body[:100]}")
+            results["success"].append(task)
+        else:
+            logging.error(f"Task: {task} - Expected 422, got {http_code}: {body}")
+            print(f"[FAIL] {task} (expected 422, got {http_code})")
+            print(f"       Response: {body[:200]}")
+            results["failed"].append({"task": task, "error": f"Expected 422, got {http_code}: {body[:200]}"})
+    except Exception as e:
+        logging.error(f"Task: {task} - Error: {str(e)}")
+        print(f"[FAIL] {task} - {str(e)}")
+        results["failed"].append({"task": task, "error": str(e)})
+
+    # Test 3: 错误的 API Key（应返回 401）
+    task = "upload_wrong_key"
+    cmd = f"curl -s -w '\\n%{{http_code}}' -X POST '{base_url}/api/upload' -H 'X-API-Key: wrong_key_123' -F 'file=@{test_file}'"
+    print(f"\n[3] Upload with wrong API key (expect 401)...")
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        lines = result.stdout.strip().split('\n')
+        http_code = lines[-1].strip() if lines else ""
+        body = '\n'.join(lines[:-1]) if len(lines) > 1 else result.stdout.strip()
+        if http_code == "401":
+            logging.info(f"Task: {task} - Success: returned 401 as expected")
+            print(f"[PASS] {task} (returned 401)")
+            print(f"       Response: {body[:100]}")
+            results["success"].append(task)
+        else:
+            logging.error(f"Task: {task} - Expected 401, got {http_code}: {body}")
+            print(f"[FAIL] {task} (expected 401, got {http_code})")
+            print(f"       Response: {body[:200]}")
+            results["failed"].append({"task": task, "error": f"Expected 401, got {http_code}: {body[:200]}"})
+    except Exception as e:
+        logging.error(f"Task: {task} - Error: {str(e)}")
+        print(f"[FAIL] {task} - {str(e)}")
+        results["failed"].append({"task": task, "error": str(e)})
+
+    # Test 4: 上传不支持的文件类型（应返回 400）
+    task = "upload_unsupported_type"
+    cmd = f"curl -s -w '\\n%{{http_code}}' -X POST '{base_url}/api/upload' -H 'X-API-Key: {upload_key}' -F 'file=@./test/api_test.py'"
+    print(f"\n[4] Upload unsupported file type (.py) (expect 400)...")
+    try:
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        lines = result.stdout.strip().split('\n')
+        http_code = lines[-1].strip() if lines else ""
+        body = '\n'.join(lines[:-1]) if len(lines) > 1 else result.stdout.strip()
+        if http_code == "400":
+            logging.info(f"Task: {task} - Success: returned 400 as expected")
+            print(f"[PASS] {task} (returned 400)")
+            print(f"       Response: {body[:100]}")
+            results["success"].append(task)
+        else:
+            logging.error(f"Task: {task} - Expected 400, got {http_code}: {body}")
+            print(f"[FAIL] {task} (expected 400, got {http_code})")
+            print(f"       Response: {body[:200]}")
+            results["failed"].append({"task": task, "error": f"Expected 400, got {http_code}: {body[:200]}"})
+    except Exception as e:
+        logging.error(f"Task: {task} - Error: {str(e)}")
+        print(f"[FAIL] {task} - {str(e)}")
+        results["failed"].append({"task": task, "error": str(e)})
+
+    # Print summary
+    print("\n" + "-" * 30)
+    print(f"Upload Tests: {len(results['success'])} passed, {len(results['failed'])} failed")
+    if results['failed']:
+        print("Failed:")
+        for f in results['failed']:
+            print(f"  - {f['task']}: {f['error'][:100]}")
+
+    return results
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="OpenBioMed API 测试脚本")
     parser.add_argument("--url", type=str, default=DEFAULT_BASE_URL, help="服务地址 (默认: http://127.0.0.1:8090)")
     parser.add_argument("--test", type=str, default=None, help="只运行指定的测试 (如: healthz, molecule)")
+    parser.add_argument("--upload-key", type=str, default=None, help="Upload API key (提供后自动运行 upload 测试)")
     args = parser.parse_args()
 
     print(f"测试服务地址: {args.url}")
     print("=" * 50)
 
     run_tests(args.url, args.test)
+
+    if args.upload_key:
+        run_upload_tests(args.url, args.upload_key)
+    else:
+        print("\n[提示] 如需测试 /api/upload 接口，请使用 --upload-key 参数，例如:")
+        print("  python test/api_test.py --url http://127.0.0.1:8095 --upload-key your_key")
