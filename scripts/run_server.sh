@@ -2,6 +2,11 @@
 
 echo "server start"
 
+# Set external API endpoints (override default internal IPs)
+export TFOLD_API_BASE_URL="http://43.142.171.112:11280/tFold"
+export IGGM_API_BASE_URL="http://43.142.171.112:11280/IgGM"
+# BOLTZ2_API_BASE_URL keeps default: http://172.16.20.44:17827/Boltz2
+
 # Activate the Conda environment
 source /opt/conda/etc/profile.d/conda.sh
 conda activate OpenBioMed
