@@ -1,9 +1,11 @@
 import asyncio
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import aiohttp
 from open_biomed.tools.base_tool import Tool
+from open_biomed.tools.web_request_tools import _ncbi_limiter
 
 
 class DiseaseDrugIntelTool(Tool):
@@ -110,9 +112,18 @@ Outputs: {"results": dict}
     # ==================== ClinicalTrials Methods ====================
 
     async def _query_clinicaltrials(self, action: str, **kwargs) -> Dict[str, Any]:
-        """Query ClinicalTrials.gov API."""
+        """Query ClinicalTrials.gov API with NCBI rate limiting."""
+        await _ncbi_limiter.acquire()
         endpoint, params = self._build_clinicaltrials_request(action, **kwargs)
-        return await self._http_get(self.CLINICALTRIALS_BASE_URL, endpoint, params)
+        try:
+            result = await self._http_get(self.CLINICALTRIALS_BASE_URL, endpoint, params)
+            _ncbi_limiter.record_success()
+            return result
+        except Exception as e:
+            err_str = str(e)
+            if "NCBI" in err_str or "Blocked Diagnostic" in err_str or "blocked" in err_str.lower():
+                _ncbi_limiter.record_block()
+            raise
 
     def _build_clinicaltrials_request(self, action: str, **kwargs) -> Tuple[str, Dict[str, Any]]:
         """Build ClinicalTrials endpoint and params."""

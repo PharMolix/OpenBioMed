@@ -1416,17 +1416,16 @@ async def web_search(request: SearchRequest):
         task_config.validate_inputs(request.model_dump())
         requester = TOOLS[task_config.pipeline_key]
 
-        # Check PubChem rate limiter status for PubChem-related tasks
-        pubchem_tasks = ["molecule_name_request", "molecule_structure_request", "pubchem_bioactivity"]
-        if task_name in pubchem_tasks:
-            from open_biomed.tools.web_request_tools import _pubchem_limiter
-            if _pubchem_limiter.is_in_cooldown:
-                blocks = _pubchem_limiter.consecutive_blocks
-                logger.warning(f"WebSearch | task={task_name} | PubChem is in cooldown (blocked {blocks}x), returning degraded response")
-                # Return a graceful 503 response instead of 500
+        # Check NCBI rate limiter status for NCBI-related tasks
+        from open_biomed.tools.web_request_tools import _ncbi_limiter
+        ncbi_tasks = _ncbi_limiter.ncbi_tasks
+        if task_name in ncbi_tasks:
+            if _ncbi_limiter.is_in_cooldown:
+                blocks = _ncbi_limiter.consecutive_blocks
+                logger.warning(f"WebSearch | task={task_name} | NCBI is in cooldown (blocked {blocks}x), returning degraded response")
                 raise HTTPException(
                     status_code=503,
-                    detail=f"PubChem API is temporarily blocked due to rate limiting. "
+                    detail=f"NCBI API is temporarily blocked due to rate limiting. "
                            f"Please retry in a few minutes. (consecutive blocks: {blocks})"
                 )
 
@@ -1441,11 +1440,11 @@ async def web_search(request: SearchRequest):
     except Exception as e:
         error_str = str(e)
         logger.error(f"WebSearch Error | task={task_name} | error={error_str}")
-        # Check if this is a PubChem block error — return 503 instead of 500
+        # Check if this is an NCBI block error — return 503 instead of 500
         if "Blocked" in error_str or "rate-limited" in error_str or "HTML error page" in error_str:
             raise HTTPException(
                 status_code=503,
-                detail=f"PubChem API is temporarily unavailable: {error_str}. Please retry in a few minutes."
+                detail=f"NCBI API is temporarily unavailable: {error_str}. Please retry in a few minutes."
             )
         raise HTTPException(status_code=500, detail=str(e))
 

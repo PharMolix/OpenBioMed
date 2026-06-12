@@ -22,18 +22,22 @@ import xml.etree.ElementTree as ET
 from open_biomed.data import Molecule, Protein
 from open_biomed.tools.base_tool import Tool
 
-# ==================== Global PubChem Rate Limiter ====================
+# ==================== Global NCBI Rate Limiter ====================
 
-class PubChemRateLimiter:
-    """Global, cross-instance rate limiter for all PubChem API requests.
+class NCBIRateLimiter:
+    """Global, cross-instance rate limiter for all NCBI API requests.
 
-    PubChem PUG REST limits:
+    NCBI (National Center for Biotechnology Information) blocks at the IP level.
+    Abuse of any NCBI service (PubChem, ClinicalTrials.gov, etc.) will cause
+    ALL NCBI services to be blocked for the entire server IP.
+
+    NCBI PUG REST limits:
     - Without API key: 2 requests/second
     - With API key: 5 requests/second
 
-    This limiter enforces a global cap regardless of how many requester
-    instances exist, and tracks consecutive block events to enforce
-    exponential backoff cooldowns when PubChem returns HTML error pages.
+    This limiter enforces a global cap across ALL NCBI services regardless of
+    how many requester instances exist, and tracks consecutive block events to
+    enforce exponential backoff cooldowns when NCBI returns HTML error pages.
     """
 
     _instance = None
@@ -53,42 +57,48 @@ class PubChemRateLimiter:
         # Global request rate: max 3 per second (conservative for shared server)
         self._min_interval = 0.34  # seconds between requests (~3/sec)
         self._last_request_time = 0.0
-        self._request_lock = asyncio.Lock() if hasattr(asyncio, 'Lock') else None
+        self._request_lock = asyncio.Lock()
         # Block tracking: consecutive HTML block responses
         self._consecutive_blocks = 0
         self._block_cooldown_until = 0.0  # timestamp: no requests until this time
         # Cooldown progression: 30s, 60s, 120s, 240s, 480s, 600s
         self._cooldown_schedule = [30, 60, 120, 240, 480, 600]
+        # NCBI-related task names (used by run_server.py for cooldown checks)
+        self.ncbi_tasks = [
+            "molecule_name_request", "molecule_structure_request",
+            "pubchem_bioactivity", "disease_drug_intel",
+        ]
 
     async def acquire(self):
-        """Wait until it's safe to make a PubChem request.
+        """Wait until it's safe to make an NCBI request.
 
-        Enforces:
-        1. Global rate limit (min interval between requests)
-        2. Block cooldown (exponential backoff after consecutive blocks)
+        Enforces (with async lock for true serialization):
+        1. Block cooldown (exponential backoff after consecutive blocks)
+        2. Global rate limit (min interval between requests)
         """
-        # Check if we're in a cooldown period from being blocked
-        now = time.time()
-        if self._block_cooldown_until > now:
-            wait = self._block_cooldown_until - now
-            logging.warning(f"[PubChemRateLimiter] In cooldown period, waiting {wait:.1f}s before next request")
-            await asyncio.sleep(wait)
+        async with self._request_lock:
+            # Check if we're in a cooldown period from being blocked
+            now = time.time()
+            if self._block_cooldown_until > now:
+                wait = self._block_cooldown_until - now
+                logging.warning(f"[NCBIRateLimiter] In cooldown period, waiting {wait:.1f}s before next request")
+                await asyncio.sleep(wait)
 
-        # Enforce minimum interval between requests
-        elapsed = time.time() - self._last_request_time
-        if elapsed < self._min_interval:
-            wait = self._min_interval - elapsed
-            await asyncio.sleep(wait)
+            # Enforce minimum interval between requests
+            elapsed = time.time() - self._last_request_time
+            if elapsed < self._min_interval:
+                wait = self._min_interval - elapsed
+                await asyncio.sleep(wait)
 
-        self._last_request_time = time.time()
+            self._last_request_time = time.time()
 
     def record_success(self):
-        """Record a successful PubChem response — resets block counter."""
+        """Record a successful NCBI response — resets block counter."""
         self._consecutive_blocks = 0
         self._block_cooldown_until = 0.0
 
     def record_block(self):
-        """Record a blocked/rate-limited PubChem response.
+        """Record a blocked/rate-limited NCBI response.
 
         Increases consecutive block count and sets cooldown period
         using exponential backoff.
@@ -98,8 +108,8 @@ class PubChemRateLimiter:
         cooldown = self._cooldown_schedule[idx]
         self._block_cooldown_until = time.time() + cooldown
         logging.warning(
-            f"[PubChemRateLimiter] Blocked by PubChem (consecutive={self._consecutive_blocks}), "
-            f"entering {cooldown}s cooldown. All PubChem requests will be delayed."
+            f"[NCBIRateLimiter] Blocked by NCBI (consecutive={self._consecutive_blocks}), "
+            f"entering {cooldown}s cooldown. All NCBI requests will be delayed."
         )
 
     @property
@@ -112,7 +122,7 @@ class PubChemRateLimiter:
 
 
 # Module-level singleton
-_pubchem_limiter = PubChemRateLimiter()
+_ncbi_limiter = NCBIRateLimiter()
 
 # ==================== NCBI Error Page Parser ====================
 
@@ -233,21 +243,21 @@ class DBRequester(Requester):
     def run(self, accession: Any, **kwargs) -> Any:
         return asyncio.run(self.run_async(accession, **kwargs))
 
-    def _is_pubchem_requester(self) -> bool:
-        """Check if this requester hits PubChem APIs (for rate limiting)."""
+    def _is_ncbi_requester(self) -> bool:
+        """Check if this requester hits NCBI APIs (for rate limiting)."""
         return isinstance(self, PubChemRequester) or isinstance(self, PubChemBioactivityRequester)
 
     async def run_async(self, accession: Any, **kwargs) -> Any:
         url = self._determine_query_url(accession, **kwargs)
         logging.info(f"[DBRequester] Querying: {url} (timeout={self.timeout}s)")
 
-        # Use PubChem global rate limiter for PubChem requests
-        max_retries = 3 if self._is_pubchem_requester() else 1
+        # Use NCBI global rate limiter for NCBI requests
+        max_retries = 3 if self._is_ncbi_requester() else 1
 
         for attempt in range(max_retries):
             # Acquire PubChem rate limiter if applicable
-            if self._is_pubchem_requester():
-                await _pubchem_limiter.acquire()
+            if self._is_ncbi_requester():
+                await _ncbi_limiter.acquire()
 
             start_time = time.time()
             try:
@@ -260,16 +270,16 @@ class DBRequester(Requester):
                                 error_msg = parse_ncbi_error_html(content)
                                 elapsed = time.time() - start_time
                                 logging.warning(f"[DBRequester] Received HTML error page from {url}: {error_msg}")
-                                if self._is_pubchem_requester():
-                                    _pubchem_limiter.record_block()
+                                if self._is_ncbi_requester():
+                                    _ncbi_limiter.record_block()
                                     if attempt < max_retries - 1:
                                         # The cooldown is handled by the rate limiter's acquire()
                                         logging.info(f"[DBRequester] Retry attempt {attempt + 1}/{max_retries} after cooldown")
                                         continue
                                 raise Exception(error_msg)
                             # Success! Reset PubChem block counter if applicable
-                            if self._is_pubchem_requester():
-                                _pubchem_limiter.record_success()
+                            if self._is_ncbi_requester():
+                                _ncbi_limiter.record_success()
                             elapsed = time.time() - start_time
                             logging.info(f"[DBRequester] Downloaded results successfully in {elapsed:.2f}s")
                         else:
@@ -319,7 +329,7 @@ class RawParser(MetaDataParser):
 
 # TODO: add metadata parser for PubChem
 class PubChemRequester(DBRequester):
-    """PubChem molecule query — uses global PubChemRateLimiter for rate control."""
+    """PubChem molecule query — uses global NCBIRateLimiter for rate control."""
 
     def __init__(self,
         timeout: int=30
@@ -355,7 +365,7 @@ class PubChemRequester(DBRequester):
         return [molecule], [molecule.save_binary()]
 
 class PubChemStructureRequester(Requester):
-    """PubChem similarity search — uses global PubChemRateLimiter for rate control."""
+    """PubChem similarity search — uses global NCBIRateLimiter for rate control."""
 
     def __init__(self,
         timeout: int=30
@@ -379,11 +389,11 @@ class PubChemStructureRequester(Requester):
         molecule._add_smiles()
 
         # Check if PubChem is in cooldown — raise error instead of fake data
-        if _pubchem_limiter.is_in_cooldown:
-            raise Exception("PubChem is in cooldown (blocked/rate-limited). Please wait before retrying.")
+        if _ncbi_limiter.is_in_cooldown:
+            raise Exception("NCBI is in cooldown (blocked/rate-limited). Please wait before retrying.")
 
         # Acquire global rate limiter
-        await _pubchem_limiter.acquire()
+        await _ncbi_limiter.acquire()
 
         max_retries = 3
         for attempt in range(max_retries):
@@ -399,16 +409,16 @@ class PubChemStructureRequester(Requester):
                             text = raw.decode("utf-8").strip()
                             if not text:
                                 logging.warning("PubChem returned empty response for similarity search")
-                                _pubchem_limiter.record_success()
+                                _ncbi_limiter.record_success()
                                 return [molecule], [molecule.save_binary()]
                             # Check for NCBI HTML error page
                             if text.startswith("<"):
                                 error_msg = parse_ncbi_error_html(text)
                                 logging.warning(f"[PubChemStructureRequester] Received HTML error page: {error_msg}")
-                                _pubchem_limiter.record_block()
+                                _ncbi_limiter.record_block()
                                 if attempt < max_retries - 1:
                                     logging.info(f"[PubChemStructureRequester] Retry attempt {attempt + 1}/{max_retries} after cooldown")
-                                    await _pubchem_limiter.acquire()
+                                    await _ncbi_limiter.acquire()
                                     continue
                                 # All retries exhausted — raise error
                                 raise Exception("PubChem API is blocked or rate-limited after 3 retries. Please try again later.")
@@ -416,12 +426,12 @@ class PubChemStructureRequester(Requester):
                                 content = json.loads(text)
                             except json.JSONDecodeError:
                                 logging.warning(f"PubChem returned non-JSON response: {text[:200]}")
-                                _pubchem_limiter.record_success()
+                                _ncbi_limiter.record_success()
                                 return [molecule], [molecule.save_binary()]
-                            _pubchem_limiter.record_success()
+                            _ncbi_limiter.record_success()
                             logging.info("Downloaded results successfully")
                         elif response.status == 404:
-                            _pubchem_limiter.record_success()
+                            _ncbi_limiter.record_success()
                             logging.info("No similar structures found!")
                             return [molecule], [molecule.save_binary()]
                         else:
@@ -441,7 +451,7 @@ class PubChemStructureRequester(Requester):
         return all_mols, all_files
 
 class PubChemBioactivityRequester(Requester):
-    """PubChem bioactivity query — uses global PubChemRateLimiter for rate control.
+    """PubChem bioactivity query — uses global NCBIRateLimiter for rate control.
 
     Supports:
     1. Query by target gene symbol -> get assays -> get active compounds
@@ -490,20 +500,20 @@ class PubChemBioactivityRequester(Requester):
                 # Detect NCBI HTML error pages (rate-limit/block diagnostic)
                 if text.strip().startswith("<"):
                     error_msg = parse_ncbi_error_html(text)
-                    _pubchem_limiter.record_block()
+                    _ncbi_limiter.record_block()
                     raise Exception(error_msg)
-                _pubchem_limiter.record_success()
+                _ncbi_limiter.record_success()
                 return False, content
             elif response.status in (503, 429):
                 # Explicit rate limit response
-                _pubchem_limiter.record_block()
+                _ncbi_limiter.record_block()
                 raise Exception(f"PubChem rate limited (HTTP {response.status}). Please retry later.")
             else:
                 raise Exception(f"PubChem request failed with HTTP {response.status}")
 
     async def run_async(self, query_type: str = "compound", **kwargs) -> Tuple[List[Dict], List[str]]:
         # Acquire global rate limiter
-        await _pubchem_limiter.acquire()
+        await _ncbi_limiter.acquire()
 
         results = []
         max_retries = 3
@@ -526,7 +536,7 @@ class PubChemBioactivityRequester(Requester):
                 if "Blocked" in error_str or "rate limited" in error_str:
                     if attempt < max_retries - 1:
                         logging.warning(f"[PubChemBioactivityRequester] Blocked, retry attempt {attempt + 1}/{max_retries}")
-                        await _pubchem_limiter.acquire()
+                        await _ncbi_limiter.acquire()
                         continue
                     # All retries exhausted — raise with clear message
                     raise Exception(
