@@ -1,6 +1,12 @@
 ---
 name: drug-drug-interaction-analysis
-description: Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database. Use this skill when: (1) Checking interactions between multiple medications, (2) Assessing DDI risk for drug combinations, (3) Understanding interaction mechanisms and severity, (4) Analyzing CYP enzyme involvement in DDIs.
+description: >
+  Analyze potential drug-drug interactions (DDI) for up to 5 drugs using KEGG DDI database.
+  Use this skill when:
+  (1) Checking interactions between multiple medications,
+  (2) Assessing DDI risk for drug combinations,
+  (3) Understanding interaction mechanisms and severity,
+  (4) Analyzing CYP enzyme involvement in DDIs.
 license: MIT
 ---
 

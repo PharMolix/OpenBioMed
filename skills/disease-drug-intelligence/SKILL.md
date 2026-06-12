@@ -1,6 +1,10 @@
 ---
 name: disease-drug-intelligence
-description: Disease-to-innovative-drug comprehensive analysis skill for biomedical Q&A scenarios. Used to answer questions like "What innovative/frontier/in-development/new-mechanism drugs are available for a disease?", outputting integrated evidence reports on disease-target-drug-clinical progress-mechanism trends. Suitable for multi-database queries (ChEMBL, ClinicalTrials, Tavily Search), deduplication, innovation screening, and structured report generation.
+description: >
+  Disease-to-innovative-drug comprehensive analysis skill for biomedical Q&A scenarios.
+  Used to answer questions like "What innovative/frontier/in-development/new-mechanism drugs are available for a disease?",
+  outputting integrated evidence reports on disease-target-drug-clinical progress-mechanism trends.
+  Suitable for multi-database queries (ChEMBL, ClinicalTrials, Tavily Search), deduplication, innovation screening, and structured report generation.
 license: MIT
 ---
 

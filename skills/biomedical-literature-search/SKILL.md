@@ -1,6 +1,12 @@
 ---
 name: biomedical-literature-search
-description: Search biomedical literature from PubMed and bioRxiv for research papers. Use this skill when: (1) Finding research papers on a specific topic or disease, (2) Retrieving recent preprints from bioRxiv, (3) Getting paper titles, abstracts, and metadata, (4) Literature review for drug discovery or biomedical research.
+description: >
+  Search biomedical literature from PubMed and bioRxiv for research papers.
+  Use this skill when:
+  (1) Finding research papers on a specific topic or disease,
+  (2) Retrieving recent preprints from bioRxiv,
+  (3) Getting paper titles, abstracts, and metadata,
+  (4) Literature review for drug discovery or biomedical research.
 license: MIT
 ---
 
