@@ -13,6 +13,9 @@ export CUDA_VISIBLE_DEVICES=2,3
 # Activate the Conda environment
 source /opt/conda/bin/activate OpenBioMed
 
+# Ensure python-multipart is installed (required by /api/upload endpoint)
+pip install -q python-multipart==0.0.19 2>/dev/null
+
 python -m uvicorn open_biomed.scripts.run_server:app \
     --host 0.0.0.0 \
     --port 32520 \
