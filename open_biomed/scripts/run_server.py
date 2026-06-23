@@ -598,21 +598,30 @@ async def handle_similar_protein_search(request: TaskRequest, pipeline):
     MSA (sequence similarity) search is handled via direct API calls documented in skills/similar-protein-retrieval/SKILL.md.
 
     Inputs:
-        - protein: PDB file path (must exist on server)
+        - protein: PDB file path, PKL file path, or FASTA sequence (must exist on server for file paths)
         - database: (optional) List of FoldSeek databases
 
     Outputs:
         - result_path: Path to results file (.m8 for FoldSeek)
         - description: Description message
     """
-    protein = request.protein
+    protein_input = request.protein
     database = request.database
 
-    if not protein:
+    if not protein_input:
         raise ValueError("protein input is required")
 
+    # Convert PKL file to PDB if needed (FoldSeek requires PDB file)
+    import os
+    if protein_input.endswith(".pkl") and os.path.exists(protein_input):
+        protein_obj = Protein.from_binary_file(protein_input)
+        protein_path = protein_obj.save_pdb()
+        logger.info(f"Converted PKL to PDB: {protein_input} -> {protein_path}")
+    else:
+        protein_path = protein_input
+
     outputs, messages = await pipeline.run_async(
-        protein=protein,
+        protein=protein_path,
         database=database
     )
 
