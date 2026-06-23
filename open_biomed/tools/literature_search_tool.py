@@ -1,4 +1,6 @@
 import asyncio
+import logging
+import os
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,10 +13,14 @@ class LiteratureSearchTool(Tool):
     """
     Biomedical literature search tool using PubMed and bioRxiv APIs.
     Searches research papers with titles, abstracts, and metadata.
+
+    NCBI EUtils may be blocked for certain server IPs — in that case,
+    the tool returns a structured error message instead of crashing.
     """
 
     PUBMED_EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
     BIORXIV_API_BASE = "https://api.biorxiv.org"
+    NCBI_API_KEY = os.environ.get("NCBI_API_KEY", "")
 
     def __init__(self, timeout: int = 30, rate_limit_delay: float = 0.33) -> None:
         super().__init__()
@@ -83,6 +89,43 @@ Outputs: {"results": list of papers with title, abstract, authors, doi, etc.}
 
     # ==================== PubMed Methods ====================
 
+    def _add_ncbi_api_key(self, params: dict) -> dict:
+        """Add NCBI API key to request params if available."""
+        if self.NCBI_API_KEY:
+            params["api_key"] = self.NCBI_API_KEY
+        return params
+
+    def _add_ncbi_identifiers(self, params: dict) -> dict:
+        """Add `tool` and `email` params so NCBI can identify/contact us.
+
+        Recommended by the E-utilities usage guidelines; lets NCBI reach out
+        about our traffic instead of blocking the IP outright.
+        """
+        params["tool"] = self.EUTILS_TOOL_NAME
+        if self.EUTILS_CONTACT_EMAIL:
+            params["email"] = self.EUTILS_CONTACT_EMAIL
+        return params
+
+    async def _check_ncbi_block(self, response: aiohttp.ClientResponse) -> Optional[str]:
+        """Check if NCBI EUtils returned a block/misuse redirect.
+
+        NCBI blocks IPs by returning a 302 redirect to misuse.ncbi.nlm.nih.gov.
+        aiohttp follows redirects by default, so we check the final response content.
+
+        Returns an error message if blocked, None if OK.
+        """
+        # Check URL — if redirected to misuse page
+        final_url = str(response.url)
+        if "misuse.ncbi.nlm.nih.gov" in final_url:
+            return "NCBI EUtils is blocked for this server IP (rate limit or abuse detection). Please try again later or use an alternative data source."
+
+        # Check content — some blocks return HTML directly
+        content = await response.text()
+        if "misuse.ncbi.nlm.nih.gov" in content or "Abuse" in content and "NCBI" in content:
+            return "NCBI EUtils is blocked for this server IP (rate limit or abuse detection). Please try again later or use an alternative data source."
+
+        return None
+
     async def _pubmed_search(self, query: str, max_results: int = 10) -> Dict[str, Any]:
         """Search PubMed for PMIDs, then fetch paper details."""
         if not query:
@@ -95,6 +138,8 @@ Outputs: {"results": list of papers with title, abstract, authors, doi, etc.}
             "retmax": max_results,
             "retmode": "json"
         }
+        self._add_ncbi_api_key(search_params)
+        self._add_ncbi_identifiers(search_params)
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -102,7 +147,13 @@ Outputs: {"results": list of papers with title, abstract, authors, doi, etc.}
                 params=search_params,
                 timeout=self.timeout
             ) as response:
-                response.raise_for_status()
+                # Check for NCBI block before processing
+                block_msg = await self._check_ncbi_block(response)
+                if block_msg:
+                    logging.error(f"[LiteratureSearchTool] NCBI EUtils blocked: {block_msg}")
+                    return {"error": block_msg, "query": query, "papers": []}
+                if response.status != 200:
+                    return {"error": f"PubMed ESearch returned HTTP {response.status}", "query": query, "papers": []}
                 search_data = await response.json()
 
         pmids = search_data.get("esearchresult", {}).get("idlist", [])
@@ -115,6 +166,10 @@ Outputs: {"results": list of papers with title, abstract, authors, doi, etc.}
 
         # Step 2: Fetch paper details
         papers = await self._pubmed_fetch(pmids)
+
+        # Propagate block errors from fetch
+        if "error" in papers and "blocked" in papers.get("error", "").lower():
+            return {"error": papers["error"], "query": query, "papers": []}
 
         return {
             "query": query,
@@ -134,6 +189,8 @@ Outputs: {"results": list of papers with title, abstract, authors, doi, etc.}
             "rettype": "abstract",
             "retmode": "xml"
         }
+        self._add_ncbi_api_key(fetch_params)
+        self._add_ncbi_identifiers(fetch_params)
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -141,7 +198,13 @@ Outputs: {"results": list of papers with title, abstract, authors, doi, etc.}
                 params=fetch_params,
                 timeout=self.timeout
             ) as response:
-                response.raise_for_status()
+                # Check for NCBI block before processing
+                block_msg = await self._check_ncbi_block(response)
+                if block_msg:
+                    logging.error(f"[LiteratureSearchTool] NCBI EUtils blocked: {block_msg}")
+                    return {"error": block_msg, "pmids": pmids, "papers": []}
+                if response.status != 200:
+                    return {"error": f"PubMed EFetch returned HTTP {response.status}", "pmids": pmids, "papers": []}
                 xml_content = await response.text()
 
         # Parse XML

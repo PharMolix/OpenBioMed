@@ -928,11 +928,11 @@ class UniProtRequester(DBRequester):
         return [protein], [protein.save_binary()]
 
 class PDBRequester(DBRequester):
-    def __init__(self, 
+    def __init__(self,
         timeout: int=30
     ) -> None:
         super().__init__(timeout)
-        self.requires_async = False
+        self.requires_async = True
 
     def print_usage(self) -> str:
         return "\n".join([
@@ -950,9 +950,9 @@ class PDBRequester(DBRequester):
             else:
                 raise ValueError(f"Invalid mode: {mode}")
         else:
-            # AlphaFoldDB ID
+            # AlphaFoldDB: new 2-step lookup via prediction API
             assert mode == "file_only", "Only file_only mode is supported for AlphaFoldDB ID."
-            return f"https://alphafold.ebi.ac.uk/files/AF-{accession}-F1-model_v4.pdb"
+            return f"https://alphafold.ebi.ac.uk/api/prediction/{accession}"
 
     def _parse_and_save_outputs(self, accession: str="", content: str="", mode: str="metadata", **kwargs) -> str:
         if mode == "metadata":
@@ -963,6 +963,56 @@ class PDBRequester(DBRequester):
             with open(pdb_file, "w") as f:
                 f.write(content)
             return [pdb_file], [content]
+
+    async def run_async(self, accession: Any, **kwargs) -> Any:
+        """Override to handle AlphaFoldDB 2-step lookup.
+
+        For RCSB (4-char IDs): use the standard DBRequester flow.
+        For AlphaFoldDB: first fetch prediction JSON to resolve the real PDB URL,
+        then download the PDB file.
+        """
+        if len(str(accession)) == 4:
+            # Standard RCSB path — delegate to parent
+            return await super().run_async(accession, **kwargs)
+
+        # AlphaFoldDB 2-step lookup
+        mode = kwargs.get("mode", "file_only")
+        url = self._determine_query_url(accession, mode=mode)
+        logging.info(f"[PDBRequester] AlphaFoldDB step 1: fetching prediction info from {url}")
+
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
+            # Step 1: Get prediction metadata to resolve real PDB URL
+            async with session.get(url) as response:
+                if response.status != 200:
+                    raise Exception(f"AlphaFoldDB prediction API returned HTTP {response.status} for '{accession}'")
+                content = await response.read()
+                predictions = json.loads(content.decode("utf-8"))
+
+            # The API returns a list — take the first prediction
+            if isinstance(predictions, list):
+                if not predictions:
+                    raise Exception(f"AlphaFoldDB returned empty predictions for '{accession}'")
+                prediction = predictions[0]
+            else:
+                prediction = predictions
+
+            pdb_url = prediction.get("pdbUrl")
+            if not pdb_url:
+                # Fallback: construct URL from modelEntityId
+                model_id = prediction.get("modelEntityId") or prediction.get("entryId")
+                if not model_id:
+                    raise Exception(f"AlphaFoldDB prediction for '{accession}' has no pdbUrl or modelEntityId")
+                pdb_url = f"https://alphafold.ebi.ac.uk/files/{model_id}-model_v1.pdb"
+
+            logging.info(f"[PDBRequester] AlphaFoldDB step 2: downloading PDB from {pdb_url}")
+
+            # Step 2: Download the actual PDB file
+            async with session.get(pdb_url) as response:
+                if response.status != 200:
+                    raise Exception(f"AlphaFoldDB PDB download failed with HTTP {response.status}")
+                pdb_content = await response.text()
+
+        return self._parse_and_save_outputs(accession, content=pdb_content, mode=mode)
 
 class WebSearchRequester(Tool):
     def __init__(self, timeout: int=30) -> None:
@@ -1309,8 +1359,8 @@ if __name__ == "__main__":
     requester = FoldSeekRequester(database=["afdb50"])
     asyncio.run(requester.run(Protein.from_pdb_file("./tmp/demo/foldseek.pdb")))
 
-    requester = PDBRequester("https://alphafold.ebi.ac.uk/files/AF-{accession}-F1-model_v4.pdb")
-    asyncio.run(requester.run("A0A2E8J446"))
+    requester = PDBRequester()
+    asyncio.run(requester.run("A0A2E8J446", mode="file_only"))
 
     websearchrequester = WebSearchRequester()
     qurey = "Please tell me something about diabetes"  
