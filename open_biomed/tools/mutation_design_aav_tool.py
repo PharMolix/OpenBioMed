@@ -79,14 +79,33 @@ class MutationDesignAAV(Tool):
         return filepath
 
     def _load_initial_sequences(self) -> List[str]:
-        """Load initial AAV sequences from downloaded file."""
+        """Load initial AAV sequences from downloaded file.
+
+        The downloaded file is a CSV with a header ``Sequence,GroundTruth``
+        where each row is ``<28-aa sequence>,<measured fitness>``. We parse it
+        as CSV and keep only the sequence column — reading it as plain text
+        would fold the trailing ``,<fitness>`` into the sequence and corrupt
+        every downstream mutation/CSV step.
+        """
         if self._initial_sequences is None:
             sequences_file = self._download_file(
                 self.INITIAL_SEQUENCE_URL,
                 "aav_initial_sequences.txt"
             )
-            with open(sequences_file, 'r') as f:
-                self._initial_sequences = [line.strip() for line in f if line.strip()]
+            import csv
+            valid_aas = set("ACDEFGHIKLMNPQRSTVWY")
+            sequences = []
+            with open(sequences_file, 'r', newline='') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if not row:
+                        continue
+                    seq = row[0].strip()
+                    # Skip header / blank / non-sequence rows
+                    if not seq or not set(seq).issubset(valid_aas):
+                        continue
+                    sequences.append(seq)
+            self._initial_sequences = sequences
             logger.info(f"Loaded {len(self._initial_sequences)} initial sequences")
         return self._initial_sequences
 
