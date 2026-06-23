@@ -23,13 +23,22 @@ from open_biomed.tools.tool_registry import TOOLS
 app = FastAPI()
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - [%(levelname)s] - %(message)s',
+# NOTE: uvicorn applies its own logging config when it loads the app, which
+# reformats the OpenBioMed logger to "LEVEL:NAME:MESSAGE" (dropping the
+# timestamp). To keep timestamps stable, we attach our own handler to the
+# app logger and disable propagation so uvicorn never touches the format.
+_log_formatter = logging.Formatter(
+    fmt='%(asctime)s - [%(levelname)s] - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+logging.basicConfig(level=logging.INFO, format=_log_formatter._fmt, datefmt=_log_formatter.datefmt)
 logger = logging.getLogger('OpenBioMed')
 logger.setLevel(logging.INFO)
+logger.propagate = False
+if not logger.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(_log_formatter)
+    logger.addHandler(_h)
 
 # File upload configuration
 # UPLOAD_API_KEY: middleware专属密钥，用于middleware→云服务之间的内部认证
@@ -1399,27 +1408,53 @@ for task_config in TASK_CONFIGS:
 @app.post("/run_pipeline/")
 async def run_pipeline(request: TaskRequest):
     task_name = request.task.lower()
-    logger.info(f"Request | task={task_name} | model={request.model} | inputs={request.model_dump(exclude={'task', 'model'}, exclude_none=True)}")
+    request_id = uuid.uuid4().hex[:8]
+    start_time = time.time()
+    inputs_dump = request.model_dump(exclude={'task', 'model'}, exclude_none=True)
+    logger.info("=" * 80)
+    logger.info(f"[TASK] {task_name} | RequestID: {request_id} | model={request.model}")
+    logger.info(f"[INPUT] {inputs_dump}")
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
         pipeline = TOOLS[task_config.pipeline_key]
 
+        logger.info(f"[START] Task: {task_name}, Model: {request.model}")
+        logger.info("[EXEC] Running pipeline...")
         if task_config.is_async:
             output = await task_config.handler_function(request, pipeline)
         else:
             output = task_config.handler_function(request, pipeline)
-        logger.info(f"Response | task={task_name} | output={output}")
+        elapsed = time.time() - start_time
+        logger.info(f"[DONE] Task: {task_name} | RequestID: {request_id} | completed in {elapsed:.2f}s")
+        logger.info(f"[OUTPUT] {output}")
+        logger.info("=" * 80)
         return output
+    except HTTPException:
+        elapsed = time.time() - start_time
+        logger.error(f"[FAILED] Task: {task_name} | RequestID: {request_id} | in {elapsed:.2f}s (HTTPException)")
+        logger.info("=" * 80)
+        raise
     except Exception as e:
-        logger.error(f"Error | task={task_name} | error={str(e)}")
+        elapsed = time.time() - start_time
+        import traceback
+        error_traceback = traceback.format_exc()
+        logger.error(f"[FAILED] Task: {task_name} | RequestID: {request_id} | in {elapsed:.2f}s")
+        logger.error(f"[ERROR] Exception: {e}")
+        logger.error(f"[TRACEBACK]\n{error_traceback}")
+        logger.info("=" * 80)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/web_search/")
 async def web_search(request: SearchRequest):
     task_name = request.task.lower()
-    logger.info(f"WebSearch | task={task_name} | inputs={request.model_dump(exclude={'task'}, exclude_none=True)}")
+    request_id = uuid.uuid4().hex[:8]
+    start_time = time.time()
+    inputs_dump = request.model_dump(exclude={'task'}, exclude_none=True)
+    logger.info("=" * 80)
+    logger.info(f"[WEB_SEARCH] {task_name} | RequestID: {request_id}")
+    logger.info(f"[INPUT] {inputs_dump}")
     try:
         task_config = task_loader.get_task(task_name)
         task_config.validate_inputs(request.model_dump())
@@ -1431,24 +1466,40 @@ async def web_search(request: SearchRequest):
         if task_name in ncbi_tasks:
             if _ncbi_limiter.is_in_cooldown:
                 blocks = _ncbi_limiter.consecutive_blocks
-                logger.warning(f"WebSearch | task={task_name} | NCBI is in cooldown (blocked {blocks}x), returning degraded response")
+                elapsed = time.time() - start_time
+                logger.warning(f"[COOLDOWN] {task_name} | RequestID: {request_id} | NCBI blocked {blocks}x after {elapsed:.2f}s")
+                logger.info("=" * 80)
                 raise HTTPException(
                     status_code=503,
                     detail=f"NCBI API is temporarily blocked due to rate limiting. "
                            f"Please retry in a few minutes. (consecutive blocks: {blocks})"
                 )
 
+        logger.info(f"[START] Task: {task_name}")
+        logger.info("[EXEC] Running requester...")
         if task_config.is_async:
             output = await task_config.handler_function(request, requester)
         else:
             output = task_config.handler_function(request, requester)
-        logger.info(f"WebSearch Response | task={task_name} | output={output}")
+        elapsed = time.time() - start_time
+        logger.info(f"[DONE] Task: {task_name} | RequestID: {request_id} | completed in {elapsed:.2f}s")
+        logger.info(f"[OUTPUT] {output}")
+        logger.info("=" * 80)
         return output
     except HTTPException:
-        raise  # Re-raise HTTPExceptions (including our 503)
+        elapsed = time.time() - start_time
+        logger.error(f"[FAILED] Task: {task_name} | RequestID: {request_id} | in {elapsed:.2f}s (HTTPException)")
+        logger.info("=" * 80)
+        raise
     except Exception as e:
+        elapsed = time.time() - start_time
+        import traceback
+        error_traceback = traceback.format_exc()
         error_str = str(e)
-        logger.error(f"WebSearch Error | task={task_name} | error={error_str}")
+        logger.error(f"[FAILED] Task: {task_name} | RequestID: {request_id} | in {elapsed:.2f}s")
+        logger.error(f"[ERROR] Exception: {error_str}")
+        logger.error(f"[TRACEBACK]\n{error_traceback}")
+        logger.info("=" * 80)
         # Check if this is an NCBI block error — return 503 instead of 500
         if "Blocked" in error_str or "rate-limited" in error_str or "HTML error page" in error_str:
             raise HTTPException(
