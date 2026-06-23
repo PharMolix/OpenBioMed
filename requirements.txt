@@ -28,4 +28,5 @@ langgraph-sdk==0.2.9
 omegaconf==2.3.0
 langchain-deepseek==0.1.4
 aiohttp==3.9.5
-prodigy-prot==2.4.0
+prodigy-prot==2.2.4  # pins numpy<2, keeping rdkit/torch ABI-compatible (2.2.5+ force numpy>=2)
+numpy<2
