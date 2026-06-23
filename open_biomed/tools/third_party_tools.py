@@ -268,9 +268,15 @@ class SimilarProteinSearch(Tool):
             return [""], [f"Error: PDB file not found: {protein}"]
 
         try:
-            # Load protein from PDB file
+            # Load protein from file (supports .pdb and .pkl)
             from open_biomed.data import Protein
-            protein_obj = Protein.from_pdb_file(protein)
+            if protein.endswith(".pdb"):
+                protein_obj = Protein.from_pdb_file(protein)
+            elif protein.endswith(".pkl"):
+                protein_obj = Protein.from_binary_file(protein)
+            else:
+                # Assume it's a FASTA sequence
+                protein_obj = Protein.from_fasta(protein)
 
             requester = self._load_foldseek_requester()
 
