@@ -1,109 +1,211 @@
 ---
 name: mutation-design-gfp
-description: Propose high-fluorescence and high-diversity mutants of Green Fluorescent Protein (GFP) through multi-round iterative optimization.
+description: >
+  Design high-fluorescence GFP mutants through multi-round iterative optimization.
+  Use this skill when:
+  (1) Designing GFP mutants with improved fluorescence,
+  (2) Running computational iterative directed evolution,
+  (3) Performing fast mutation search guided by an oracle model.
+license: MIT
+category: protein-engineering
+tags: [mutation-design, gfp, directed-evolution, protein-optimization]
 ---
 
-# High-Fluorescence GFP Mutant Proposal
+# GFP Mutation Design
 
-A skill performs automated multi-round optimization of Green Fluorescent Protein (GFP) to discover mutants with higher fluorescence intensity and higher diversity.
+Design high-fluorescence Green Fluorescent Protein (GFP) mutants through multi-round iterative optimization using the OpenBioMed API.
 
+## When to Use
 
-## When to Use This Skill
+- User wants to design GFP mutants with improved fluorescence
+- User asks for computational directed evolution optimization
+- User wants to generate GFP variants with high fluorescence and diversity
+- User requests multi-round mutation search
 
-* Design novel GFP mutants with improved fluorescence intensity.
-* Run computational iterative directed evolution.
-* Perform fast mutation search guided by an oracle model.
+## API Endpoint Resolution
 
-Example prompts:
+The skill resolves the OpenBioMed API base URL in this order:
 
-* “Design GFP mutants with higher fluorescence.”
-* “Run multi-round mutation optimization for GFP.”
-* “Generate 96 GFP variants with improved fluorescence.”
+1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
+2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
+3. **Local development default**: `http://127.0.0.1:8090`
 
-
-## Prerequisites
-
-* Python 3.9+
-* PyTorch
-* NumPy / Pandas
-* Protein sequence analysis tools
-* Protein language model tools (ESM2)
-
-
-## Core Capabilities
-
-This skill can:
-
-1. Download **initial GFP sequences** if they were not provided by users.
-2. Download and execute an in-silico **oracle GFP prediction model**.
-3. Generate controllable mutants within **4 point mutations** for each round.
-4. Use **ESM2 embeddings** to represent GFP sequences.
-5. Optimize mutation proposals based on **oracle feedback**.
-6. Maintain population **diversity using average pairwise Hamming distance**.
-7. Perform **multi-round optimization** and return the best mutants.
+In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
 
 ## Workflow
 
-1. Download initial GFP sequences from `https://cloud.tsinghua.edu.cn/f/5e673c1db710466b828f/?dl=1` and use them as the starting pool.
+### Step 1: Call mutation_design_gfp API
 
-2. Download the oracle GFP prediction model from `https://cloud.tsinghua.edu.cn/f/f655f79d7bb04a98a0bb/?dl=1`, and the configuration file from `https://cloud.tsinghua.edu.cn/f/8a894bb4b41f4074b9b0/?dl=1`.
-
-3. Execute code for oracle loading and scoring:
-```py
-import torch
-from omegaconf import OmegaConf
-
-# ===== ORACLE MODEL LOADING =====
-def load_oracle_model(ckpt_path, cfg_path):
-    with open(cfg_path, 'r') as fp:
-        cfg = OmegaConf.load(fp.name)
-    oracle = BaseCNN(**cfg.model.predictor)
-    state_dict = torch.load(ckpt_path)
-    oracle.load_state_dict(torch.load(ckpt_path))
-    oracle.eval()
-
-# ===== ORACLE SCORING FUNCTION =====
-def score_sequence(oracle, sequence: str) -> float:
-    results = oracle(sequence).detach()
-    return results.cpu().numpy()
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "mutation_design_gfp"}'
 ```
 
-4. Compute ESM2 embeddings for all sequences to represent sequence features.
+**Optional Parameters**:
 
-5. Proposal: for each round, propose 96 × 4 candidate mutants from the current population using only point mutations with ≤4 mutations per sequence.
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "mutation_design_gfp", "num_rounds": 10, "population_size": 96, "max_mutations": 4, "diversity_weight": 0.1}'
+```
 
-6. Evaluation: evaluate all candidate sequences using the oracle scoring function. Use oracle feedback from previous rounds to bias mutation proposals toward directions that **increase predicted fluorescence** (fitness gradient exploitation).
+**Parameters**:
 
-7. Selection: rank sequences by predicted fitness and select the top 96 mutants, while **maintaining diversity** measured by average pairwise Hamming distance.
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| num_rounds | int | 10 | Number of optimization rounds |
+| population_size | int | 96 | Number of mutants per round |
+| max_mutations | int | 4 | Max point mutations per sequence |
+| diversity_weight | float | 0.1 | Weight for diversity in selection |
 
-8. Repeat proposal, evaluation, and selection until 10 rounds are completed, or best fitness does not improve for 3 consecutive rounds.
+**Response**:
 
-9. Collect the best 96 mutants discovered across all rounds and sort them by predicted fluorescence, and export the results as a CSV file following the specified output format.
+```json
+{
+  "task": "mutation_design_gfp",
+  "csv_file": "./tmp/mutation_design_gfp/gfp_mutants_xxx.csv",
+  "description": "GFP mutation design completed. Generated 96 mutants with best fitness 3.12. Results saved to ./tmp/mutation_design_gfp/gfp_mutants_xxx.csv"
+}
+```
 
+### Step 2: Parse Results
 
+The output CSV file contains two columns:
 
-## Output Format
+| Column | Description |
+|--------|-------------|
+| sequence | GFP mutant sequence (237 amino acids) |
+| fitness | Predicted fluorescence fitness score (higher = brighter) |
 
-The final result must be a **CSV file** with two columns:
-
-| sequence            | fitness                |
-| ------------------- | ---------------------- |
-| GFP_mutant_sequence | predicted_fluorescence |
-
-Requirements:
-
-* Exactly **96 sequences**
-* Sorted by **fitness in descending order**
-* Sequences must be **valid GFP mutants**
-
-Example:
+Example CSV content:
 
 ```
 sequence,fitness
-SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFICTT...,0.93
-SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTLKFIATT...,0.91
-SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDATYGKLTIKFICTT...,0.89
+SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDAT...,3.1207
+SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDAT...,2.9841
 ...
 ```
 
-This CSV represents the **final optimized GFP mutant library** predicted to exhibit higher fluorescence intensity.
+The CSV contains exactly 96 sequences sorted by fitness in descending order. Fitness values are the raw oracle-model outputs (same scale as the training ground-truth fluorescence), so they are not bounded to [0, 1].
+
+## Example Usage
+
+### Example 1: Basic GFP Mutation Design
+
+```
+Input: "Design GFP mutants with higher fluorescence"
+
+Step 1: Call API with default parameters
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "mutation_design_gfp"}'
+
+Output:
+  CSV file: ./tmp/mutation_design_gfp/gfp_mutants_123456.csv
+  96 mutants with fitness scores
+```
+
+### Example 2: Custom Parameters
+
+```
+Input: "Generate 50 GFP mutants with up to 3 mutations each"
+
+Step 1: Call API with custom parameters
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "mutation_design_gfp", "population_size": 50, "max_mutations": 3}'
+
+Output:
+  CSV file with 50 mutants
+  Optimization focused on fewer mutations
+```
+
+### Example 3: Higher Diversity
+
+```
+Input: "Design diverse GFP mutants"
+
+Step 1: Call API with higher diversity weight
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+    -H 'accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -d '{"task": "mutation_design_gfp", "diversity_weight": 0.3}'
+
+Output:
+  CSV file with 96 diverse mutants
+  Higher sequence diversity among top mutants
+```
+
+## Expected Outputs
+
+| Output | Type | Description |
+|--------|------|-------------|
+| csv_file | string | Path to results CSV file |
+| description | string | Human-readable summary |
+
+## Technical Details
+
+### Optimization Algorithm
+
+1. **Initial Sequences**: Downloaded from a pre-defined URL (237-amino acid GFP variants)
+2. **Oracle Model**: BaseCNN fitness predictor (GGS framework), trained with `monitor: val/spearmanr`; scores its own training data at Spearman ~0.87
+3. **Mutation Strategy**: Point mutations only (≤4 per sequence)
+4. **Diversity Metric**: Average pairwise Hamming distance
+5. **Stopping Criteria**: 10 rounds or 3 rounds without improvement
+
+### Fitness Score Interpretation
+
+Fitness is the raw oracle output on the same scale as the training fluorescence ground truth (typically ~0.5–3.5). Higher means brighter predicted fluorescence. Because the bundled starting pool is a harder, out-of-distribution slice, absolute values on unseen mutants are approximate — trust the **ranking** (top rows are predicted brighter), not the exact magnitude.
+
+## Error Handling
+
+### API Unavailable
+
+**Symptom**: curl returns "Connection refused" or timeout.
+
+**Solution**: Verify the endpoint is reachable:
+```bash
+curl "${OPENBIOMED_API_BASE_URL}/healthz"
+# Should return "Service available"
+```
+
+### Oracle Model Download Failed
+
+**Symptom**: API returns error about model download.
+
+**Solution**: The tool will use a fallback scoring function. For accurate results, ensure the oracle model URLs are accessible.
+
+### Empty Results
+
+**Symptom**: CSV file contains fewer than 96 sequences.
+
+**Solution**: Check the logs for optimization errors. The tool may have stopped early due to convergence.
+
+## Decision Tree
+
+```
+Should I use mutation_design_gfp?
+│
+└─ What protein are you designing?
+   ├─ GFP → mutation-design-gfp ✓
+   ├─ AAV VP1 capsid protein → mutation-design-aav
+   └─ General protein → functional-protein-design
+```
+
+## Next Steps
+
+After GFP mutation design:
+- **Sequence Analysis**: Analyze mutation patterns and positions
+- **Validation**: Experimentally validate top candidates (measure actual fluorescence)
+- **Combination**: Combine beneficial mutations from different candidates
+
+## See Also
+
+- `mutation-design-aav` - Design AAV mutants with higher DNA packaging fitness
+- `functional-protein-design` - General functional protein design
+- `protein-mutation-analysis` - Analyze protein mutations

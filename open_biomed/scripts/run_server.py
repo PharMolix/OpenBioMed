@@ -669,6 +669,34 @@ def handle_mutation_design_aav(request: TaskRequest, pipeline):
     }
 
 
+def handle_mutation_design_gfp(request: TaskRequest, pipeline):
+    """
+    Design high-fluorescence GFP mutants through multi-round optimization.
+
+    Inputs:
+        - num_rounds: Number of optimization rounds (default: 10)
+        - population_size: Number of mutants per round (default: 96)
+        - max_mutations: Max point mutations per sequence (default: 4)
+        - diversity_weight: Weight for diversity in selection (default: 0.1)
+
+    Outputs:
+        - csv_file: Path to results CSV with top 96 mutants
+        - description: Summary of optimization results
+    """
+    outputs, messages = pipeline.run(
+        num_rounds=request.num_rounds or 10,
+        population_size=request.population_size or 96,
+        max_mutations=request.max_mutations or 4,
+        diversity_weight=request.diversity_weight or 0.1
+    )
+
+    return {
+        "task": request.task,
+        "csv_file": outputs[0] if outputs else "",
+        "description": messages[0]
+    }
+
+
 def handle_read_molecule_file(request: TaskRequest, pipeline):
     """
     Read molecule content from a file path.
@@ -1349,6 +1377,13 @@ TASK_CONFIGS = [
         "required_inputs": [],
         "pipeline_key": "mutation_design_aav",
         "handler_function": handle_mutation_design_aav,
+        "is_async": False
+    },
+    {
+        "task_name": "mutation_design_gfp",
+        "required_inputs": [],
+        "pipeline_key": "mutation_design_gfp",
+        "handler_function": handle_mutation_design_gfp,
         "is_async": False
     },
     {

@@ -14,6 +14,7 @@ from open_biomed.tasks.aidd_tasks.structure_based_drug_design import StructureBa
 from open_biomed.tasks.aidd_tasks.protein_folding import ProteinFolding
 from open_biomed.tasks.aidd_tasks.cell_annotation import CellAnnotation
 from open_biomed.tasks.aidd_tasks.mutation_design_aav import MutationDesignAAV
+from open_biomed.tasks.aidd_tasks.mutation_design_gfp import MutationDesignGFP
 
 TASK_REGISTRY = {
     "text_based_molecule_editing": TextMoleculeEditing,
@@ -33,4 +34,5 @@ TASK_REGISTRY = {
     "cell_annotation": CellAnnotation,
     "go_guided_protein_generation": GoGuidedProteinGeneration,
     "mutation_design_aav": MutationDesignAAV,
+    "mutation_design_gfp": MutationDesignGFP,
 }
