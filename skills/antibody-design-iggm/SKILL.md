@@ -41,6 +41,41 @@ Environment variable override:
 | nanobody | antigen_pdb, heavy_chain_mask, epitope | PDB + FASTA |
 | heavy_light | antigen_pdb, heavy_chain_mask, light_chain_mask, epitope | PDB + FASTA |
 
+## Input File Handling
+
+| Input Type | How to Handle |
+|------------|---------------|
+| **Uploaded file** | Use file_id directly in http_request (see below) |
+| PDB ID | Download from RCSB PDB first |
+| Server path | Use path directly if file exists on server |
+
+### Uploading User Files
+
+When the user has uploaded a file, you will see a file_id (UUID format) in the conversation. Use the `http_request` tool with the `files` parameter to upload it to the server:
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+method: "POST"
+files: '{"file": "<file_id>"}'
+```
+
+The system will automatically:
+- Resolve the file_id to the actual file on disk
+- Read the file bytes and send as multipart/form-data
+- Inject the required API Key header
+
+The response will contain the server path: `{"path": "./tmp/uploads/<uuid>.pdb"}`
+
+Use this `path` value as the `antigen_pdb` parameter in Step 1/2.
+
+### If input is PDB ID
+
+Download from RCSB PDB first:
+
+```bash
+curl -L -o antigen.pdb "https://files.rcsb.org/download/7E3W.pdb"
+```
+
 ## Step 1: Nanobody Design
 
 ### Input Collection
@@ -178,6 +213,10 @@ QVQLVESGGDLVQSGGSLKLSCAVSGFTFSSYAMSWVRQAPGKGLEWVAISSSGGSTYYADSVKGRLTISRDNAKNTVYL
 ```
 
 ## Error Handling
+
+### Upload Failed
+- **Symptom**: Upload returns error status code (4xx/5xx)
+- **Solution**: Retry the upload. The system handles multipart encoding and API key automatically
 
 ### Missing Required Parameters
 
