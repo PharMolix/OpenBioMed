@@ -346,6 +346,25 @@ def get_curl_commands(base_url):
             -d '{{"task": "boltz2_structure_prediction", "prediction_type": "prot_complex", "sequence_1": "GSHMGSSGMSSGMG", "sequence_2": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVVHSLAKWKRQTLGQHDFSAGEGLYTHMKALRPDEDRLSPLHSVYVDQWDWERVMGDGERQFSTLKSTVEAIWAGIKATEAAVSEEFGLAPFLPDQIHFVHSQELLSRYPDLDAKGRERAIAKDLGAVFLVGIGGKLSDGHRHDVRAPDYDDWSTPSELGHAGLNGDILVWNPVLEDAFELSSMGIRVDADTLKHQLALTGDEDRLELEWHQALLRGEMPQTIGGGIGQSRLTMLLLQLPHIGQVQAGVWPAAVRESVPSLL", "output_name": "test_prot_complex"}}'
             """
         },
+        # Mutation design (real BaseCNN fitness oracle) tests
+        {
+            "task": "mutation_design_aav",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "mutation_design_aav", "num_rounds": 1, "population_size": 6}}'
+            """
+        },
+        {
+            "task": "mutation_design_gfp",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "mutation_design_gfp", "num_rounds": 1, "population_size": 6}}'
+            """
+        },
     ]
 
 
