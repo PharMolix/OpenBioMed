@@ -37,40 +37,55 @@ In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for 
 
 The input must be a PDB file containing a protein-protein complex (two or more interacting proteins).
 
-| Input Type | Example | How to Handle |
-|------------|---------|---------------|
-| Local PDB file | `./complex.pdb` | Use path directly (must exist on server filesystem) |
-| PDB ID | `1AVX` | Download from RCSB PDB first |
+| Input Type | How to Handle |
+|------------|---------------|
+| **Uploaded file** | Use file_id directly in http_request (see below) |
+| PDB ID | Download from RCSB PDB first (see below) |
 
-**If input is PDB ID**, first download the structure:
+#### Uploading User Files
 
-```bash
-# Option 1: Use OpenBioMed protein_pdb_request
-curl -X POST "${OPENBIOMED_API_BASE_URL}/web_search/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "protein_pdb_request", "query": "1AVX", "mode": "file_only"}'
+When the user has uploaded a file, you will see a file_id (UUID format) in the conversation. Use the `http_request` tool with the `files` parameter to upload it to the server:
 
-# Option 2: Direct download from RCSB PDB
-curl -L -o complex.pdb "https://files.rcsb.org/download/1AVX.pdb"
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+method: "POST"
+files: '{"file": "<file_id>"}'
+```
+
+The system will automatically:
+- Resolve the file_id to the actual file on disk
+- Read the file bytes and send as multipart/form-data
+- Inject the required API Key header
+
+The response will contain the server path: `{"path": "./tmp/uploads/<uuid>.pdb"}`
+
+Use this `path` value as the `protein_complex` parameter in Step 2.
+
+#### If input is PDB ID, first download the structure:
+
+```
+url: "${OPENBIOMED_API_BASE_URL}/web_search/"
+method: "POST"
+headers: '{"Content-Type": "application/json"}'
+body: '{"task": "protein_pdb_request", "query": "1AVX", "mode": "file_only"}'
 ```
 
 ### Step 2: Call binding_affinity API
 
-```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "binding_affinity", "protein_complex": "<PDB_FILE_PATH>"}'
+```
+url: "${OPENBIOMED_API_BASE_URL}/run_pipeline/"
+method: "POST"
+headers: '{"Content-Type": "application/json"}'
+body: '{"task": "binding_affinity", "protein_complex": "<PDB_FILE_PATH>"}'
 ```
 
 **Optional**: Specify distance cutoff for intermolecular contacts:
 
-```bash
-curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{"task": "binding_affinity", "protein_complex": "<PDB_FILE_PATH>", "distance_cutoff": 5.5}'
+```
+url: "${OPENBIOMED_API_BASE_URL}/run_pipeline/"
+method: "POST"
+headers: '{"Content-Type": "application/json"}'
+body: '{"task": "binding_affinity", "protein_complex": "<PDB_FILE_PATH>", "distance_cutoff": 5.5}'
 ```
 
 **Response**:
@@ -94,27 +109,48 @@ curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
 
 ## Example Usage
 
-### Example 1: Predict Binding Affinity
+### Example 1: Predict Binding Affinity (with PDB ID)
 
 ```
 Input: "Predict the binding affinity of protein complex 1AVX"
 
-Step 1: Download PDB file
-  curl -L -o 1avx.pdb "https://files.rcsb.org/download/1AVX.pdb"
-  → File saved: 1avx.pdb
+Step 1: Download PDB file via http_request
+  url: "${OPENBIOMED_API_BASE_URL}/web_search/"
+  method: "POST"
+  headers: '{"Content-Type": "application/json"}'
+  body: '{"task": "protein_pdb_request", "query": "1AVX", "mode": "file_only"}'
+  → Response path: "./tmp/pdb_1AVX.pkl"
 
-Step 2: Call binding_affinity API
-
-  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
-    -H 'accept: application/json' \
-    -H 'Content-Type: application/json' \
-    -d '{"task": "binding_affinity", "protein_complex": "1avx.pdb"}'
+Step 2: Call binding_affinity API via http_request
+  url: "${OPENBIOMED_API_BASE_URL}/run_pipeline/"
+  method: "POST"
+  headers: '{"Content-Type": "application/json"}'
+  body: '{"task": "binding_affinity", "protein_complex": "./tmp/pdb_1AVX.pkl"}'
 
 Step 3: Interpret results
+  Binding affinity: -11.6 kcal/mol → Strong binding
+```
 
-Output:
-  Binding affinity: -11.6 kcal/mol
-  Interpretation: Strong binding between proteins in the complex
+### Example 2: Predict Binding Affinity (with uploaded file)
+
+```
+Input: "Predict the binding affinity of my uploaded complex file"
+  (file_id appears in conversation: e.g. cf2e819d-2858-4adc-a176-464d55352c0a)
+
+Step 1: Upload file to server via http_request
+  url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+  method: "POST"
+  files: '{"file": "cf2e819d-2858-4adc-a176-464d55352c0a"}'
+  → Response: {"path": "./tmp/uploads/abc123.pdb"}
+
+Step 2: Call binding_affinity API via http_request
+  url: "${OPENBIOMED_API_BASE_URL}/run_pipeline/"
+  method: "POST"
+  headers: '{"Content-Type": "application/json"}'
+  body: '{"task": "binding_affinity", "protein_complex": "./tmp/uploads/abc123.pdb"}'
+
+Step 3: Interpret results
+  Binding affinity: -12.5 kcal/mol → Strong binding
 ```
 
 ## Expected Outputs
@@ -128,19 +164,16 @@ Output:
 ## Error Handling
 
 ### PDB File Not Found
-
-**Symptom**: API returns error about file not found.
-
-**Solution**: Ensure the PDB file path is correct and accessible on the server filesystem.
+- **Symptom**: API returns `{"binding_affinity": 0.0, "description": "Error: PDB file not found"}`
+- **Solution**: Re-upload the file first, then use the returned path
 
 ### Invalid PDB Format
+- **Symptom**: API returns `{"binding_affinity": 0.0, "description": "Error: ..."}`
+- **Solution**: Ensure the PDB file is a valid protein-protein complex containing at least two interacting protein chains
 
-**Symptom**: API returns parsing error or "No contacts found".
-
-**Solution**: Ensure the PDB file is a valid protein-protein complex:
-- Contains at least two protein chains
-- Chains are close enough to have intermolecular contacts
-- File format is standard PDB
+### Upload Failed
+- **Symptom**: Upload returns error status code (4xx/5xx)
+- **Solution**: Retry the upload. The system handles multipart encoding and API key automatically
 
 ## Decision Tree
 
@@ -155,14 +188,12 @@ Should I use PRODIGY?
 ## Technical Details
 
 ### PRODIGY Algorithm
-
 PRODIGY predicts binding affinity based on:
 1. **Intermolecular Contacts (ICs)**: Number of contacts between protein chains
 2. **Contact Types**: Classification into different contact categories
 3. **Physicochemical Properties**: Incorporation of NIS (Non-Interacting Surface) properties
 
 ### Distance Cutoff
-
 The `distance_cutoff` parameter defines the maximum distance (in Angstroms) between atoms to be considered as a contact. Default is 5.5 Å.
 
 | Distance Cutoff | Effect |
