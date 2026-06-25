@@ -250,6 +250,13 @@ class TaskRequest(BaseModel):
     smiles: Optional[str] = None  # Ligand SMILES (for Boltz2 affinity)
     sequence_1: Optional[str] = None  # First protein sequence (for Boltz2 prot_complex)
     sequence_2: Optional[str] = None  # Second protein sequence (for Boltz2 prot_complex)
+    # BoltzGen structure design fields
+    boltzgen_yaml_file: Optional[str] = None  # Design YAML file path
+    boltzgen_protocol: Optional[str] = None  # Design protocol
+    boltzgen_num_designs: Optional[int] = None  # Number of intermediate designs
+    boltzgen_budget: Optional[int] = None  # Final diversity-optimized set size
+    boltzgen_cif_files: Optional[List[str]] = None  # CIF/PDB target files
+    boltzgen_output_name: Optional[str] = None  # Output file name prefix
 
 
 class SearchRequest(BaseModel):
@@ -897,6 +904,53 @@ def handle_boltz2_structure_prediction(request: TaskRequest, pipeline):
     }
 
 
+def handle_boltzgen_structure_design(request: TaskRequest, pipeline):
+    """
+    BoltzGen all-atom protein structure design.
+
+    Supports:
+    - Protein binder design (protein-anything protocol)
+    - Small molecule binding design (protein-small_molecule protocol)
+    - Cyclic peptide design (peptide-anything protocol)
+    - Nanobody CDR design (nanobody-anything protocol)
+    - Antibody CDR design (antibody-anything protocol)
+
+    Inputs:
+        - boltzgen_yaml_file: Design YAML file path (required)
+        - boltzgen_protocol: Design protocol (default: protein-anything)
+        - boltzgen_num_designs: Number of intermediate designs (default: 10)
+        - boltzgen_budget: Final diversity-optimized set size (default: 2)
+        - boltzgen_cif_files: List of CIF/PDB target file paths (optional)
+        - boltzgen_output_name: Output file name prefix (optional)
+
+    Outputs:
+        - design.cif: Final best all-atom design structure
+        - intermediate_designs/*.cif: Raw diffusion outputs
+        - intermediate_designs_inverse_folded/*.cif: Refolded complexes
+        - aggregate_metrics_analyze.csv: Quality metrics
+        - status.json: Pipeline status
+        - description: Summary with design details
+    """
+    if not request.boltzgen_yaml_file:
+        raise HTTPException(status_code=400, detail="boltzgen_yaml_file is required")
+
+    outputs, messages = pipeline.run(
+        yaml_file=request.boltzgen_yaml_file,
+        protocol=request.boltzgen_protocol or "protein-anything",
+        num_designs=request.boltzgen_num_designs or 10,
+        budget=request.boltzgen_budget or 2,
+        cif_files=request.boltzgen_cif_files,
+        output_name=request.boltzgen_output_name
+    )
+
+    return {
+        "task": request.task,
+        "protocol": request.boltzgen_protocol,
+        "output_files": outputs,
+        "description": messages[0] if messages else "Design completed"
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1419,6 +1473,13 @@ TASK_CONFIGS = [
         "required_inputs": [],
         "pipeline_key": "boltz2_structure_prediction",
         "handler_function": handle_boltz2_structure_prediction,
+        "is_async": False
+    },
+    {
+        "task_name": "boltzgen_structure_design",
+        "required_inputs": ["boltzgen_yaml_file"],
+        "pipeline_key": "boltzgen_structure_design",
+        "handler_function": handle_boltzgen_structure_design,
         "is_async": False
     }
 

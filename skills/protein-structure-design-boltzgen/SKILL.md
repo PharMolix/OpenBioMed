@@ -1,7 +1,7 @@
 ---
 name: protein-structure-design-boltzgen
 description: >
-  All-atom protein design using BoltzGen diffusion model via API.
+  All-atom protein design using BoltzGen diffusion model.
   Use this skill when:
   (1) Need side-chain aware design from the start,
   (2) Designing around small molecules or ligands,
@@ -17,14 +17,11 @@ tags: [structure-design, sequence-design, diffusion, all-atom, binder]
 
 # BoltzGen All-Atom Design
 
-All-atom protein/peptide design via BoltzGen diffusion model, submitted as async jobs through the BoltzGen service API.
+All-atom protein/peptide design via BoltzGen diffusion model, powered by the OpenBioMed `/run_pipeline/` API.
 
 ## API Endpoints
 
-**BoltzGen Service API**: `http://172.16.20.44:10002`
-
-Environment variable override:
-- `BOLTZGEN_API_BASE_URL`: Override BoltzGen service base URL (default: `http://172.16.20.44:10002`)
+**OpenBioMed Run Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
 
 **OpenBioMed Upload API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload`
 
@@ -43,6 +40,7 @@ Environment variable override:
 | Max concurrent jobs | 1 |
 | Max queue size | 5 |
 | Timeout | Returns `503` if queue is full |
+| Typical runtime | 12-45 minutes |
 
 ## Workflow
 
@@ -130,19 +128,9 @@ constraints:
 | Secondary structure | `secondary_structure` | `helix`, `sheet`, `loop` constraints |
 | Not-binding regions | `not_binding` | `"all"` to exclude binding to a chain |
 
-### Step 2: Upload Files and Submit Job
+### Step 2: Upload Files
 
-Submit the YAML and any referenced CIF/PDB files to the BoltzGen service.
-
-#### Input File Handling
-
-| Input Type | How to Handle |
-|------------|---------------|
-| **Uploaded file (file_id)** | Use `http_request` with `files` parameter to upload to OpenBioMed server, then use server path |
-| Local YAML file | Write locally, upload to OpenBioMed server via `http_request` with `files` parameter |
-| Local CIF/PDB file | Upload to OpenBioMed server via `http_request` with `files` parameter |
-
-#### Uploading User Files
+Upload the YAML file and any CIF/PDB target files to the OpenBioMed server.
 
 When the user has uploaded a file, you will see a file_id (UUID format) in the conversation. Use the `http_request` tool with the `files` parameter to upload it to the OpenBioMed server:
 
@@ -171,124 +159,60 @@ The system will automatically:
 - Read the file bytes and send as multipart/form-data
 - Inject the required API Key header
 
-#### Submit to BoltzGen Service
+### Step 3: Submit Design Job via run_pipeline
 
-After uploading, use the returned server paths to submit the design job via `http_request`:
+Use the `/run_pipeline/` endpoint to submit the BoltzGen design job. The pipeline will:
+1. Upload files to BoltzGen service
+2. Submit the design job
+3. Poll status automatically (12-45 min wait)
+4. Download all result files
+5. Return the final design and metrics
 
-**Without CIF files (small molecule protocol):**
+**API call format:**
 
 ```
-url: "http://172.16.20.44:10002/jobs"
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
-files: '{"design_yaml": "<yaml_file_id>"}'
-body: '{"protocol": "protein-small_molecule", "num_designs": "10", "budget": "2"}'
-```
-
-**With CIF target files (protein/peptide binder protocol):**
-
-```
-url: "http://172.16.20.44:10002/jobs"
-method: "POST"
-files: '{"design_yaml": "<yaml_file_id>", "files": "<cif_file_id>"}'
-body: '{"protocol": "protein-anything", "num_designs": "10", "budget": "2"}'
-```
-
-**With multiple CIF files:**
-
-```
-url: "http://172.16.20.44:10002/jobs"
-method: "POST"
-files: '{"design_yaml": "<yaml_file_id>", "files": "<cif_file_id_1>", "files": "<cif_file_id_2>"}'
-body: '{"protocol": "protein-anything", "num_designs": "10", "budget": "2"}'
+body: {
+  "task": "boltzgen_structure_design",
+  "boltzgen_yaml_file": "<yaml_server_path>",
+  "boltzgen_protocol": "<protocol>",
+  "boltzgen_num_designs": <num_designs>,
+  "boltzgen_budget": <budget>,
+  "boltzgen_cif_files": ["<cif_server_path_1>", "<cif_server_path_2>"],  // optional
+  "boltzgen_output_name": "<output_name>"  // optional
+}
 ```
 
 #### Parameters
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `design_yaml` | Yes | — | BoltzGen design YAML file (multipart file field) |
-| `files` | No | — | Referenced CIF/PDB files (multipart file field, can upload multiple) |
-| `protocol` | No | `protein-anything` | Design protocol (see table above) |
-| `num_designs` | No | `10` | Number of intermediate designs (production: 10000-60000) |
-| `budget` | No | `2` | Final diversity-optimized set size |
-| `extra_args` | No | — | Extra CLI arguments, space-separated |
+| `boltzgen_yaml_file` | Yes | — | Design YAML file path (server path from upload) |
+| `boltzgen_protocol` | No | `protein-anything` | Design protocol (see table above) |
+| `boltzgen_num_designs` | No | `10` | Number of intermediate designs (production: 10000-60000) |
+| `boltzgen_budget` | No | `2` | Final diversity-optimized set size |
+| `boltzgen_cif_files` | No | — | List of CIF/PDB target file paths |
+| `boltzgen_output_name` | No | auto-generated | Output file name prefix |
 
 #### Response
 
 ```json
 {
-  "job_id": "54c8cd3f6cca",
-  "status": "pending",
-  "output_dir": "/home/sulixian/boltzGen/runs/54c8cd3f6cca/output",
-  "input_dir": "/home/sulixian/boltzGen/runs/54c8cd3f6cca/input",
-  "log_file": "/home/sulixian/boltzGen/runs/54c8cd3f6cca/log.txt"
+  "task": "boltzgen_structure_design",
+  "protocol": "protein-anything",
+  "output_files": [
+    "./tmp/boltzgen/<output_name>/output/design.cif",
+    "./tmp/boltzgen/<output_name>/output/intermediate_designs_inverse_folded/aggregate_metrics_analyze.csv",
+    ...
+  ],
+  "description": "BoltzGen Protein-anything design completed.\nJob ID: 54c8cd3f6cca\nDesign structure: ./tmp/boltzgen/.../design.cif\n..."
 }
 ```
 
-### Step 3: Check Job Status
+**Note:** The pipeline automatically handles the 12-45 minute wait time. The response will be returned once the design completes.
 
-BoltzGen jobs are **async** — they run for 12-45 minutes depending on design complexity. Poll status until `succeeded` or `failed`.
-
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}"
-method: "GET"
-```
-
-#### Status Values
-
-| Status | Meaning | Action |
-|--------|---------|--------|
-| `pending` | Queued, not yet started | Wait and re-check later |
-| `running` | Currently executing | Wait and re-check later (typical: 12-45 min) |
-| `succeeded` | Completed, `return_code: 0` | Proceed to Step 4 |
-| `failed` | Error occurred | Check `error_message` field and logs |
-
-**When the job is `running`:** Remind the user that BoltzGen design takes 12-45 minutes. Suggest they check back later using:
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}"
-method: "GET"
-```
-
-**View progress logs:**
-
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}/log"
-method: "GET"
-```
-
-**Cancel a running or queued job:**
-
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}/cancel"
-method: "POST"
-```
-
-### Step 4: Download Results
-
-Once `status: succeeded`, download the final design and metrics.
-
-**List all result files:**
-
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}/results"
-method: "GET"
-```
-
-**Download all results as zip:**
-
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}/download"
-method: "GET"
-```
-
-**Download single result file (e.g., design.cif):**
-
-```
-url: "http://172.16.20.44:10002/jobs/{job_id}/files/design.cif"
-method: "GET"
-```
-
-### Step 5: Interpret Results
+### Step 4: Interpret Results
 
 #### Output Directory Structure
 
@@ -316,7 +240,7 @@ output/
 
 ## Example Usage
 
-### Example 1: Small Molecule Binding (benzene) — with uploaded YAML
+### Example 1: Small Molecule Binding (benzene)
 
 **Input:** Design a 100-150 residue protein that binds benzene. User uploads a design YAML file.
 
@@ -329,43 +253,24 @@ files: '{"file": "<yaml_file_id>"}'
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.yaml"}`
 
-**Step 2 — Submit to BoltzGen:**
+**Step 2 — Submit to run_pipeline:**
 
 ```
-url: "http://172.16.20.44:10002/jobs"
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
-files: '{"design_yaml": "<yaml_file_id>"}'
-body: '{"protocol": "protein-small_molecule", "num_designs": "10", "budget": "2"}'
+body: {
+  "task": "boltzgen_structure_design",
+  "boltzgen_yaml_file": "./tmp/uploads/<uuid>.yaml",
+  "boltzgen_protocol": "protein-small_molecule",
+  "boltzgen_num_designs": 10,
+  "boltzgen_budget": 2
+}
 ```
-→ Response: `{"job_id": "54c8cd3f6cca", "status": "pending"}`
+→ Response: `{"task": "boltzgen_structure_design", "output_files": [...], "description": "..."}`
 
-**Step 3 — Check status (running):**
+> The pipeline will automatically wait for the design to complete (12-45 minutes).
 
-```
-url: "http://172.16.20.44:10002/jobs/54c8cd3f6cca"
-method: "GET"
-```
-→ Response: `{"job_id": "54c8cd3f6cca", "status": "running", ...}`
-
-> BoltzGen design is running. This typically takes 12-45 minutes. Please check back later by querying:
-> `url: "http://172.16.20.44:10002/jobs/54c8cd3f6cca"`, `method: "GET"`
-
-**Step 3 — Check status (completed):**
-
-```
-url: "http://172.16.20.44:10002/jobs/54c8cd3f6cca"
-method: "GET"
-```
-→ Response: `{"job_id": "54c8cd3f6cca", "status": "succeeded", "return_code": 0}`
-
-**Step 4 — Download design.cif:**
-
-```
-url: "http://172.16.20.44:10002/jobs/54c8cd3f6cca/files/design.cif"
-method: "GET"
-```
-
-### Example 2: Protein Binder — with uploaded YAML and CIF
+### Example 2: Protein Binder
 
 **Input:** Design an 80-120 residue binder for chain A of a target protein. User uploads YAML and CIF files.
 
@@ -387,24 +292,23 @@ files: '{"file": "<cif_file_id>"}'
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.cif"}`
 
-**Step 2 — Submit to BoltzGen:**
+**Step 2 — Submit to run_pipeline:**
 
 ```
-url: "http://172.16.20.44:10002/jobs"
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
-files: '{"design_yaml": "<yaml_file_id>", "files": "<cif_file_id>"}'
-body: '{"protocol": "protein-anything", "num_designs": "10", "budget": "2"}'
+body: {
+  "task": "boltzgen_structure_design",
+  "boltzgen_yaml_file": "./tmp/uploads/<uuid>.yaml",
+  "boltzgen_protocol": "protein-anything",
+  "boltzgen_num_designs": 10,
+  "boltzgen_budget": 2,
+  "boltzgen_cif_files": ["./tmp/uploads/<uuid>.cif"]
+}
 ```
-→ Response: `{"job_id": "abc123", "status": "pending"}`
+→ Response: `{"task": "boltzgen_structure_design", "output_files": [...], "description": "..."}`
 
-**Step 3 — Check status:**
-
-```
-url: "http://172.16.20.44:10002/jobs/abc123"
-method: "GET"
-```
-
-### Example 3: Cyclic Peptide with Disulfide — with uploaded files
+### Example 3: Cyclic Peptide with Disulfide
 
 **Input:** Design a 10-14 residue cyclic peptide with cysteine constraints. User uploads YAML and CIF.
 
@@ -427,10 +331,16 @@ files: '{"file": "<cif_file_id>"}'
 **Step 2 — Submit:**
 
 ```
-url: "http://172.16.20.44:10002/jobs"
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
-files: '{"design_yaml": "<yaml_file_id>", "files": "<cif_file_id>"}'
-body: '{"protocol": "peptide-anything", "num_designs": "10", "budget": "2"}'
+body: {
+  "task": "boltzgen_structure_design",
+  "boltzgen_yaml_file": "./tmp/uploads/<uuid>.yaml",
+  "boltzgen_protocol": "peptide-anything",
+  "boltzgen_num_designs": 10,
+  "boltzgen_budget": 2,
+  "boltzgen_cif_files": ["./tmp/uploads/<uuid>.cif"]
+}
 ```
 
 ## Expected Outputs
@@ -458,35 +368,13 @@ io.save("design.pdb")
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
-| Upload returns 4xx/5xx | Upload API error | Retry the upload. The system handles multipart encoding and API key automatically |
-| `503 Service Unavailable` on submit | Queue full (5 max) | Wait for existing jobs to finish, or cancel queued jobs |
-| `status: failed` | Runtime error | Check `error_message` field and `/jobs/{id}/log` |
-| `CUDA out of memory` in log | Large design or long protein | Use fewer `num_designs` or shorter sequence range |
-| `FileNotFoundError: *.cif` | Target file not uploaded | Ensure CIF file is uploaded via `files` parameter |
+| Upload returns 4xx/5xx | Upload API error | Retry the upload |
+| `503 Service Unavailable` | BoltzGen queue full (5 max) | Wait for existing jobs to finish |
+| Pipeline timeout | Design took > 1 hour | Try simpler design or fewer num_designs |
+| `CUDA out of memory` | Large design or long protein | Use fewer `num_designs` or shorter sequence range |
+| `FileNotFoundError: *.cif` | Target file not provided | Ensure CIF file path is correct |
 | `ValueError: invalid chain` | Chain not in target | Verify chain IDs in CIF file |
 | Wrong binding site | Wrong residue indices | Use `label_seq_id` (1-indexed), verify in Molstar |
-
-## Admin Operations
-
-```
-url: "http://172.16.20.44:10002/health"
-method: "GET"
-```
-
-```
-url: "http://172.16.20.44:10002/queue"
-method: "GET"
-```
-
-```
-url: "http://172.16.20.44:10002/admin/unload"
-method: "POST"
-```
-
-```
-url: "http://172.16.20.44:10002/admin/cleanup?max_age_days=7"
-method: "POST"
-```
 
 ## Decision Tree
 

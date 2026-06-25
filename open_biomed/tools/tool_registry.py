@@ -15,6 +15,7 @@ from open_biomed.tools.mutation_design_gfp_tool import MutationDesignGFP
 from open_biomed.tools.tfold_tool import TFoldRequester
 from open_biomed.tools.iggm_tool import IgGMRequester
 from open_biomed.tools.boltz2_tool import Boltz2Requester
+from open_biomed.tools.boltzgen_tool import BoltzGenRequester
 
 
 from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile
@@ -43,6 +44,7 @@ class LazyDictForTool(dict):
             "tfold_antibody_structure",
             "iggm_antibody_design",
             "boltz2_structure_prediction",
+            "boltzgen_structure_design",
             "read_molecule_file", "read_protein_file"
         ]
     
@@ -150,6 +152,8 @@ class LazyDictForTool(dict):
             self[key] = IgGMRequester()
         elif key == "boltz2_structure_prediction":
             self[key] = Boltz2Requester()
+        elif key == "boltzgen_structure_design":
+            self[key] = BoltzGenRequester()
         elif key == "read_molecule_file":
             self[key] = ReadMoleculeFile()
         elif key == "read_protein_file":
