@@ -156,8 +156,9 @@ cython_debug/
 /mutation_analysis/
 /pdb_analysis/
 
-#files
-*.csv
+# BoltzGen test/artifacts
+skills/protein-structure-design-boltzgen/test_binder_protein.yaml
+design.cif
 *.pt
 *.txt
 !requirements.txt
