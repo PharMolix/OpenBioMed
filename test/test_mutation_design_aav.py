@@ -157,6 +157,43 @@ class TestSequenceScoring:
         assert 0.0 <= score <= 1.0
 
 
+class TestOracleScoring:
+    """Regression guard for the real BaseCNN oracle scoring path.
+
+    The previous implementation returned ``0.5 + random()`` and never queried
+    the model. These tests pin the real forward: scoring must be deterministic
+    and distinct sequences must (generally) produce distinct scores. Skipped
+    when the oracle checkpoint cannot be loaded (no cache / no network in CI).
+    """
+
+    def test_score_sequence_deterministic(self):
+        """Same sequence scored twice must give identical results (not random)."""
+        tool = MutationDesignAAV()
+        if tool._load_oracle_model() is None:
+            pytest.skip("oracle checkpoint unavailable")
+        sequence = "ADEEIRATNPIATEMYGSVSTNLQLGNR"
+        s1 = tool._score_sequence(sequence)
+        s2 = tool._score_sequence(sequence)
+        assert s1 == pytest.approx(s2, abs=1e-6)
+
+    def test_score_sequence_returns_float(self):
+        """_score_sequence returns a Python float."""
+        tool = MutationDesignAAV()
+        if tool._load_oracle_model() is None:
+            pytest.skip("oracle checkpoint unavailable")
+        score = tool._score_sequence("ADEEIRATNPIATEMYGSVSTNLQLGNR")
+        assert isinstance(score, float)
+
+    def test_different_sequences_different_scores(self):
+        """Two distinct sequences should not score identically."""
+        tool = MutationDesignAAV()
+        if tool._load_oracle_model() is None:
+            pytest.skip("oracle checkpoint unavailable")
+        s1 = tool._score_sequence("ADEEIRATNPIATEMYGSVSTNLQLGNR")
+        s2 = tool._score_sequence("ADEEIRATNPIATEMYGSVSTNLQLGNA")
+        assert s1 != pytest.approx(s2, abs=1e-4)
+
+
 class TestTopMutantSelection:
     """Test top mutant selection functionality."""
 
