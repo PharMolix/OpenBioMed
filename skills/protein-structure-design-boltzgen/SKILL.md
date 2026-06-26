@@ -6,13 +6,9 @@ description: >
   (1) Need side-chain aware design from the start,
   (2) Designing around small molecules or ligands,
   (3) Want all-atom diffusion (not just backbone),
-  (4) Require precise binding geometries,
-  (5) Using YAML-based configuration.
+  (4) Require precise binding geometries.
 
   For structure validation, use boltz-2.
-license: MIT
-category: design-tools
-tags: [structure-design, sequence-design, diffusion, all-atom, binder]
 ---
 
 # BoltzGen All-Atom Design
@@ -44,33 +40,25 @@ All-atom protein/peptide design via BoltzGen diffusion model, powered by the Ope
 
 ## Workflow
 
-### Step 1: Prepare Design YAML
+### Step 1: Conversational Configuration → Generate YAML
 
-Write a BoltzGen design specification YAML file based on the protocol and entities below.
+**DO NOT ask user to upload YAML file.** Instead, guide the conversation to collect design parameters and generate the YAML configuration.
 
-**YAML file path conventions:**
-- File paths in YAML (`path:` field) are relative to the YAML file location
-- Residue indices use `label_seq_id` (1-indexed), not `auth_seq_id`
+#### Conversational Guide
 
-#### Entity Types
+**Reference**: `references/parameters_guide.md` → Section 1: Conversational Configuration Guide
 
-| Entity | YAML Key | Description |
-|--------|----------|-------------|
-| Designed protein | `protein` | Variable-length binder (`sequence: 80..140`) |
-| Fixed protein | `protein` | Known sequence (`sequence: AAVTTTTPPP`) |
-| Target from file | `file` | CIF/PDB file with `include`, `binding_types` |
-| Small molecule | `ligand` | By SMILES (`smiles: "CCO"`) or CCD code (`ccd: ATP`) |
+Ask questions based on the user's design target:
 
-#### Sequence Specification
+| Target Type | Protocol | Questions to Ask |
+|-------------|----------|------------------|
+| Protein/Peptide | `protein-anything` | Target CIF path, chain ID, binding residues, binder chain ID, binder length |
+| Cyclic Peptide | `peptide-anything` | Target CIF path, chain ID, binding residues, peptide length, disulfide positions |
+| Small Molecule | `protein-small_molecule` | SMILES or CCD code, ligand ID, protein ID, protein length |
+| Nanobody | `nanobody-anything` | Framework sequence, chain ID, antigen CIF, antigen chain |
+| Antibody | `antibody-anything` | Heavy chain sequence, light chain sequence, antigen CIF, epitope residues |
 
-| Format | Meaning | Example |
-|--------|---------|---------|
-| `80..140` | Random length between 80-140 residues | `sequence: 80..140` |
-| `80` | Exactly 80 designed residues | `sequence: 80` |
-| `AAAVVV20PPP` | Specific residues with designed in middle | `sequence: AAAVVV20PPP` |
-| `3..5C6C3` | Designed residues with specific cysteines | `sequence: 3..5C6C3` |
-
-#### Design Protocols
+#### Quick Protocol Selection
 
 | Protocol | Use Case |
 |----------|----------|
@@ -80,8 +68,13 @@ Write a BoltzGen design specification YAML file based on the protocol and entiti
 | `nanobody-anything` | Design nanobody CDRs |
 | `antibody-anything` | Design antibody CDRs |
 
-#### Example YAML — Protein Binder (requires CIF target file)
+#### YAML Templates
 
+**Reference**: `references/yaml_templates.md` for 12 ready-to-use templates
+
+**Basic Templates:**
+
+Protein Binder:
 ```yaml
 entities:
   - protein:
@@ -98,8 +91,7 @@ entities:
             binding: 45,67,89
 ```
 
-#### Example YAML — Small Molecule Binding (no CIF file needed)
-
+Small Molecule:
 ```yaml
 entities:
   - protein:
@@ -110,29 +102,41 @@ entities:
       id: L
 ```
 
-#### Constraints (Optional)
-
+Cyclic Peptide with Disulfide:
 ```yaml
+entities:
+  - protein:
+      id: S
+      sequence: 10..14C6C3
+  - file:
+      path: target.cif
+      include:
+        - chain:
+            id: A
 constraints:
   - bond:
-      atom1: [S, 11, SG]    # [chain_id, res_index, atom_name]
-      atom2: [S, 18, SG]    # Disulfide bond
+      atom1: [S, 11, SG]
+      atom2: [S, 18, SG]
 ```
 
-#### Advanced Options
+#### YAML Key Rules
 
-| Option | YAML Key | Description |
-|--------|----------|-------------|
-| Partial flexibility | `structure_groups` | `visibility: 1` = fixed, `visibility: 0` = flexible |
-| Redesign residues | `design` | Specify residues to redesign on target |
-| Secondary structure | `secondary_structure` | `helix`, `sheet`, `loop` constraints |
-| Not-binding regions | `not_binding` | `"all"` to exclude binding to a chain |
+- File paths in YAML (`path:` field) are relative to the YAML file location
+- Residue indices use `label_seq_id` (1-indexed), not `auth_seq_id`
+- All chain IDs must be unique
+
+#### Sequence Specification Formats
+
+| Format | Meaning | Example |
+|--------|---------|---------|
+| `80..140` | Random length between 80-140 residues | `sequence: 80..140` |
+| `80` | Exactly 80 designed residues | `sequence: 80` |
+| `AAAVVV20PPP` | Specific residues with designed in middle | `sequence: AAAVVV20PPP` |
+| `3..5C6C3` | Designed residues with specific cysteines | `sequence: 3..5C6C3` |
 
 ### Step 2: Upload Files
 
-Upload the YAML file and any CIF/PDB target files to the OpenBioMed server.
-
-When the user has uploaded a file, you will see a file_id (UUID format) in the conversation. Use the `http_request` tool with the `files` parameter to upload it to the OpenBioMed server:
+Upload the generated YAML file and any CIF/PDB target files to the OpenBioMed server.
 
 **Upload design YAML file:**
 
@@ -387,6 +391,14 @@ Should I use BoltzGen?
    ├─ Antibody or nanobody CDR → antibody-design-iggm
    └─ Just backbone validation → structure-prediction-boltz-2
 ```
+
+## Reference Documents
+
+| Document | Location | Content |
+|----------|----------|---------|
+| Conversational Guide | `references/parameters_guide.md` | Question templates by protocol, conversation examples |
+| YAML Templates | `references/yaml_templates.md` | 12 complete configuration templates |
+| Test Cases | `test_cases/*.yaml` | Example YAML configurations |
 
 ## Next Steps
 
