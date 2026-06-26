@@ -365,6 +365,16 @@ def get_curl_commands(base_url):
             -d '{{"task": "mutation_design_gfp", "num_rounds": 1, "population_size": 6}}'
             """
         },
+        # Read CSV file test (requires a CSV file to exist)
+        {
+            "task": "read_csv_file",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "read_csv_file", "value": "./tmp/mutation_design_aav/aav_mutants_test.csv", "num_rounds": 10}}'
+            """
+        },
     ]
 
 

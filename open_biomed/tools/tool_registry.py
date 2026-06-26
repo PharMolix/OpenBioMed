@@ -18,7 +18,7 @@ from open_biomed.tools.boltz2_tool import Boltz2Requester
 from open_biomed.tools.boltzgen_tool import BoltzGenRequester
 
 
-from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile
+from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile, ReadCsvFile
 
 # TODO: Add pocket prediction as a tool
 class LazyDictForTool(dict):
@@ -45,7 +45,7 @@ class LazyDictForTool(dict):
             "iggm_antibody_design",
             "boltz2_structure_prediction",
             "boltzgen_structure_design",
-            "read_molecule_file", "read_protein_file"
+            "read_molecule_file", "read_protein_file", "read_csv_file"
         ]
     
     def __missing__(self, key):
@@ -158,6 +158,8 @@ class LazyDictForTool(dict):
             self[key] = ReadMoleculeFile()
         elif key == "read_protein_file":
             self[key] = ReadProteinFile()
+        elif key == "read_csv_file":
+            self[key] = ReadCsvFile()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]

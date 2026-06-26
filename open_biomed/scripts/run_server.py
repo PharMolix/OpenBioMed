@@ -15,7 +15,7 @@ from typing import Optional, List, Dict, Callable, Any, Literal
 
 # import function
 from open_biomed.data import Molecule, Text, Protein, Pocket
-from open_biomed.tools.tool_misc import MutationToSequence
+from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile, ReadCsvFile
 from open_biomed.core.oss_warpper import oss_warpper
 from open_biomed.tools.tool_registry import TOOLS
 
@@ -45,7 +45,7 @@ if not logger.handlers:
 # 用户认证由Open WebUI middleware层负责，用户不接触此key
 UPLOAD_DIR = "./tmp/uploads"
 MAX_SIZE = 50 * 1024 * 1024  # 50MB
-ALLOWED_EXT = {".pdb", ".sdf", ".mol", ".mol2", ".smi", ".pkl", ".csv", ".txt"}
+ALLOWED_EXT = {".pdb", ".sdf", ".mol", ".mol2", ".smi", ".pkl", ".csv", ".txt", ".yaml", ".yml", ".cif"}
 UPLOAD_API_KEY = os.environ.get("UPLOAD_API_KEY", "")
 
 def cleanup_old_uploads():
@@ -772,6 +772,42 @@ def handle_read_protein_file(request: TaskRequest, pipeline):
     }
 
 
+def handle_read_csv_file(request: TaskRequest, pipeline):
+    """
+    Read CSV content from a file path.
+
+    Inputs:
+        - csv_file: Path to CSV file (from mutation_design_aav/gfp outputs)
+        - max_rows: (optional) Max number of rows to return, default 100
+
+    Outputs:
+        - csv_content: Raw CSV content as string
+        - data: Parsed CSV data as list of dicts
+        - num_rows: Total number of rows in file
+        - num_returned: Number of rows returned
+        - description: Description message
+    """
+    csv_file = request.value  # Use value field for csv_file path
+    max_rows = request.num_rounds if request.num_rounds is not None else 100  # Reuse num_rounds field
+
+    if not csv_file:
+        raise ValueError("csv_file (value parameter) is required")
+
+    outputs, messages = pipeline.run(
+        csv_file=csv_file,
+        max_rows=max_rows
+    )
+
+    return {
+        "task": request.task,
+        "csv_content": outputs["csv_content"],
+        "data": outputs["data"],
+        "num_rows": outputs["num_rows"],
+        "num_returned": outputs["num_returned"],
+        "description": messages
+    }
+
+
 def handle_tfold_antibody_structure(request: TaskRequest, pipeline):
     """
     tFold antibody structure prediction.
@@ -1452,6 +1488,13 @@ TASK_CONFIGS = [
         "required_inputs": ["protein"],
         "pipeline_key": "read_protein_file",
         "handler_function": handle_read_protein_file,
+        "is_async": False
+    },
+    {
+        "task_name": "read_csv_file",
+        "required_inputs": ["value"],
+        "pipeline_key": "read_csv_file",
+        "handler_function": handle_read_csv_file,
         "is_async": False
     },
     {

@@ -72,7 +72,38 @@ curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
 }
 ```
 
-### Step 2: Parse Results
+### Step 2: Retrieve CSV Content
+
+The `csv_file` returned is a server-side path. Use `read_csv_file` to get the content:
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "read_csv_file", "value": "./tmp/mutation_design_aav/aav_mutants_xxx.csv"}'
+```
+
+**Parameters**:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| value | string | required | CSV file path (from mutation_design_aav response) |
+| num_rounds | int | 100 | Max rows to return (reused as max_rows) |
+
+**Response**:
+
+```json
+{
+  "task": "read_csv_file",
+  "csv_content": "sequence,fitness\nADMEIIQVNPYSSEQYGDVATPLYHGTG,0.96\n...",
+  "data": [{"sequence": "ADMEIIQVNPYSSEQYGDVATPLYHGTG", "fitness": 0.96}, ...],
+  "num_rows": 96,
+  "num_returned": 96,
+  "description": "CSV content read from ./tmp/mutation_design_aav/aav_mutants_xxx.csv: 96 rows returned"
+}
+```
+
+### Step 3: Parse Results
 
 The output CSV file contains two columns:
 

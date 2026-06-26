@@ -145,6 +145,74 @@ Outputs: {"sequence": str, "pdb_content": str (optional)}
         return content, message
 
 
+class ReadCsvFile(Tool):
+    """
+    Read CSV file content from a file path.
+    Returns CSV content as string and parsed data as list of dicts.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def print_usage(self) -> str:
+        return """
+Usage: Read CSV file content from a file path
+Inputs: {"csv_file": str (path to .csv file), "max_rows": int (optional, max rows to return, default 1000)}
+Outputs: {"csv_content": str, "data": list of dicts, "num_rows": int}
+"""
+
+    def run(self, csv_file: str, max_rows: int = 1000) -> Tuple[dict, str]:
+        """
+        Read CSV from file and return content.
+
+        Args:
+            csv_file: Path to CSV file
+            max_rows: Maximum number of rows to return (to avoid huge responses)
+
+        Returns:
+            Tuple of (content_dict, message)
+        """
+        if not os.path.exists(csv_file):
+            raise FileNotFoundError(f"CSV file not found: {csv_file}")
+
+        import csv
+
+        # Read CSV content as string
+        with open(csv_file, "r", newline="", encoding="utf-8") as f:
+            csv_content = f.read()
+
+        # Parse CSV into list of dicts
+        with open(csv_file, "r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            data = []
+            for i, row in enumerate(reader):
+                if i >= max_rows:
+                    break
+                # Convert numeric values where possible
+                parsed_row = {}
+                for key, value in row.items():
+                    try:
+                        parsed_row[key] = float(value) if "." in value else int(value)
+                    except (ValueError, TypeError):
+                        parsed_row[key] = value
+                data.append(parsed_row)
+
+        # Count total rows in file
+        with open(csv_file, "r", newline="", encoding="utf-8") as f:
+            total_rows = sum(1 for _ in f) - 1  # Subtract header row
+
+        content = {
+            "csv_content": csv_content,
+            "data": data,
+            "num_rows": len(data),
+            "total_rows": total_rows
+        }
+
+        message = f"CSV content read from {csv_file}: {len(data)} rows returned, {total_rows} total rows in file"
+
+        return content, message
+
+
 if __name__ == "__main__":
     # Test ReadMoleculeFile
     print("Testing ReadMoleculeFile...")
@@ -161,3 +229,6 @@ if __name__ == "__main__":
     # tool = ReadProteinFile()
     # result = tool.run(prot_file)
     # print(result)
+
+    # Test ReadCsvFile
+    print("Testing ReadCsvFile...")
