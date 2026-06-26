@@ -803,7 +803,7 @@ def handle_read_csv_file(request: TaskRequest, pipeline):
         "csv_content": outputs["csv_content"],
         "data": outputs["data"],
         "num_rows": outputs["num_rows"],
-        "num_returned": outputs["num_returned"],
+        "total_rows": outputs["total_rows"],
         "description": messages
     }
 

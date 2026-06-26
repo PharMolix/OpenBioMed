@@ -97,7 +97,7 @@ curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
   "csv_content": "sequence,fitness\nSKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDAT...,3.12\n...",
   "data": [{"sequence": "SKGEELFTGVVPILVELDGDVNGHKFSVSGEGEGDAT...", "fitness": 3.12}, ...],
   "num_rows": 96,
-  "num_returned": 96,
+  "total_rows": 96,
   "description": "CSV content read from ./tmp/mutation_design_gfp/gfp_mutants_xxx.csv: 96 rows returned"
 }
 ```
