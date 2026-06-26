@@ -134,16 +134,54 @@ constraints:
 | `AAAVVV20PPP` | Specific residues with designed in middle | `sequence: AAAVVV20PPP` |
 | `3..5C6C3` | Designed residues with specific cysteines | `sequence: 3..5C6C3` |
 
+#### Save YAML Configuration
+
+After confirming the YAML configuration with the user, save it to a file using the helper script:
+
+```
+script: "scripts/save_yaml_config.py"
+args: "--yaml-text '<yaml_content>' --output-dir ./configs --protocol <protocol>"
+```
+
+**Example:**
+```
+script: "scripts/save_yaml_config.py"
+args: "--yaml-text 'entities:
+  - protein:
+      id: B
+      sequence: 80..120
+  - file:
+      path: target.cif
+      include:
+        - chain:
+            id: A
+      binding_types:
+        - chain:
+            id: A
+            binding: 45,67,89' --output-dir ./configs --protocol protein-anything"
+```
+
+Output: `./configs/boltzgen_config_protein_anything_<timestamp>.yaml`
+
+**Script Options:**
+| Option | Description |
+|--------|-------------|
+| `--yaml-text` | YAML configuration content (required) |
+| `--output-dir` | Directory to save the file (default: `./configs`) |
+| `--filename` | Custom filename (auto-generated if not provided) |
+| `--protocol` | Protocol name for filename generation |
+| `--validate` | Validate YAML format (default: True) |
+
 ### Step 2: Upload Files
 
-Upload the generated YAML file and any CIF/PDB target files to the OpenBioMed server.
+Upload the saved YAML file and any CIF/PDB target files to the OpenBioMed server.
 
-**Upload design YAML file:**
+**Upload saved YAML file:**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
 method: "POST"
-files: '{"file": "<yaml_file_id>"}'
+files: '{"file": "./configs/boltzgen_config_<protocol>_<timestamp>.yaml"}'
 ```
 
 Response: `{"path": "./tmp/uploads/<uuid>.yaml"}`
@@ -246,18 +284,31 @@ output/
 
 ### Example 1: Small Molecule Binding (benzene)
 
-**Input:** Design a 100-150 residue protein that binds benzene. User uploads a design YAML file.
+**Input:** Design a 100-150 residue protein that binds benzene.
 
-**Step 1 — Upload YAML to OpenBioMed server:**
+**Step 1 — Generate and Save YAML Configuration:**
+
+```
+script: "scripts/save_yaml_config.py"
+args: "--yaml-text 'entities:
+  - protein:
+      id: A
+      sequence: 100..150
+  - ligand:
+      smiles: \"c1ccccc1\"' --output-dir ./configs --protocol protein-small_molecule"
+```
+→ Output: `./configs/boltzgen_config_protein_small_molecule_<timestamp>.yaml`
+
+**Step 2 — Upload YAML to OpenBioMed server:**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
 method: "POST"
-files: '{"file": "<yaml_file_id>"}'
+files: '{"file": "./configs/boltzgen_config_protein_small_molecule_<timestamp>.yaml"}'
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.yaml"}`
 
-**Step 2 — Submit to run_pipeline:**
+**Step 3 — Submit to run_pipeline:**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
@@ -276,15 +327,35 @@ body: {
 
 ### Example 2: Protein Binder
 
-**Input:** Design an 80-120 residue binder for chain A of a target protein. User uploads YAML and CIF files.
+**Input:** Design an 80-120 residue binder for chain A of a target protein.
 
-**Step 1 — Upload YAML and CIF to OpenBioMed server:**
+**Step 1 — Generate and Save YAML Configuration:**
+
+```
+script: "scripts/save_yaml_config.py"
+args: "--yaml-text 'entities:
+  - protein:
+      id: B
+      sequence: 80..120
+  - file:
+      path: target.cif
+      include:
+        - chain:
+            id: A
+      binding_types:
+        - chain:
+            id: A
+            binding: 45,67,89' --output-dir ./configs --protocol protein-anything"
+```
+→ Output: `./configs/boltzgen_config_protein_anything_<timestamp>.yaml`
+
+**Step 2 — Upload YAML and CIF to OpenBioMed server:**
 
 Upload YAML:
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
 method: "POST"
-files: '{"file": "<yaml_file_id>"}'
+files: '{"file": "./configs/boltzgen_config_protein_anything_<timestamp>.yaml"}'
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.yaml"}`
 
@@ -292,11 +363,11 @@ Upload CIF:
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
 method: "POST"
-files: '{"file": "<cif_file_id>"}'
+files: '{"file": "<target.cif_path>"}'
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.cif"}`
 
-**Step 2 — Submit to run_pipeline:**
+**Step 3 — Submit to run_pipeline:**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
@@ -314,25 +385,45 @@ body: {
 
 ### Example 3: Cyclic Peptide with Disulfide
 
-**Input:** Design a 10-14 residue cyclic peptide with cysteine constraints. User uploads YAML and CIF.
+**Input:** Design a 10-14 residue cyclic peptide with cysteine constraints.
 
-**Step 1 — Upload files:**
+**Step 1 — Generate and Save YAML Configuration:**
+
+```
+script: "scripts/save_yaml_config.py"
+args: "--yaml-text 'entities:
+  - protein:
+      id: S
+      sequence: 10..14C6C3
+  - file:
+      path: target.cif
+      include:
+        - chain:
+            id: A
+constraints:
+  - bond:
+      atom1: [S, 11, SG]
+      atom2: [S, 18, SG]' --output-dir ./configs --protocol peptide-anything"
+```
+→ Output: `./configs/boltzgen_config_peptide_anything_<timestamp>.yaml`
+
+**Step 2 — Upload files:**
 
 Upload YAML:
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
 method: "POST"
-files: '{"file": "<yaml_file_id>"}'
+files: '{"file": "./configs/boltzgen_config_peptide_anything_<timestamp>.yaml"}'
 ```
 
 Upload CIF:
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
 method: "POST"
-files: '{"file": "<cif_file_id>"}'
+files: '{"file": "<target.cif_path>"}'
 ```
 
-**Step 2 — Submit:**
+**Step 3 — Submit:**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
