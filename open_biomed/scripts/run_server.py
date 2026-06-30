@@ -257,6 +257,8 @@ class TaskRequest(BaseModel):
     boltzgen_budget: Optional[int] = None  # Final diversity-optimized set size
     boltzgen_cif_files: Optional[List[str]] = None  # CIF/PDB target files
     boltzgen_output_name: Optional[str] = None  # Output file name prefix
+    # BoltzGen async workflow fields
+    job_id: Optional[str] = None  # Job ID for monitor/status/download
 
 
 class SearchRequest(BaseModel):
@@ -268,12 +270,13 @@ class SearchRequest(BaseModel):
 
 
 class TaskConfig:
-    def __init__(self, task_name: str, required_inputs: List[str], pipeline_key: str, handler_function: Callable, is_async: bool = False):
+    def __init__(self, task_name: str, required_inputs: List[str], pipeline_key: str, handler_function: Callable, is_async: bool = False, uses_background_tasks: bool = False):
         self.task_name = task_name
         self.required_inputs = required_inputs
         self.pipeline_key = pipeline_key
         self.handler_function = handler_function
         self.is_async = is_async
+        self.uses_background_tasks = uses_background_tasks
 
     def validate_inputs(self, request: Dict[str, Any]):
         missing_inputs = [key for key in self.required_inputs if key not in request]
@@ -940,16 +943,11 @@ def handle_boltz2_structure_prediction(request: TaskRequest, pipeline):
     }
 
 
-def handle_boltzgen_structure_design(request: TaskRequest, pipeline):
+def handle_boltzgen_submit(request: TaskRequest, pipeline):
     """
-    BoltzGen all-atom protein structure design.
+    Submit BoltzGen design job.
 
-    Supports:
-    - Protein binder design (protein-anything protocol)
-    - Small molecule binding design (protein-small_molecule protocol)
-    - Cyclic peptide design (peptide-anything protocol)
-    - Nanobody CDR design (nanobody-anything protocol)
-    - Antibody CDR design (antibody-anything protocol)
+    Returns job_id instantly (< 1 second).
 
     Inputs:
         - boltzgen_yaml_file: Design YAML file path (required)
@@ -960,17 +958,14 @@ def handle_boltzgen_structure_design(request: TaskRequest, pipeline):
         - boltzgen_output_name: Output file name prefix (optional)
 
     Outputs:
-        - design.cif: Final best all-atom design structure
-        - intermediate_designs/*.cif: Raw diffusion outputs
-        - intermediate_designs_inverse_folded/*.cif: Refolded complexes
-        - aggregate_metrics_analyze.csv: Quality metrics
-        - status.json: Pipeline status
-        - description: Summary with design details
+        - job_id: Local job ID
+        - status: pending/queued/running
+        - boltzgen_service_url: Direct link to BoltzGen service
     """
     if not request.boltzgen_yaml_file:
         raise HTTPException(status_code=400, detail="boltzgen_yaml_file is required")
 
-    outputs, messages = pipeline.run(
+    result, messages = pipeline.run(
         yaml_file=request.boltzgen_yaml_file,
         protocol=request.boltzgen_protocol or "protein-anything",
         num_designs=request.boltzgen_num_designs or 10,
@@ -981,9 +976,106 @@ def handle_boltzgen_structure_design(request: TaskRequest, pipeline):
 
     return {
         "task": request.task,
-        "protocol": request.boltzgen_protocol,
-        "output_files": outputs,
-        "description": messages[0] if messages else "Design completed"
+        **result,
+        "message": messages[0] if messages else "Job submitted"
+    }
+
+
+async def handle_boltzgen_monitor(request: TaskRequest, pipeline, background_tasks: BackgroundTasks):
+    """
+    Start background monitoring for BoltzGen jobs.
+
+    Polls BoltzGen API every 2 minutes and updates SQLite.
+    Returns immediately with monitoring info.
+
+    Inputs:
+        - job_id: Specific job to monitor (optional, monitors all active if null)
+
+    Outputs:
+        - monitoring: List of job_ids being monitored
+        - poll_interval: 120 seconds
+        - estimated_duration: 12-45 minutes
+    """
+    job_id = request.job_id if hasattr(request, 'job_id') else None
+
+    # Get jobs to monitor
+    if job_id:
+        jobs = [job_id]
+    else:
+        jobs = pipeline.state_manager.list_active_jobs()
+
+    if not jobs:
+        return {
+            "task": request.task,
+            "monitoring": [],
+            "poll_interval": 120,
+            "message": "No active jobs to monitor"
+        }
+
+    # Add background monitoring task for each job
+    for jid in jobs:
+        background_tasks.add_task(pipeline.monitor_single_job, jid)
+
+    return {
+        "task": request.task,
+        "monitoring": jobs,
+        "poll_interval": 120,
+        "estimated_duration": "12-45 minutes",
+        "message": f"Background monitoring started for {len(jobs)} jobs. Design typically takes 12-45 minutes."
+    }
+
+
+def handle_boltzgen_status(request: TaskRequest, pipeline):
+    """
+    Query job status from local SQLite.
+
+    Fast response (< 100ms), no external API calls.
+
+    Inputs:
+        - job_id: Job ID to query (required)
+
+    Outputs:
+        - status: pending/queued/running/succeeded/failed/cancelled
+        - progress: Estimated progress %
+        - error_message: Error if failed
+    """
+    job_id = request.job_id if hasattr(request, 'job_id') else None
+    if not job_id:
+        raise HTTPException(status_code=400, detail="job_id is required")
+
+    result, messages = pipeline.run(job_id=job_id)
+
+    return {
+        "task": request.task,
+        **result,
+        "message": messages[0] if messages else ""
+    }
+
+
+def handle_boltzgen_download(request: TaskRequest, pipeline):
+    """
+    Download BoltzGen results when job completed.
+
+    Only works when status == 'succeeded'.
+
+    Inputs:
+        - job_id: Job ID (required)
+
+    Outputs:
+        - output_files: List of downloaded file paths
+        - description: Summary of results
+    """
+    job_id = request.job_id if hasattr(request, 'job_id') else None
+    if not job_id:
+        raise HTTPException(status_code=400, detail="job_id is required")
+
+    output_files, messages = pipeline.run(job_id=job_id)
+
+    return {
+        "task": request.task,
+        "job_id": job_id,
+        "output_files": output_files,
+        "description": messages[0] if messages else "Download completed"
     }
 
 
@@ -1519,14 +1611,34 @@ TASK_CONFIGS = [
         "is_async": False
     },
     {
-        "task_name": "boltzgen_structure_design",
+        "task_name": "boltzgen_submit",
         "required_inputs": ["boltzgen_yaml_file"],
-        "pipeline_key": "boltzgen_structure_design",
-        "handler_function": handle_boltzgen_structure_design,
+        "pipeline_key": "boltzgen_submit",
+        "handler_function": handle_boltzgen_submit,
+        "is_async": False
+    },
+    {
+        "task_name": "boltzgen_monitor",
+        "required_inputs": [],
+        "pipeline_key": "boltzgen_monitor",
+        "handler_function": handle_boltzgen_monitor,
+        "is_async": True,
+        "uses_background_tasks": True
+    },
+    {
+        "task_name": "boltzgen_status",
+        "required_inputs": ["job_id"],
+        "pipeline_key": "boltzgen_status",
+        "handler_function": handle_boltzgen_status,
+        "is_async": False
+    },
+    {
+        "task_name": "boltzgen_download",
+        "required_inputs": ["job_id"],
+        "pipeline_key": "boltzgen_download",
+        "handler_function": handle_boltzgen_download,
         "is_async": False
     }
-
-
 ]
 
 
@@ -1538,14 +1650,15 @@ for task_config in TASK_CONFIGS:
         required_inputs=task_config["required_inputs"],
         pipeline_key=task_config["pipeline_key"],
         handler_function=task_config["handler_function"],
-        is_async=task_config["is_async"]
+        is_async=task_config["is_async"],
+        uses_background_tasks=task_config.get("uses_background_tasks", False)
     ))
 
 
 
 
 @app.post("/run_pipeline/")
-async def run_pipeline(request: TaskRequest):
+async def run_pipeline(request: TaskRequest, background_tasks: BackgroundTasks):
     task_name = request.task.lower()
     request_id = uuid.uuid4().hex[:8]
     start_time = time.time()
@@ -1560,7 +1673,9 @@ async def run_pipeline(request: TaskRequest):
 
         logger.info(f"[START] Task: {task_name}, Model: {request.model}")
         logger.info("[EXEC] Running pipeline...")
-        if task_config.is_async:
+        if task_config.uses_background_tasks:
+            output = await task_config.handler_function(request, pipeline, background_tasks)
+        elif task_config.is_async:
             output = await task_config.handler_function(request, pipeline)
         else:
             output = task_config.handler_function(request, pipeline)

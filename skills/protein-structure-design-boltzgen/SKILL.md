@@ -201,14 +201,9 @@ The system will automatically:
 - Read the file bytes and send as multipart/form-data
 - Inject the required API Key header
 
-### Step 3: Submit Design Job via run_pipeline
+### Step 3: Submit Design Job (Instant)
 
-Use the `/run_pipeline/` endpoint to submit the BoltzGen design job. The pipeline will:
-1. Upload files to BoltzGen service
-2. Submit the design job
-3. Poll status automatically (12-45 min wait)
-4. Download all result files
-5. Return the final design and metrics
+Use the `/run_pipeline/` endpoint to submit the BoltzGen design job. This returns immediately with a job_id.
 
 **API call format:**
 
@@ -216,7 +211,7 @@ Use the `/run_pipeline/` endpoint to submit the BoltzGen design job. The pipelin
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
 body: {
-  "task": "boltzgen_structure_design",
+  "task": "boltzgen_submit",
   "boltzgen_yaml_file": "<yaml_server_path>",
   "boltzgen_protocol": "<protocol>",
   "boltzgen_num_designs": <num_designs>,
@@ -237,22 +232,107 @@ body: {
 | `boltzgen_cif_files` | No | — | List of CIF/PDB target file paths |
 | `boltzgen_output_name` | No | auto-generated | Output file name prefix |
 
+#### Response (Instant, < 1 second)
+
+```json
+{
+  "task": "boltzgen_submit",
+  "job_id": "abc123def456",
+  "boltzgen_service_job_id": "87528178a91f",
+  "status": "queued",
+  "queue_position": 2,
+  "boltzgen_service_url": "http://172.16.20.44:10002/jobs/87528178a91f",
+  "message": "Job abc123def456 submitted to BoltzGen"
+}
+```
+
+### Step 4: Start Background Monitoring
+
+**⚠️ 重要提醒: BoltzGen 设计任务预计需要 12-45 分钟完成。**
+
+后台监控每 2 分钟检查一次状态。您可以随时使用 `boltzgen_status` 查询当前进度。
+
+**API call format:**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_monitor",
+  "job_id": "<job_id>"  // optional, monitors all active jobs if not provided
+}
+```
+
+#### Response (Instant)
+
+```json
+{
+  "task": "boltzgen_monitor",
+  "monitoring": ["abc123def456"],
+  "poll_interval": 120,
+  "estimated_duration": "12-45 minutes",
+  "message": "Background monitoring started. Design typically takes 12-45 minutes."
+}
+```
+
+**Note:** The monitoring runs in background and automatically updates the job status in SQLite every 2 minutes. You can proceed with other tasks while waiting.
+
+### Step 5: Check Job Status (Anytime)
+
+Query the current job status from local SQLite (fast response, < 100ms).
+
+**API call format:**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_status",
+  "job_id": "<job_id>"
+}
+```
+
 #### Response
 
 ```json
 {
-  "task": "boltzgen_structure_design",
-  "protocol": "protein-anything",
-  "output_files": [
-    "./tmp/boltzgen/<output_name>/output/design.cif",
-    "./tmp/boltzgen/<output_name>/output/intermediate_designs_inverse_folded/aggregate_metrics_analyze.csv",
-    ...
-  ],
-  "description": "BoltzGen Protein-anything design completed.\nJob ID: 54c8cd3f6cca\nDesign structure: ./tmp/boltzgen/.../design.cif\n..."
+  "task": "boltzgen_status",
+  "job_id": "abc123def456",
+  "status": "running",  // pending | queued | running | succeeded | failed | cancelled
+  "progress": 45,
+  "error_message": null,
+  "boltzgen_service_url": "http://172.16.20.44:10002/jobs/87528178a91f"
 }
 ```
 
-**Note:** The pipeline automatically handles the 12-45 minute wait time. The response will be returned once the design completes.
+### Step 6: Download Results (When Status == succeeded)
+
+When the job status becomes `succeeded`, download the results.
+
+**API call format:**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_download",
+  "job_id": "<job_id>"
+}
+```
+
+#### Response
+
+```json
+{
+  "task": "boltzgen_download",
+  "job_id": "abc123def456",
+  "output_files": [
+    "./tmp/boltzgen/abc123def456/output/design.cif",
+    "./tmp/boltzgen/abc123def456/output/intermediate_designs_inverse_folded/aggregate_metrics_analyze.csv",
+    ...
+  ],
+  "description": "BoltzGen Protein-anything design completed.\nJob ID: abc123def456\n..."
+}
 
 ### Step 4: Interpret Results
 
@@ -308,22 +388,58 @@ files: '{"file": "./configs/boltzgen_config_protein_small_molecule_<timestamp>.y
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.yaml"}`
 
-**Step 3 — Submit to run_pipeline:**
+**Step 3 — Submit to run_pipeline (Instant):**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
 body: {
-  "task": "boltzgen_structure_design",
+  "task": "boltzgen_submit",
   "boltzgen_yaml_file": "./tmp/uploads/<uuid>.yaml",
   "boltzgen_protocol": "protein-small_molecule",
   "boltzgen_num_designs": 10,
   "boltzgen_budget": 2
 }
 ```
-→ Response: `{"task": "boltzgen_structure_design", "output_files": [...], "description": "..."}`
+→ Response: `{"job_id": "abc123", "status": "queued", ...}`
 
-> The pipeline will automatically wait for the design to complete (12-45 minutes).
+**Step 4 — Start Background Monitoring:**
+
+⚠️ **BoltzGen 设计任务预计需要 12-45 分钟完成。**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_monitor",
+  "job_id": "abc123"
+}
+```
+→ Response: `{"monitoring": ["abc123"], "poll_interval": 120, "estimated_duration": "12-45 minutes"}`
+
+**Step 5 — Check Status (Anytime):**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_status",
+  "job_id": "abc123"
+}
+```
+→ Response: `{"status": "running", "progress": 45, ...}`
+
+**Step 6 — Download Results (When succeeded):**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_download",
+  "job_id": "abc123"
+}
+```
+→ Response: `{"output_files": [...], "description": "..."}`
 
 ### Example 2: Protein Binder
 
@@ -367,13 +483,13 @@ files: '{"file": "<target.cif_path>"}'
 ```
 → Response: `{"path": "./tmp/uploads/<uuid>.cif"}`
 
-**Step 3 — Submit to run_pipeline:**
+**Step 3 — Submit (Instant):**
 
 ```
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
 body: {
-  "task": "boltzgen_structure_design",
+  "task": "boltzgen_submit",
   "boltzgen_yaml_file": "./tmp/uploads/<uuid>.yaml",
   "boltzgen_protocol": "protein-anything",
   "boltzgen_num_designs": 10,
@@ -381,7 +497,25 @@ body: {
   "boltzgen_cif_files": ["./tmp/uploads/<uuid>.cif"]
 }
 ```
-→ Response: `{"task": "boltzgen_structure_design", "output_files": [...], "description": "..."}`
+→ Response: `{"job_id": "def456", "status": "queued", ...}`
+
+**Step 4 — Start Monitoring:**
+
+⚠️ **BoltzGen 设计任务预计需要 12-45 分钟完成。**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {
+  "task": "boltzgen_monitor",
+  "job_id": "def456"
+}
+```
+
+**Step 5 — Check Status & Download (when succeeded):**
+
+Status check: `{"task": "boltzgen_status", "job_id": "def456"}`
+Download: `{"task": "boltzgen_download", "job_id": "def456"}`
 
 ### Example 3: Cyclic Peptide with Disulfide
 
@@ -429,13 +563,23 @@ files: '{"file": "<target.cif_path>"}'
 url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
 method: "POST"
 body: {
-  "task": "boltzgen_structure_design",
+  "task": "boltzgen_submit",
   "boltzgen_yaml_file": "./tmp/uploads/<uuid>.yaml",
   "boltzgen_protocol": "peptide-anything",
   "boltzgen_num_designs": 10,
   "boltzgen_budget": 2,
   "boltzgen_cif_files": ["./tmp/uploads/<uuid>.cif"]
 }
+```
+
+**Step 4 — Monitor & Download:**
+
+⚠️ **BoltzGen 设计任务预计需要 12-45 分钟完成。**
+
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/"
+method: "POST"
+body: {"task": "boltzgen_monitor", "job_id": "<job_id>"}
 ```
 
 ## Expected Outputs
