@@ -14,329 +14,287 @@ tags: [spatial-transcriptomics, io, squidpy, spatialdata, visium, xenium, merfis
 
 # Spatial Transcriptomics Data I/O
 
-Load spatial transcriptomics data from Visium, Xenium, MERFISH, Slide-seq, and other platforms using Squidpy and SpatialData. Read Space Ranger outputs, convert formats, and access spatial coordinates. Use when loading Visium, Xenium, MERFISH, or other spatial data.
+Load spatial transcriptomics data from Visium, Xenium, MERFISH, Slide-seq, and other platforms via OpenBioMed API.
 
-## What it does
+## When to Use
 
-1. Takes your platform-specific spatial data directory (e.g., Space Ranger output) as input.
-2. Identifies and parses the correct platform format (Visium, Xenium, MERFISH, Slide-seq, CosMx, Stereo-seq).
-3. Reads the raw expression matrix (spot-level or single-cell resolution).
-4. Automatically loads and scales spatial coordinates (`x`, `y` pixels or physical distances).
-5. Ingests accompanying tissue images and spatial scale factors directly into the data object structure.
-6. Returns a standardized `AnnData` or `SpatialData` object, binding expression data, shapes, and images together for immediate downstream analysis.
+- User provides spatial transcriptomics data directory and wants to load it
+- User asks to load Visium, Xenium, MERFISH, or other spatial data formats
+- User wants to convert between AnnData and SpatialData formats
+- User has platform-specific output directory (Space Ranger, Xenium, MERSCOPE, etc.)
 
-## Why this exists
+## API Endpoint
 
-- Uses `squidpy` and `spatialdata_io`, the gold-standard parsers for spatial data.
-- Automatically handles platform-specific quirks (e.g., Xenium single-cell vs. Visium spot resolution).
-- Safely nests coordinates in `obsm['spatial']` and images/scale factors in `uns['spatial']` to ensure compatibility with all major spatial plotting tools.
-- Provides future-proof integration by offering `SpatialData` (Zarr) representations for modern, multi-modal spatial projects.
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
 
-## Usage
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Load spatial transcriptomics data |
 
-**"Load my Visium spatial data"** → Read spatial transcriptomics outputs (Visium, Xenium, MERFISH, Slide-seq) into AnnData objects with spatial coordinates and tissue images.
+## Workflow
 
-- Python: `squidpy.read.visium('spaceranger_out/')`, `spatialdata.read_zarr()`
+### Step 1: Prepare Data Directory
 
-Load and work with spatial transcriptomics data from various platforms.
+Ensure your spatial transcriptomics data is accessible on the server. The data directory must contain platform-specific files.
 
-### Required Imports
+| Platform | Required Files |
+|----------|----------------|
+| **Visium** | `filtered_feature_bc_matrix.h5`, `tissue_positions_list.csv`, tissue image |
+| **Xenium** | `cells_summary.parquet`, `cell_features.parquet` |
+| **MERSCOPE** | `cell_by_gene.csv`, `cell_metadata.csv` |
+| **Slide-seq** | Beads CSV file, coordinates CSV file |
+| **CosMx** | Platform-specific output files |
+| **Stereo-seq** | Platform-specific output files |
 
-```python
-import squidpy as sq
-import scanpy as sc
-import anndata as ad
-import spatialdata as sd
-import spatialdata_io as sdio
+### Step 2: Call API to Load Data
+
+Submit a request to load the spatial data:
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "spatial_transcriptomics_loading",
+    "value": "/path/to/spaceranger/output",
+    "query": "visium",
+    "mode": "anndata"
+  }'
 ```
 
-### Load 10X Visium Data
+**Parameters**:
 
-**Goal:** Load Visium spatial transcriptomics data from Space Ranger output into an AnnData object.
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `task` | string | Yes | Must be `"spatial_transcriptomics_loading"` |
+| `value` | string | Yes | Path to data directory on server |
+| `query` | string | No | Platform type (default: `"visium"`). Options: `visium`, `xenium`, `merscope`, `slideseq`, `cosmx`, `stereoseq` |
+| `mode` | string | No | Output format (default: `"anndata"`). Options: `anndata`, `spatialdata` |
+| `dataset` | string | No | Library ID for Visium data (optional) |
 
-**Approach:** Use Squidpy's `read.visium` to parse the output directory, which loads expression, spatial coordinates, and tissue images.
+### Step 3: Receive Loaded Data
 
-```python
-# Load Space Ranger output (standard method)
-adata = sq.read.visium('path/to/spaceranger/output/')
-print(f'Loaded {adata.n_obs} spots, {adata.n_vars} genes')
+The API returns metadata about the loaded data:
 
-# Spatial coordinates are in adata.obsm['spatial']
-print(f"Spatial coords shape: {adata.obsm['spatial'].shape}")
-
-# Image is in adata.uns['spatial']
-library_id = list(adata.uns['spatial'].keys())[0]
-print(f'Library ID: {library_id}')
-```
-
-### Load Visium with Scanpy
-
-**Goal:** Load Visium data using Scanpy's built-in reader as an alternative to Squidpy.
-
-**Approach:** Use `sc.read_visium` to parse Space Ranger output, then access images and scale factors from `adata.uns['spatial']`.
-
-```python
-# Alternative using Scanpy directly
-adata = sc.read_visium('path/to/spaceranger/output/')
-
-# Access tissue image
-img = adata.uns['spatial'][library_id]['images']['hires']
-scale_factor = adata.uns['spatial'][library_id]['scalefactors']['tissue_hires_scalef']
-```
-
-### Load 10X Xenium Data
-
-**Goal:** Load single-cell resolution Xenium spatial data.
-
-**Approach:** Use Squidpy's `read.xenium` to parse Xenium output, yielding per-cell expression and coordinates.
-
-```python
-# Load Xenium output
-adata = sq.read.xenium('path/to/xenium/output/')
-print(f'Loaded {adata.n_obs} cells')
-
-# Xenium has single-cell resolution
-print(f"Cell coordinates: {adata.obsm['spatial'].shape}")
-```
-
-### Load with SpatialData (Recommended for New Projects)
-
-**Goal:** Load spatial data into SpatialData objects for unified multi-modal representation.
-
-**Approach:** Use spatialdata-io readers per platform, which organize expression, shapes, and images into a single object.
-
-```python
-import spatialdata_io as sdio
-
-# Load Visium as SpatialData object
-sdata = sdio.visium('path/to/spaceranger/output/')
-print(sdata)
-
-# Load Xenium
-sdata = sdio.xenium('path/to/xenium/output/')
-
-# Access components
-table = sdata.tables['table']  # AnnData with expression
-shapes = sdata.shapes  # Spatial shapes (spots, cells)
-images = sdata.images  # Tissue images
-```
-
-### Load MERFISH Data
-
-**Goal:** Load MERFISH (Vizgen MERSCOPE) spatial data.
-
-**Approach:** Use spatialdata-io or Squidpy readers to parse MERSCOPE output with cell-by-gene counts and metadata.
-
-```python
-# MERFISH (Vizgen MERSCOPE)
-sdata = sdio.merscope('path/to/merscope/output/')
-
-# Or as AnnData
-adata = sq.read.vizgen('path/to/vizgen/output/', counts_file='cell_by_gene.csv', meta_file='cell_metadata.csv')
-```
-
-### Load Slide-seq Data
-
-```python
-# Slide-seq / Slide-seqV2
-adata = sq.read.slideseq('beads.csv', coordinates_file='coords.csv')
-```
-
-### Load Nanostring CosMx
-
-```python
-# CosMx spatial molecular imaging
-sdata = sdio.cosmx('path/to/cosmx/output/')
-```
-
-### Load Stereo-seq Data
-
-```python
-# Stereo-seq (BGI)
-sdata = sdio.stereoseq('path/to/stereoseq/output/')
-```
-
-### Load from H5AD with Spatial Coordinates
-
-```python
-# If you have h5ad with spatial already stored
-adata = sc.read_h5ad('spatial_data.h5ad')
-
-# Verify spatial data exists
-if 'spatial' in adata.obsm:
-    print('Has spatial coordinates')
-if 'spatial' in adata.uns:
-    print('Has image data')
-```
-
-### Create Spatial AnnData from Scratch
-
-**Goal:** Construct a spatial AnnData object from raw expression and coordinate arrays.
-
-**Approach:** Build an AnnData with spatial coordinates in `obsm['spatial']` and minimal metadata in `uns['spatial']` for Squidpy compatibility.
-
-```python
-import numpy as np
-import pandas as pd
-
-# Expression matrix
-X = np.random.poisson(5, size=(1000, 500))
-
-# Spatial coordinates
-spatial_coords = np.random.rand(1000, 2) * 1000  # x, y in pixels
-
-# Create AnnData
-adata = ad.AnnData(X)
-adata.obs_names = [f'spot_{i}' for i in range(1000)]
-adata.var_names = [f'gene_{i}' for i in range(500)]
-adata.obsm['spatial'] = spatial_coords
-
-# Add minimal spatial metadata for Squidpy
-adata.uns['spatial'] = {
-    'library_id': {
-        'scalefactors': {'tissue_hires_scalef': 1.0, 'spot_diameter_fullres': 50},
-    }
+```json
+{
+  "task": "spatial_transcriptomics_loading",
+  "data_file": "./tmp/spatial_data_xxxx.h5ad",
+  "platform": "visium",
+  "n_obs": 2987,
+  "n_vars": 31053,
+  "has_spatial_coords": true,
+  "has_images": true,
+  "output_format": "anndata",
+  "description": "Loaded Visium data with 2987 spots and 31053 genes. Saved to ./tmp/spatial_data_xxxx.h5ad"
 }
 ```
 
-### Access Spatial Coordinates
+**Output Fields**:
 
-```python
-# Get coordinates as numpy array
-coords = adata.obsm['spatial']
-x_coords = coords[:, 0]
-y_coords = coords[:, 1]
+| Field | Type | Description |
+|-------|------|-------------|
+| `data_file` | string | Path to saved .h5ad or .zarr file |
+| `platform` | string | Platform type used |
+| `n_obs` | int | Number of spots/cells loaded |
+| `n_vars` | int | Number of genes |
+| `has_spatial_coords` | bool | Whether spatial coordinates are available |
+| `has_images` | bool | Whether tissue images are loaded |
+| `output_format` | string | Output format used |
+| `description` | string | Summary message |
 
-# Get coordinates as DataFrame
-coord_df = pd.DataFrame(adata.obsm['spatial'], index=adata.obs_names, columns=['x', 'y'])
-```
+## Example Usage
 
-### Access Tissue Images
-
-
-```python
-# Get high-resolution image
-library_id = list(adata.uns['spatial'].keys())[0]
-hires_img = adata.uns['spatial'][library_id]['images']['hires']
-lowres_img = adata.uns['spatial'][library_id]['images']['lowres']
-
-# Scale factors
-scalef = adata.uns['spatial'][library_id]['scalefactors']
-print(f"Hires scale: {scalef['tissue_hires_scalef']}")
-print(f"Spot diameter: {scalef['spot_diameter_fullres']}")
-```
-
-### Convert Between Formats
-
-**Goal:** Convert spatial data between SpatialData and AnnData representations.
-
-**Approach:** Extract tables and coordinate arrays from SpatialData, then save as h5ad or zarr.
-
-```python
-# SpatialData to AnnData
-sdata = sdio.visium('path/to/data/')
-adata = sdata.tables['table'].copy()
-adata.obsm['spatial'] = np.array(sdata.shapes['spots'][['x', 'y']])
-
-# Save as h5ad
-adata.write_h5ad('spatial_converted.h5ad')
-
-# Save SpatialData
-sdata.write('spatial_data.zarr')
-```
-
-### Load Multiple Samples
-
-**Goal:** Load and merge spatial data from multiple Visium samples into a single AnnData.
-
-**Approach:** Iterate over sample directories, tag each with a sample label, then concatenate with `ad.concat`.
-
-```python
-# Load and concatenate multiple Visium samples
-samples = ['sample1', 'sample2', 'sample3']
-adatas = []
-
-for sample in samples:
-    adata = sq.read.visium(f'data/{sample}/')
-    adata.obs['sample'] = sample
-    adatas.append(adata)
-
-# Concatenate
-adata_combined = ad.concat(adatas, label='sample', keys=samples)
-print(f'Combined: {adata_combined.n_obs} spots')
-```
-
-### Subset by Spatial Region
-
-**Goal:** Extract spots within a rectangular spatial region of interest.
-
-**Approach:** Apply coordinate-based boolean masking on `obsm['spatial']` to filter spots by x/y bounds.
-
-```python
-# Select spots in a rectangular region
-x_min, x_max = 1000, 2000
-y_min, y_max = 1500, 2500
-
-coords = adata.obsm['spatial']
-in_region = (coords[:, 0] >= x_min) & (coords[:, 0] <= x_max) & (coords[:, 1] >= y_min) & (coords[:, 1] <= y_max)
-
-adata_region = adata[in_region].copy()
-print(f'Selected {adata_region.n_obs} spots')
-```
-
-## Example Output
+### Example 1: Load Visium Data
 
 ```
-Spatial Transcriptomics I/O
-===========================
-Input: path/to/spaceranger/output/
-Platform detected: 10x Visium
+Input: "Load my Visium data from Space Ranger output at /data/sample1/"
 
-Loaded AnnData Object:
-  n_obs (spots): 2,987
-  n_vars (genes): 31,053
+Step 1: Data directory contains Space Ranger output files
+Step 2: Call API
 
-Spatial Data Bindings:
-  Coordinates: adata.obsm['spatial'] -> (2987, 2)
-  Images: adata.uns['spatial']['library_id']['images'] -> ['hires', 'lowres']
-  Scale factors: adata.uns['spatial']['library_id']['scalefactors']
-    - tissue_hires_scalef: 0.150015
-    - spot_diameter_fullres: 89.43
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "spatial_transcriptomics_loading",
+    "value": "/data/sample1",
+    "query": "visium",
+    "mode": "anndata"
+  }'
 
-Subsetting check:
-  Successfully filtered to bounding box (X: 1000-2000, Y: 1500-2500)
-  Selected 412 spots in region of interest.
+Response:
+{
+  "task": "spatial_transcriptomics_loading",
+  "data_file": "./tmp/spatial_data_abc123.h5ad",
+  "platform": "visium",
+  "n_obs": 2987,
+  "n_vars": 31053,
+  "has_spatial_coords": true,
+  "has_images": true,
+  "output_format": "anndata",
+  "description": "Loaded Visium data with 2987 spots and 31053 genes"
+}
 
-Data ready for Squidpy spatial statistics or Scanpy plotting.
+Output: AnnData object saved to ./tmp/spatial_data_abc123.h5ad
+Ready for downstream analysis with Squidpy/Scanpy
 ```
 
-## Requirements
+### Example 2: Load Xenium Single-Cell Data
 
-| Requirement | Version |
-|-------------|---------|
-| Python | 3.9+ |
-| squidpy | 1.3+ |
-| spatialdata | 0.1+ |
-| spatialdata_io | latest |
-| scanpy | 1.10+ |
-| anndata | 0.10+ |
-| numpy | 1.26+ |
-| pandas | 2.2+ |
+```
+Input: "Load Xenium data from /data/xenium_run/"
 
-### Inputs
+Step 1: Data directory contains Xenium output files
+Step 2: Call API
 
-| Name | Type | Format | Description |
-|------|------|--------|-------------|
-| data_dir | directory | - | Path to the platform-specific output directory (e.g., Space Ranger out, Xenium out) |
-| platform | string | - | Specify the platform (visium, xenium, merscope, slideseq, cosmx, stereoseq) |
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "spatial_transcriptomics_loading",
+    "value": "/data/xenium_run",
+    "query": "xenium",
+    "mode": "anndata"
+  }'
 
-### Outputs
+Response:
+{
+  "task": "spatial_transcriptomics_loading",
+  "data_file": "./tmp/spatial_data_def456.h5ad",
+  "platform": "xenium",
+  "n_obs": 50000,
+  "n_vars": 500,
+  "has_spatial_coords": true,
+  "has_images": false,
+  "output_format": "anndata",
+  "description": "Loaded Xenium data with 50000 cells and 500 genes"
+}
 
-| Name | Type | Format | Description |
-|------|------|--------|-------------|
-| adata | object | h5ad | AnnData object containing expression, spatial coordinates, and tissue images |
-| sdata | object | zarr | SpatialData object for unified multi-modal representation |
+Output: Single-cell resolution spatial data loaded
+```
+
+### Example 3: Load MERSCOPE Data as SpatialData
+
+```
+Input: "Load MERSCOPE data from /data/merscope_exp/ in SpatialData format"
+
+Step 1: Data directory contains MERSCOPE output
+Step 2: Call API with spatialdata format
+
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "spatial_transcriptomics_loading",
+    "value": "/data/merscope_exp",
+    "query": "merscope",
+    "mode": "spatialdata"
+  }'
+
+Response:
+{
+  "task": "spatial_transcriptomics_loading",
+  "data_file": "./tmp/spatial_data_ghi789.zarr",
+  "platform": "merscope",
+  "n_obs": 25000,
+  "n_vars": 500,
+  "has_spatial_coords": true,
+  "has_images": true,
+  "output_format": "spatialdata",
+  "description": "Loaded MERSCOPE data with 25000 cells"
+}
+
+Output: SpatialData object saved as Zarr format
+```
+
+## Supported Platforms
+
+| Platform | Description | Typical Resolution |
+|----------|-------------|--------------------|
+| `visium` | 10x Genomics Visium | Spot-level (~55μm spots) |
+| `xenium` | 10x Genomics Xenium | Single-cell resolution |
+| `merscope` | Vizgen MERFISH/MERSCOPE | Single-cell resolution |
+| `slideseq` | Slide-seq / Slide-seqV2 | Near single-cell |
+| `cosmx` | Nanostring CosMx | Single-cell/subcellular |
+| `stereoseq` | BGI Stereo-seq | Single-cell/near single-cell |
+
+## Expected Outputs
+
+| Format | File Extension | Description |
+|--------|----------------|-------------|
+| `anndata` | `.h5ad` | AnnData object for Scanpy/Squidpy |
+| `spatialdata` | `.zarr` | SpatialData object for multi-modal spatial |
+
+The loaded data contains:
+- **Expression matrix**: Gene counts per spot/cell
+- **Spatial coordinates**: X/Y positions in `obsm['spatial']`
+- **Images**: Tissue images in `uns['spatial']` (when available)
+- **Scale factors**: For coordinate-to-image mapping
+
+## Error Handling
+
+### Data Directory Not Found
+
+**Symptom**: API returns 500 error with "Data directory not found".
+
+**Solution**: Verify the path exists on the server:
+```bash
+ls /path/to/data_dir
+```
+
+### Platform Files Missing
+
+**Symptom**: API returns error "Visium data not found. Expected filtered_feature_bc_matrix.h5".
+
+**Solution**: Check for required files in the output directory. For Visium, Space Ranger output typically has files in `outs/` subdirectory.
+
+### Unsupported Platform
+
+**Symptom**: API returns "Unsupported platform: xxx".
+
+**Solution**: Use one of supported platforms: `visium`, `xenium`, `merscope`, `slideseq`, `cosmx`, `stereoseq`.
+
+### SpatialData Format Not Available
+
+**Symptom**: API falls back to AnnData format even when `mode: spatialdata` requested.
+
+**Solution**: Ensure `spatialdata` and `spatialdata-io` packages are installed on the server. AnnData format works as fallback.
+
+## Dependencies
+
+| Package | Version | Required For |
+|---------|---------|--------------|
+| squidpy | 1.3+ | Visium, Xenium, MERSCOPE, Slide-seq |
+| spatialdata | 0.1+ | SpatialData output format |
+| spatialdata_io | latest | CosMx, Stereo-seq loading |
+| scanpy | 1.10+ | AnnData operations |
+| anndata | 0.10+ | All formats |
+
+## Interpretation Guide
+
+### Spot vs Cell Resolution
+
+| Platform | Resolution | Analysis Considerations |
+|----------|------------|------------------------|
+| Visium | Spots (~55μm) | May contain multiple cells; use deconvolution methods |
+| Xenium, MERSCOPE | Single-cell | Direct cell-level analysis possible |
+| Slide-seq | Near single-cell | Small beads, but may still mix cells |
+| CosMx, Stereo-seq | Single/subcellular | High resolution, subcellular features available |
+
+### Coordinate Systems
+
+- **Visium**: Pixel coordinates relative to tissue image
+- **Xenium/MERSCOPE**: Physical coordinates in micrometers
+- Always check `obsm['spatial']` units before downstream analysis
+
+## See Also
+
+- `single-cell-scrna-seq-analysis-scanpy` - Scanpy analysis pipeline
+- `spatial-transcriptomics-foundation-model-stofm` - STofM spatial foundation model
+- `single-cell-multi-omics-analysis-scvi` - Multi-modal analysis with scVI
 
 ## Citations
 
-https://github.com/FreedomIntelligence/OpenClaw-Medical-Skills/blob/main/skills/bio-spatial-transcriptomics-spatial-data-io
+- Squidpy: Sturmhöfel et al., Nature Methods 2022
+- SpatialData: Marconato et al., Nature Methods 2024

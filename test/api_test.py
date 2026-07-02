@@ -375,6 +375,47 @@ def get_curl_commands(base_url):
             -d '{{"task": "read_csv_file", "value": "./tmp/mutation_design_aav/aav_mutants_test.csv", "num_rounds": 10}}'
             """
         },
+        # Spatial transcriptomics data loading test
+        # Note: Requires Visium data directory with filtered_feature_bc_matrix.h5
+        # Run test_spatial_transcriptomics_tool.py first to prepare test data via squidpy
+        # The test uses a h5ad file created by squidpy's built-in dataset
+        {
+            "task": "spatial_transcriptomics_loading_note",
+            "command": f"""
+            echo "Spatial transcriptomics test requires Visium data directory."
+            echo "Run: python test/test_spatial_transcriptomics_tool.py to prepare test data"
+            echo "Then use: curl -X POST '{base_url}/run_pipeline/' -d '{{\"task\": \"spatial_transcriptomics_loading\", \"value\": \"./tmp/test_visium_data\", \"query\": \"visium\"}}'"
+            """
+        },
+        # Scanpy single-cell RNA-seq analysis test
+        # Note: This test uses pbmc3k dataset from scanpy. Run test_scanpy_analysis_tool.py first to prepare test data.
+        {
+            "task": "scanpy_analysis_load",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "scanpy_analysis", "protein": "./tmp/test_pbmc3k_input.h5ad", "query": "load"}}'
+            """
+        },
+        {
+            "task": "scanpy_analysis_qc",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "scanpy_analysis", "protein": "./tmp/test_pbmc3k_input.h5ad", "query": "qc", "num_rounds": 200, "population_size": 3, "diversity_weight": 5.0}}'
+            """
+        },
+        {
+            "task": "scanpy_analysis_full_pipeline",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "scanpy_analysis", "protein": "./tmp/test_pbmc3k_input.h5ad", "query": "full_pipeline", "similarity": 0.5, "num_rounds": 200, "population_size": 3, "diversity_weight": 5.0, "max_mutations": 2000, "required_score": 10, "limit": 40}}'
+            """
+        },
     ]
 
 

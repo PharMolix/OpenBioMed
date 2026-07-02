@@ -19,6 +19,9 @@ from open_biomed.tools.boltzgen_tool import BoltzGenSubmitTool, BoltzGenMonitorT
 
 
 from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFile, ReadCsvFile
+from open_biomed.tools.spatial_transcriptomics_tool import SpatialTranscriptomicsLoader
+from open_biomed.tools.proteomics_tool import ProteomicsDataProcessing
+from open_biomed.tools.scanpy_analysis_tool import ScanpyAnalysis
 
 # TODO: Add pocket prediction as a tool
 class LazyDictForTool(dict):
@@ -48,7 +51,10 @@ class LazyDictForTool(dict):
             "boltzgen_monitor",
             "boltzgen_status",
             "boltzgen_download",
-            "read_molecule_file", "read_protein_file", "read_csv_file"
+            "read_molecule_file", "read_protein_file", "read_csv_file",
+            "spatial_transcriptomics_loading",
+            "proteomics_data_processing",
+            "scanpy_analysis"
         ]
     
     def __missing__(self, key):
@@ -169,6 +175,12 @@ class LazyDictForTool(dict):
             self[key] = ReadProteinFile()
         elif key == "read_csv_file":
             self[key] = ReadCsvFile()
+        elif key == "spatial_transcriptomics_loading":
+            self[key] = SpatialTranscriptomicsLoader()
+        elif key == "proteomics_data_processing":
+            self[key] = ProteomicsDataProcessing()
+        elif key == "scanpy_analysis":
+            self[key] = ScanpyAnalysis()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]

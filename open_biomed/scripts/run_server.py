@@ -1079,6 +1079,184 @@ def handle_boltzgen_download(request: TaskRequest, pipeline):
     }
 
 
+def handle_spatial_transcriptomics_loading(request: TaskRequest, pipeline):
+    """
+    Load spatial transcriptomics data from various platforms.
+
+    Supported platforms:
+    - visium: 10x Genomics Visium (Space Ranger output)
+    - xenium: 10x Genomics Xenium
+    - merscope: Vizgen MERFISH/MERSCOPE
+    - slideseq: Slide-seq / Slide-seqV2
+    - cosmx: Nanostring CosMx Spatial Molecular Imager
+    - stereoseq: BGI Stereo-seq
+
+    Inputs:
+        - data_dir: Path to platform-specific output directory (required)
+        - platform: Platform type (visium, xenium, merscope, slideseq, cosmx, stereoseq) (required)
+        - output_format: Output format (anndata or spatialdata, default: anndata)
+        - library_id: Optional library ID for Visium data
+
+    Outputs:
+        - data_file: Path to saved .h5ad or .zarr file
+        - platform: Platform type
+        - n_obs: Number of spots/cells
+        - n_vars: Number of genes
+        - has_spatial_coords: Whether spatial coordinates are available
+        - has_images: Whether tissue images are available
+        - description: Summary message
+    """
+    data_dir = request.value  # Use value field for data_dir
+    platform = request.query if request.query else "visium"  # Use query field for platform
+    output_format = request.mode if request.mode else "anndata"  # Use mode field for output_format
+    library_id = request.dataset if request.dataset else None  # Use dataset field for library_id
+
+    if not data_dir:
+        raise ValueError("data_dir (value parameter) is required")
+
+    outputs, messages = pipeline.run(
+        data_dir=data_dir,
+        platform=platform,
+        output_format=output_format,
+        library_id=library_id
+    )
+
+    return {
+        "task": request.task,
+        "data_file": outputs["data_file"],
+        "platform": outputs["platform"],
+        "n_obs": outputs["n_obs"],
+        "n_vars": outputs["n_vars"],
+        "has_spatial_coords": outputs["has_spatial_coords"],
+        "has_images": outputs["has_images"],
+        "output_format": outputs["output_format"],
+        "description": messages
+    }
+
+
+def handle_proteomics_data_processing(request: TaskRequest, pipeline):
+    """
+    Process raw mass spectrometry (LC-MS/MS) data using pyOpenMS.
+
+    Supported operations:
+    - load: Load mzML/mzXML file and return QC metrics (TIC, scan counts, m/z/RT ranges)
+    - centroid: Convert profile to centroid mode, save centroided mzML
+    - feature_detection: Detect MS1 features for label-free quantification, save featureXML and CSV
+    - eic: Extract ion chromatogram for target m/z, save plot
+    - tic_plot: Generate TIC plot for QC visualization
+
+    Inputs:
+        - file_path: Path to mzML/mzXML file (use protein field)
+        - operation: Operation type (use query field: load, centroid, feature_detection, eic, tic_plot)
+        - target_mz: Target m/z for EIC extraction (use similarity field)
+        - mz_tolerance: m/z tolerance in Da (use distance_cutoff field, default: 0.02)
+        - signal_to_noise: S/N threshold for centroiding (use num_rounds field, default: 1.0)
+
+    Outputs:
+        - Operation-specific results (QC metrics, output files, plots)
+        - description: Summary message
+    """
+    file_path = request.protein  # Use protein field for file_path (supports .mzML/.mzXML files)
+    operation = request.query if request.query else "load"  # Use query field for operation
+    target_mz = request.similarity if request.similarity else None  # Use similarity field for target_mz
+    mz_tolerance = request.distance_cutoff if request.distance_cutoff else 0.02  # Use distance_cutoff for tolerance
+    signal_to_noise = request.num_rounds if request.num_rounds else 1.0  # Use num_rounds for S/N threshold
+    output_dir = request.mode if request.mode else "./tmp/"  # Use mode field for output_dir
+
+    if not file_path:
+        raise ValueError("file_path (protein parameter) is required")
+
+    outputs, messages = pipeline.run(
+        file_path=file_path,
+        operation=operation,
+        output_dir=output_dir,
+        target_mz=target_mz,
+        mz_tolerance=mz_tolerance,
+        signal_to_noise=signal_to_noise
+    )
+
+    return {
+        "task": request.task,
+        "operation": operation,
+        **outputs,
+        "description": messages
+    }
+
+
+def handle_scanpy_analysis(request: TaskRequest, pipeline):
+    """
+    Single-cell RNA-seq analysis using Scanpy.
+
+    Supported operations:
+    - load: Load h5ad, h5 (10X), mtx, or CSV files and return basic statistics
+    - qc: Quality control (mitochondrial gene detection, cell/gene filtering)
+    - normalize: Normalization, log-transformation, HVG selection
+    - cluster: PCA, UMAP, Leiden clustering
+    - markers: Marker gene identification with Wilcoxon test
+    - full_pipeline: Complete workflow from load to markers
+
+    Inputs:
+        - file_path: Path to data file (use protein field for h5ad/h5/mtx/csv)
+        - operation: Operation type (use query field: load, qc, normalize, cluster, markers, full_pipeline)
+        - min_genes: Min genes per cell for QC (use num_rounds field, default: 200)
+        - min_cells: Min cells per gene for QC (use population_size field, default: 3)
+        - max_mt_percent: Max mitochondrial percentage (use diversity_weight field, default: 5.0)
+        - n_top_genes: Number of HVGs (use max_mutations field, default: 2000)
+        - n_neighbors: Neighbors for graph (use required_score field, default: 10)
+        - n_pcs: PCs for neighborhood (use limit field, default: 40)
+        - resolution: Leiden resolution (use similarity field, default: 0.5)
+        - groupby: Groupby for markers (use dataset field, default: leiden)
+        - output_dir: Output directory (use mode field, default: ./tmp/)
+
+    Outputs:
+        - output_file: Path to processed h5ad file
+        - figures: Generated QC and analysis plots
+        - metrics: Analysis statistics (n_clusters, markers, etc.)
+        - description: Summary message
+    """
+    file_path = request.protein  # Use protein field for file_path
+    operation = request.query if request.query else "full_pipeline"  # Use query field for operation
+    output_dir = request.mode if request.mode else "./tmp/"  # Use mode field for output_dir
+
+    # QC parameters
+    min_genes = request.num_rounds if request.num_rounds else 200
+    min_cells = request.population_size if request.population_size else 3
+    max_mt_percent = request.diversity_weight if request.diversity_weight else 5.0
+
+    # Normalization and clustering parameters
+    n_top_genes = request.max_mutations if request.max_mutations else 2000
+    n_neighbors = request.required_score if request.required_score else 10
+    n_pcs = request.limit if request.limit else 40
+    resolution = request.similarity if request.similarity else 0.5
+
+    # Marker gene parameters
+    groupby = request.dataset if request.dataset else "leiden"
+
+    if not file_path:
+        raise ValueError("file_path (protein parameter) is required")
+
+    outputs, messages = pipeline.run(
+        file_path=file_path,
+        operation=operation,
+        output_dir=output_dir,
+        min_genes=min_genes,
+        min_cells=min_cells,
+        max_mt_percent=max_mt_percent,
+        n_top_genes=n_top_genes,
+        n_neighbors=n_neighbors,
+        n_pcs=n_pcs,
+        resolution=resolution,
+        groupby=groupby
+    )
+
+    return {
+        "task": request.task,
+        "operation": operation,
+        **outputs,
+        "description": messages
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1637,6 +1815,27 @@ TASK_CONFIGS = [
         "required_inputs": ["job_id"],
         "pipeline_key": "boltzgen_download",
         "handler_function": handle_boltzgen_download,
+        "is_async": False
+    },
+    {
+        "task_name": "spatial_transcriptomics_loading",
+        "required_inputs": ["value"],
+        "pipeline_key": "spatial_transcriptomics_loading",
+        "handler_function": handle_spatial_transcriptomics_loading,
+        "is_async": False
+    },
+    {
+        "task_name": "proteomics_data_processing",
+        "required_inputs": ["protein"],
+        "pipeline_key": "proteomics_data_processing",
+        "handler_function": handle_proteomics_data_processing,
+        "is_async": False
+    },
+    {
+        "task_name": "scanpy_analysis",
+        "required_inputs": ["protein"],
+        "pipeline_key": "scanpy_analysis",
+        "handler_function": handle_scanpy_analysis,
         "is_async": False
     }
 ]
