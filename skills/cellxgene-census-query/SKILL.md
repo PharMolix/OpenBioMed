@@ -42,6 +42,205 @@ This skill encodes the correct, scalable methodological decisions for population
 - Always enforces `is_primary_data == True` to prevent statistical inflation from duplicate cells.
 - Native, memory-efficient integration directly into PyTorch DataLoaders and Scanpy objects.
 
+---
+
+## Handler API
+
+Call the OpenBioMed API for CELLxGENE Census queries.
+
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Run census query operations |
+
+### Operations
+
+| Operation | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `get_summary` | Get census version and total cell counts | — |
+| `get_datasets` | List available datasets with metadata | `organism` (optional) |
+| `get_obs` | Query cell metadata by filters | `obs_value_filter` (optional) |
+| `get_var` | Query gene metadata | `var_value_filter` (optional) |
+| `get_anndata` | Retrieve expression data as AnnData | `obs_value_filter`, `var_value_filter` (optional) |
+
+### Key Methodological Decisions (from original skill)
+
+1. **Always use `is_primary_data == True`**: Prevents statistical inflation from duplicate cells — critical for population-level analysis
+2. **Remote query without downloading**: Uses `tiledbsoma` backend to query data remotely — no need to download massive files
+3. **Small-medium vs large queries**: 
+   - `< 100k cells`: Use `get_anndata()` (fits in memory)
+   - `> 100k cells`: Requires `axis_query()` for out-of-core processing (not in this tool)
+4. **Specify `census_version`**: Use specific version for reproducible analyses (e.g., `"2023-07-25"`)
+5. **Context manager pattern**: Always use `with` statement for automatic cleanup (handled internally)
+
+### API Examples
+
+#### Get Census Summary
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "cellxgene_census_query",
+    "operation": "get_summary",
+    "census_version": "stable"
+  }'
+```
+
+**Response**:
+```json
+{
+  "census_version": "stable",
+  "total_cell_count": 61000000,
+  "organism_counts": {"homo_sapiens": 50000000, "mus_musculus": 11000000},
+  "message": "Census version stable contains 61,000,000 total cells"
+}
+```
+
+#### List Available Datasets
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "cellxgene_census_query",
+    "operation": "get_datasets",
+    "organism": "homo_sapiens",
+    "output_dir": "./tmp/"
+  }'
+```
+
+**Response**:
+```json
+{
+  "n_datasets": 1423,
+  "csv_file": "./tmp/census_datasets_xxx.csv",
+  "summary": {
+    "n_datasets": 1423,
+    "n_cells_total": 50000000,
+    "unique_tissues": 56,
+    "unique_diseases": 89
+  },
+  "message": "Found 1423 datasets for homo_sapiens. Saved to ./tmp/census_datasets_xxx.csv"
+}
+```
+
+#### Query Cell Metadata
+
+> **Important**: The tool automatically adds `is_primary_data == True` filter if not present.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "cellxgene_census_query",
+    "operation": "get_obs",
+    "organism": "homo_sapiens",
+    "obs_value_filter": "cell_type == 'B cell' and tissue_general == 'lung'",
+    "obs_column_names": ["cell_type", "tissue_general", "disease", "donor_id", "sex"]
+  }'
+```
+
+**Response**:
+```json
+{
+  "n_cells": 382194,
+  "organism": "homo_sapiens",
+  "obs_value_filter": "cell_type == 'B cell' and tissue_general == 'lung' and is_primary_data == True",
+  "unique_counts": {"cell_type": 1, "tissue_general": 1, "disease": 14},
+  "sample_values": {"cell_type": ["B cell"], "tissue_general": ["lung"]},
+  "message": "Found 382,194 cells matching filter"
+}
+```
+
+#### Query Gene Metadata
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "cellxgene_census_query",
+    "operation": "get_var",
+    "organism": "homo_sapiens",
+    "var_value_filter": "feature_name in ['CD4', 'CD8A', 'CD19', 'FOXP3']"
+  }'
+```
+
+**Response**:
+```json
+{
+  "n_genes": 4,
+  "organism": "homo_sapiens",
+  "var_value_filter": "feature_name in ['CD4', 'CD8A', 'CD19', 'FOXP3']",
+  "gene_names_sample": ["CD4", "CD8A", "CD19", "FOXP3"],
+  "message": "Found 4 genes matching filter"
+}
+```
+
+#### Retrieve Expression Data as AnnData
+
+> **Note**: Maximum 100,000 cells by default. For larger queries, use more specific filters or implement out-of-core processing.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "cellxgene_census_query",
+    "operation": "get_anndata",
+    "organism": "homo_sapiens",
+    "obs_value_filter": "cell_type == 'neuron' and tissue_general == 'cortex'",
+    "var_value_filter": "feature_name in ['FOXP2', 'TBR1', 'SATB2', 'NEUROD1']",
+    "obs_column_names": ["cell_type", "tissue_general", "disease", "donor_id"],
+    "output_dir": "./tmp/",
+    "max_cells": 100000
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "output_file": "./tmp/census_anndata_xxx.h5ad",
+  "n_cells": 45678,
+  "n_genes": 4,
+  "organism": "homo_sapiens",
+  "obs_value_filter": "cell_type == 'neuron' and tissue_general == 'cortex' and is_primary_data == True",
+  "unique_counts": {"cell_type": 12, "tissue_general": 1, "disease": 5},
+  "message": "Retrieved 45,678 cells x 4 genes. Saved to ./tmp/census_anndata_xxx.h5ad"
+}
+```
+
+**If query exceeds max_cells**:
+```json
+{
+  "status": "too_large",
+  "n_cells_available": 250000,
+  "max_cells": 100000,
+  "suggestion": "Use more specific filters or axis_query for out-of-core processing",
+  "message": "Query too large: 250,000 cells > 100,000 max. Please add more specific filters."
+}
+```
+
+### Filter Syntax
+
+- Use `and`, `or` for combining conditions
+- Use `in` for multiple values: `tissue_general in ['lung', 'liver', 'brain']`
+- Use `==` for exact match, `!=` for negation
+- Common filters: `cell_type`, `tissue_general`, `disease`, `donor_id`, `sex`, `assay`
+
+### Interpretation Guide
+
+- **is_primary_data == True**: Essential filter — prevents counting the same cell multiple times from different dataset submissions
+- **cell_type vs tissue_general**: `cell_type` is fine-grained (e.g., "CD4+ T cell"), `tissue_general` is broad (e.g., "lung")
+- **Memory considerations**: AnnData with > 100k cells may exceed available RAM — use `axis_query()` for large-scale analyses
+- **Census versioning**: Use specific version for reproducible analyses; `"stable"` points to latest stable release
+
 ## Usage
 
 ### 1. Opening the Census

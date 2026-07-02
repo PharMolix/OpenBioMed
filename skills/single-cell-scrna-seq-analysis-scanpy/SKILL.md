@@ -35,6 +35,273 @@ This skill encodes the current best practices for scRNA-seq:
 - Provides immediate access to trajectory inference (PAGA/DPT) and gene set scoring.
 
 
+---
+
+## Handler API
+
+Call the OpenBioMed API for single-cell RNA-seq analysis using Scanpy.
+
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Run analysis operations |
+
+### Operations
+
+| Operation | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `load` | Load h5ad, h5, mtx, or CSV files | `file_path` |
+| `qc` | Quality control and filtering | `file_path`, `min_genes`, `min_cells`, `max_mt_percent` |
+| `normalize` | Normalization, log-transformation, HVG selection | `file_path`, `n_top_genes` |
+| `cluster` | PCA, UMAP, and Leiden clustering | `file_path`, `n_neighbors`, `n_pcs`, `resolution` |
+| `markers` | Marker gene identification (Wilcoxon) | `file_path`, `groupby` |
+| `full_pipeline` | Complete workflow (load → qc → normalize → cluster → markers) | `file_path` |
+
+### Key Methodological Decisions (from original skill)
+
+1. **QC before analysis**: Identify mitochondrial genes (`MT-` for human, `mt-` for mouse), calculate QC metrics, filter low-quality cells/genes
+2. **Normalization strategy**: Total-count normalization (10,000 counts/cell) + log-transformation — standard for scRNA-seq
+3. **Save raw counts backup**: Store `adata.raw = adata` before normalization for later use
+4. **Leiden clustering**: Use Leiden (more robust than Louvain) for community detection
+5. **HVG selection**: Select highly variable genes (typically 2000) for dimensionality reduction
+6. **Wilcoxon test for markers**: Statistical testing (Wilcoxon rank-sum) for marker gene identification
+
+### API Examples
+
+#### Load Data
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "load",
+    "file_path": "path/to/data.h5ad",
+    "output_dir": "./tmp/"
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/loaded_xxx.h5ad",
+  "format": "h5ad",
+  "n_obs": 12450,
+  "n_vars": 32000,
+  "has_raw": false,
+  "has_pca": false,
+  "has_umap": false,
+  "has_clusters": false,
+  "message": "Loaded h5ad data: 12450 cells x 32000 genes. Saved to ./tmp/loaded_xxx.h5ad"
+}
+```
+
+#### Quality Control
+
+The `qc` operation automatically:
+- Identifies mitochondrial genes (`MT-` or `mt-` prefix)
+- Calculates QC metrics: `n_genes_by_counts`, `total_counts`, `pct_counts_mt`
+- Filters cells by minimum genes
+- Filters genes by minimum cells
+- Removes high MT% cells (default: < 5%)
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "qc",
+    "file_path": "path/to/data.h5ad",
+    "output_dir": "./tmp/",
+    "min_genes": 200,
+    "min_cells": 3,
+    "max_mt_percent": 5.0
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/filtered_xxx.h5ad",
+  "pre_filter_cells": 12450,
+  "pre_filter_genes": 32000,
+  "post_filter_cells": 10210,
+  "post_filter_genes": 18500,
+  "cells_removed": 2240,
+  "genes_removed": 13500,
+  "min_genes": 200,
+  "min_cells": 3,
+  "max_mt_percent": 5.0,
+  "mt_genes_detected": 13,
+  "qc_plot": "./tmp/figures/qc_metrics_xxx.pdf",
+  "message": "QC completed. Filtered 2240 cells, 13500 genes. Saved to ./tmp/filtered_xxx.h5ad"
+}
+```
+
+#### Normalize and Select HVGs
+
+The `normalize` operation:
+- Total-count normalization (target_sum=10,000)
+- Log-transformation (`log1p`)
+- Saves raw counts backup (`adata.raw`)
+- Identifies highly variable genes
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "normalize",
+    "file_path": "path/to/filtered.h5ad",
+    "output_dir": "./tmp/",
+    "n_top_genes": 2000
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/normalized_xxx.h5ad",
+  "n_top_genes": 2000,
+  "n_hvgs_detected": 2000,
+  "mean_hvg_dispersion": 0.85,
+  "target_sum": 10000,
+  "hvg_plot": "./tmp/figures/hvg_xxx.pdf",
+  "message": "Normalization completed. 2000 HVGs selected. Saved to ./tmp/normalized_xxx.h5ad"
+}
+```
+
+#### Clustering (PCA + UMAP + Leiden)
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "cluster",
+    "file_path": "path/to/normalized.h5ad",
+    "output_dir": "./tmp/",
+    "n_neighbors": 10,
+    "n_pcs": 40,
+    "resolution": 0.5
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/clustered_xxx.h5ad",
+  "n_clusters": 12,
+  "cluster_sizes": {"0": 3210, "1": 2800, "2": 2150, ...},
+  "n_neighbors": 10,
+  "n_pcs": 40,
+  "resolution": 0.5,
+  "umap_plot": "./tmp/figures/umap_clusters_xxx.pdf",
+  "pca_plot": "./tmp/figures/pca_variance_xxx.pdf",
+  "message": "Clustering completed. Found 12 clusters. Saved to ./tmp/clustered_xxx.h5ad"
+}
+```
+
+#### Marker Gene Identification
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "markers",
+    "file_path": "path/to/clustered.h5ad",
+    "output_dir": "./tmp/",
+    "groupby": "leiden"
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/with_markers_xxx.h5ad",
+  "markers_csv": "./tmp/markers_xxx.csv",
+  "n_groups": 12,
+  "groupby": "leiden",
+  "method": "wilcoxon",
+  "top_markers": {
+    "0": {"genes": ["CD3D", "IL7R", "CCR7"], "scores": [45.2, 38.1, 32.5]},
+    "1": {"genes": ["CD14", "LYZ", "S100A9"], "scores": [52.3, 48.2, 41.7]},
+    ...
+  },
+  "heatmap_plot": "./tmp/figures/markers_heatmap_xxx.pdf",
+  "dotplot_plot": "./tmp/figures/markers_dotplot_xxx.pdf",
+  "message": "Marker genes identified for 12 groups. Saved to ./tmp/markers_xxx.csv"
+}
+```
+
+#### Run Full Pipeline
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "full_pipeline",
+    "file_path": "path/to/data.h5ad",
+    "output_dir": "./tmp/",
+    "min_genes": 200,
+    "min_cells": 3,
+    "max_mt_percent": 5.0,
+    "n_top_genes": 2000,
+    "n_neighbors": 10,
+    "n_pcs": 40,
+    "resolution": 0.5
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/pipeline_complete_xxx.h5ad",
+  "pipeline_steps": ["load", "qc", "normalize", "cluster", "markers"],
+  "load_stats": {"n_obs_initial": 12450, "n_vars_initial": 32000},
+  "qc_stats": {"cells_removed": 2240, "genes_removed": 13500, "post_filter_cells": 10210},
+  "normalize_stats": {"n_hvgs": 2000},
+  "cluster_stats": {"n_clusters": 12, "resolution": 0.5},
+  "markers_stats": {"n_groups": 12, "markers_csv": "./tmp/markers_xxx.csv"},
+  "figures": {
+    "qc_plot": "./tmp/figures/qc_metrics_xxx.pdf",
+    "hvg_plot": "./tmp/figures/hvg_xxx.pdf",
+    "pca_plot": "./tmp/figures/pca_variance_xxx.pdf",
+    "umap_plot": "./tmp/figures/umap_clusters_xxx.pdf",
+    "heatmap_plot": "./tmp/figures/markers_heatmap_xxx.pdf",
+    "dotplot_plot": "./tmp/figures/markers_dotplot_xxx.pdf"
+  },
+  "message": "Full pipeline completed. 12 clusters found. Final data saved to ./tmp/pipeline_complete_xxx.h5ad"
+}
+```
+
+### QC Thresholds Guide
+
+| Parameter | Default | Typical Range | Meaning |
+|-----------|---------|---------------|---------|
+| `min_genes` | 200 | 200–500 | Cells with fewer genes are likely empty droplets |
+| `min_cells` | 3 | 3–10 | Genes in fewer cells are likely noise |
+| `max_mt_percent` | 5.0 | 5–20 | High MT% indicates dead/damaged cells |
+| `n_top_genes` | 2000 | 2000–5000 | HVGs for dimensionality reduction |
+| `resolution` | 0.5 | 0.3–1.0 | Higher = more clusters (granular) |
+
+### Interpretation Guide
+
+- **High MT% cells**: Cells with `pct_counts_mt > 20%` likely dead/damaged — filter them
+- **Low gene count cells**: `n_genes_by_counts < 200` likely empty droplets or low-quality cells
+- **Cluster resolution**: Try multiple resolutions (0.3, 0.5, 0.8) to find optimal granularity
+- **Marker genes**: Check if top markers match expected cell types — validates clustering
+- **HVG dispersion**: Higher mean dispersion indicates better separation between cell states
+
 ## Usage
 
 ### Quick Start
