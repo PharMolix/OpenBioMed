@@ -56,6 +56,210 @@ This skill encodes the correct methodological decisions:
 
 ---
 
+## Handler API
+
+Call the OpenBioMed API for raw mass spectrometry data processing tasks.
+
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Run proteomics data processing operations |
+
+### Operations
+
+| Operation | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `load` | Load mzML/mzXML file and inspect QC metrics | `file_path` |
+| `centroid` | Convert profile-mode spectra to centroid mode | `file_path` |
+| `feature_detection` | Detect LC-MS features for label-free quantification | `file_path` |
+| `eic` | Extract ion chromatogram for target m/z | `file_path`, `target_mz` |
+| `tic_plot` | Generate TIC (Total Ion Chromatogram) plot | `file_path` |
+
+### Key Methodological Decisions (from original skill)
+
+1. **Profile vs Centroid**: Critical distinction — database search tools (MSFragger, Comet) require **centroid-mode** input. Profile data must be converted first
+2. **PeakPickerHiRes algorithm**: Use PeakPickerHiRes (Gaussian fitting) for Orbitrap/Q-TOF data — NOT PeakPickerIterative
+3. **Feature detection vs Centroiding**: Different purposes:
+   - **Centroiding**: Converts profile → centroid for database search (MS2 spectra)
+   - **Feature detection**: Finds LC-MS features (isotope envelopes) for label-free quantification (MS1 spectra)
+4. **QC before processing**: Always check MS2/MS1 ratio (5–20 for DDA), TIC shape, and acquisition mode before investing compute time
+5. **pyOpenMS 3.x API**: Uses `MSExperiment`, `MzMLFile` — differs from 2.x
+
+### API Examples
+
+#### Load and Inspect QC Metrics
+
+The `load` operation provides essential QC metrics before downstream processing:
+- MS2/MS1 ratio to confirm DDA acquisition mode (expect 5–20)
+- Acquisition mode (profile vs centroid) — determines if centroiding needed
+- TIC statistics and m/z/RT ranges
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "load",
+    "file_path": "path/to/sample.mzML"
+  }'
+```
+
+**Response**:
+```json
+{
+  "file_path": "path/to/sample.mzML",
+  "n_spectra": 18432,
+  "ms1_count": 1842,
+  "ms2_count": 16590,
+  "ms2_ms1_ratio": 9.0,
+  "acquisition_mode": "profile",
+  "dda_status": "typical DDA (expect 5-20)",
+  "mz_range": [300.1, 1650.4],
+  "rt_range_min": [5.2, 118.4],
+  "tic_max": 12345678.9,
+  "message": "Loaded 18432 spectra (1842 MS1, 16590 MS2). Mode: profile — needs centroiding"
+}
+```
+
+#### Centroid Profile Data (PeakPickerHiRes)
+
+Convert profile-mode spectra to centroid using PeakPickerHiRes (Gaussian-based, optimized for high-resolution instruments).
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "centroid",
+    "file_path": "path/to/sample.mzML",
+    "output_dir": "./tmp/",
+    "signal_to_noise": 1.0
+  }'
+```
+
+**Response**:
+```json
+{
+  "output_file": "./tmp/sample_centroided_xxx.mzML",
+  "n_spectra": 18432,
+  "ms1_count": 1842,
+  "ms2_count": 16590,
+  "already_centroided": false,
+  "algorithm": "PeakPickerHiRes (Gaussian fitting)",
+  "signal_to_noise": 1.0,
+  "message": "Centroided 18432 spectra. Saved to ./tmp/sample_centroided_xxx.mzML — ready for database search"
+}
+```
+
+#### Feature Detection (MS1, for LFQ)
+
+Detect LC-MS features (isotope envelopes) for label-free quantification. Works on MS1 spectra only.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "feature_detection",
+    "file_path": "path/to/sample_centroided.mzML",
+    "output_dir": "./tmp/"
+  }'
+```
+
+**Response**:
+```json
+{
+  "n_features": 14271,
+  "featurexml_file": "./tmp/sample_features_xxx.featureXML",
+  "csv_file": "./tmp/sample_features_xxx.csv",
+  "charge_distribution": {"1": 12, "2": 38, "3": 31, "4": 19},
+  "note": "z=2 and z=3 should dominate (>60%) for tryptic digest",
+  "message": "Detected 14271 features. Saved to ./tmp/sample_features_xxx.featureXML — for LFQ"
+}
+```
+
+#### Extract Ion Chromatogram (EIC)
+
+Extract ion chromatogram for a target m/z value. Useful for targeted analysis.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "eic",
+    "file_path": "path/to/sample.mzML",
+    "target_mz": 524.2736,
+    "mz_tolerance": 0.02,
+    "output_dir": "./tmp/"
+  }'
+```
+
+**Response**:
+```json
+{
+  "target_mz": 524.2736,
+  "mz_tolerance_da": 0.02,
+  "tolerance_note": "±20 mDa for Orbitrap; use ±50 mDa for Q-TOF",
+  "plot_file": "./tmp/sample_eic_524.27_xxx.pdf",
+  "max_intensity": 9876543.21,
+  "peak_rt_min": 42.3,
+  "n_points": 1842,
+  "message": "EIC extracted for m/z 524.2736. Peak at 42.3 min"
+}
+```
+
+#### Generate TIC Plot
+
+Generate Total Ion Chromatogram plot for QC visualization.
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "tic_plot",
+    "file_path": "path/to/sample.mzML",
+    "output_dir": "./tmp/"
+  }'
+```
+
+**Response**:
+```json
+{
+  "plot_file": "./tmp/sample_tic_xxx.pdf",
+  "max_tic": 12345678.9,
+  "peak_rt_min": 65.4,
+  "rt_range_min": [5.2, 118.4],
+  "tic_quality": "smooth Gaussian-like — good LC gradient",
+  "message": "TIC plot generated. Saved to ./tmp/sample_tic_xxx.pdf"
+}
+```
+
+### QC Interpretation
+
+| Metric | Typical Range | Warning Threshold | Meaning |
+|--------|---------------|-------------------|---------|
+| `ms2_ms1_ratio` | 5–20 (DDA) | < 3 or > 30 | Low: few MS2 triggers; High: unusual |
+| `acquisition_mode` | profile or centroid | — | Must be centroid for database search |
+| `n_features` | 10,000–30,000 (HeLa) | < 5,000 | Low suggests poor digest/injection |
+| `charge_distribution` | z=2, z=3 dominant | z=1 > 15% | High z=1 suggests incomplete digestion |
+| `tic_shape` | Smooth Gaussian | Sudden drops | Drops indicate column/injection issues |
+
+### Prerequisites
+
+- **pyOpenMS**: Install with `pip install pyopenms`
+- **matplotlib**: For plotting (optional)
+- **pandas**: For CSV export (optional)
+
+---
+
 ## Usage (Python — pyOpenMS)
 
 ```python

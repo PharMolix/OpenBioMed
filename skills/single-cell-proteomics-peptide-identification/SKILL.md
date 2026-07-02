@@ -56,6 +56,207 @@ This skill encodes the correct methodological decisions:
 
 ---
 
+## Handler API
+
+Call the OpenBioMed API for peptide and protein identification tasks.
+
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Run identification operations |
+
+### Operations
+
+| Operation | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `prepare_database` | Prepare protein database with decoys and contaminants | `organism` |
+| `search` | Run MSFragger database search | `mzml_files`, `database_file` |
+| `validate` | Run Philosopher validation (PeptideProphet, ProteinProphet, filter) | `mzml_files`, `database_file` |
+| `full_pipeline` | Complete workflow (prepare + search + validate) | `mzml_files`, `organism` |
+| `parse_results` | Parse TSV output files into structured data | `output_dir` |
+
+### Key Methodological Decisions (from original skill)
+
+1. **Target-decoy strategy**: Every target sequence must have a decoy pair — decoy matches are false positives used for FDR estimation: `FDR = (# decoy hits) / (# target hits)`
+2. **cRAP contaminants**: Always add 116 common laboratory contaminants to avoid misidentifying keratin, trypsin, etc.
+3. **Three-level FDR**: Apply **PSM FDR**, **peptide FDR**, and **protein FDR** separately — they are NOT equivalent
+4. **Parsimony protein grouping**: When peptides are shared between proteins, select the minimum protein set that explains all observations
+5. **Modification choices**: Carbamidomethyl C (fixed, from alkylation), Oxidation M (variable, common artifact)
+
+### API Examples
+
+#### Prepare Database (UniProt + cRAP + Decoys)
+
+The `prepare_database` operation automatically:
+- Downloads UniProt reference proteome for the specified organism
+- Downloads cRAP contaminant database (116 common lab proteins)
+- Appends reversed decoy sequences with `DECOY_` prefix
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "peptide_identification",
+    "operation": "prepare_database",
+    "organism": "human",
+    "output_dir": "./tmp/"
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "database_file": "./tmp/workspace_xxx/human_combined_td.fasta",
+  "uniprot_file": "./tmp/human_uniprot_xxx.fasta",
+  "crap_file": "./tmp/crap_xxx.fasta",
+  "n_target_proteins": 20434,
+  "n_decoy_proteins": 20434,
+  "n_contaminants": 116,
+  "message": "Database prepared: 20434 target + 20434 decoy + 116 contaminants"
+}
+```
+
+#### Run MSFragger Search
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "peptide_identification",
+    "operation": "search",
+    "mzml_files": ["path/to/sample1.mzML", "path/to/sample2.mzML"],
+    "database_file": "path/to/database_td.fasta",
+    "output_dir": "./tmp/",
+    "search_params": {
+      "precursor_mass_tolerance": 20,
+      "fragment_mass_tolerance": 20,
+      "enzyme": "Trypsin",
+      "missed_cleavages": 2
+    }
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "params_file": "./tmp/fragger_xxx.params",
+  "pepxml_files": ["./tmp/sample1.pepXML", "./tmp/sample2.pepXML"],
+  "n_pepxml": 2,
+  "message": "MSFragger search completed. Generated 2 pepXML files"
+}
+```
+
+#### Run Validation (PeptideProphet + ProteinProphet + FDR Filter)
+
+The `validate` operation automatically:
+- Runs PeptideProphet for PSM validation
+- Runs iProphet to combine across runs
+- Runs ProteinProphet for protein inference (parsimony grouping)
+- Applies FDR filtering at PSM, peptide, and protein levels
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "peptide_identification",
+    "operation": "validate",
+    "mzml_files": ["path/to/sample1.mzML", "path/to/sample2.mzML"],
+    "database_file": "path/to/database_td.fasta",
+    "output_dir": "./tmp/",
+    "fdr_threshold": 0.01
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "pepxml_files": ["./tmp/sample1.pepXML", "./tmp/sample2.pepXML"],
+  "tsv_files": {
+    "psm": "./tmp/psm.tsv",
+    "peptide": "./tmp/peptide.tsv",
+    "protein": "./tmp/protein.tsv",
+    "ion": "./tmp/ion.tsv"
+  },
+  "fdr_threshold": 0.01,
+  "message": "Validation completed. FDR filtered at 1% at all levels"
+}
+```
+
+#### Run Full Pipeline
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "peptide_identification",
+    "operation": "full_pipeline",
+    "mzml_files": ["path/to/sample1.mzML", "path/to/sample2.mzML"],
+    "organism": "human",
+    "output_dir": "./tmp/",
+    "fdr_threshold": 0.01
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "database_file": "./tmp/workspace_xxx/human_combined_td.fasta",
+  "n_target_proteins": 20434,
+  "n_decoy_proteins": 20434,
+  "n_contaminants": 116,
+  "tsv_files": {
+    "psm": "./tmp/psm.tsv",
+    "peptide": "./tmp/peptide.tsv",
+    "protein": "./tmp/protein.tsv"
+  },
+  "summary": {
+    "n_psms": 87341,
+    "n_peptides": 24628,
+    "n_proteins": 4204,
+    "charge_distribution": {"1": 3.2, "2": 41.8, "3": 38.1, "4+": 16.9},
+    "missed_cleavage_distribution": {"0": 81.8, "1": 15.9, "2": 2.3}
+  },
+  "message": "Full pipeline completed. 87341 PSMs identified at 1% FDR"
+}
+```
+
+### Search Parameters
+
+Key search parameters for MSFragger:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `precursor_mass_tolerance` | 20 | Precursor mass tolerance (ppm) |
+| `fragment_mass_tolerance` | 20 | Fragment mass tolerance (ppm) |
+| `enzyme` | Trypsin | Enzyme specificity |
+| `missed_cleavages` | 2 | Allowed missed cleavages |
+| `fixed_mods` | C+57.02146 | Fixed modifications (carbamidomethylation from alkylation) |
+| `variable_mods` | M+15.99491 | Variable modifications (oxidation, common artifact) |
+
+### Prerequisites
+
+- **MSFragger.jar**: Download from https://github.com/Nesvilab/MSFragger/releases
+- **philosopher.jar**: Download from https://github.com/Nesvilab/philosopher/releases
+- **Java 11+**: Required for MSFragger 4.x
+
+### Interpretation Guide
+
+- **PSM vs peptide ratio**: Ratio ~3.5:1 is typical. < 1.5 suggests shallow run; > 10 suggests over-sampling
+- **Missed cleavage rate**: MC=0 > 75% indicates good digestion. MC=2 > 10% suggests incomplete digestion
+- **Protein FDR types**: PSM FDR ≠ protein FDR. "Picked protein FDR" is more conservative for large datasets
+- **Charge state z=1**: High z=1 fraction (> 15%) indicates in-source fragmentation or non-tryptic peptides
+
+---
+
 ## Usage
 
 ### Part A — Database preparation

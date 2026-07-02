@@ -67,6 +67,183 @@ This skill encodes the correct methodological decisions:
 
 ---
 
+## Handler API
+
+Call the OpenBioMed API for multi-omics harmonization tasks.
+
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/run_pipeline/` | POST | Run harmonization operations |
+
+### Operations
+
+| Operation | Description | Required Parameters |
+|-----------|-------------|---------------------|
+| `load` | Load CSV files into MuData container | `data_files`, `sample_meta` |
+| `normalize` | Apply per-data-type normalization | `mdata` (from load result) |
+| `batch_correct` | ComBat batch correction with PCA comparison | `mdata`, `batch_column`, `condition_column` |
+| `align_ids` | Map feature IDs to HGNC gene symbols | `mdata` |
+| `impute` | MinProb missing value imputation | `mdata`, `missing_threshold` |
+| `scale_export` | Z-score and export harmonized data | `mdata`, `export_format` |
+| `full_pipeline` | Complete workflow | `data_files`, `sample_meta`, `data_types` |
+
+### Key Methodological Decisions (from original skill)
+
+1. **Normalization per data type**: Each assay requires a specific normalization method — not the same method for all
+2. **PCA before/after correction**: Visualize batch structure before and confirm removal after
+3. **Check batch-condition confounding**: If all disease samples are in one batch, skip ComBat to preserve biological signal
+4. **Feature ID alignment**: Map UniProt IDs to HGNC symbols for cross-omics compatibility
+5. **Missing value threshold**: Filter features with >30% missing before imputation to avoid noise amplification
+
+### API Examples
+
+#### Load Multi-Omics Data
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "multiomics_harmonization",
+    "operation": "load",
+    "data_files": {
+      "rna": "path/to/rnaseq_counts.csv",
+      "protein": "path/to/proteomics.csv",
+      "methylation": "path/to/methylation_beta.csv"
+    },
+    "sample_meta": "path/to/sample_metadata.csv",
+    "data_types": {
+      "rna": "counts",
+      "protein": "lfq",
+      "methylation": "beta"
+    }
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "mdata_file": "./tmp/raw_mudata_xxx.h5mu",
+  "n_assays": 3,
+  "n_common_samples": 92,
+  "batch_info": {"Batch1": 46, "Batch2": 46},
+  "message": "Loaded 3 assays with 92 common samples"
+}
+```
+
+#### Batch Correction with PCA Comparison
+
+The `batch_correct` operation automatically:
+- Checks batch-condition confounding before applying ComBat
+- Generates PCA before correction to visualize batch structure
+- Applies ComBat preserving biological signal (using condition as covariate)
+- Generates PCA after correction to confirm batch removal
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "multiomics_harmonization",
+    "operation": "batch_correct",
+    "mdata": "<mdata_from_previous_step>",
+    "batch_column": "Batch",
+    "condition_column": "Condition"
+  }'
+```
+
+**Response** (includes PCA comparison data):
+```json
+{
+  "status": "success",
+  "batch_correction_summary": {
+    "rna": "ComBat (batch=Batch, covariates=[Condition])",
+    "protein": "ComBat (batch=Batch, covariates=[Condition])"
+  },
+  "pca_comparison": {
+    "rna_before": {"PC1": [...], "PC2": [...]},
+    "rna_after": {"PC1": [...], "PC2": [...]}
+  },
+  "confounding_check": "passed - batch and condition are not confounded",
+  "message": "Batch correction applied. PCA shows batch variance reduced."
+}
+```
+
+#### Run Full Harmonization Pipeline
+
+```bash
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "multiomics_harmonization",
+    "operation": "full_pipeline",
+    "data_files": {
+      "rna": "path/to/rnaseq_counts.csv",
+      "protein": "path/to/proteomics.csv"
+    },
+    "sample_meta": "path/to/sample_metadata.csv",
+    "data_types": {
+      "rna": "counts",
+      "protein": "lfq"
+    },
+    "batch_column": "Batch",
+    "condition_column": "Condition",
+    "missing_threshold": 0.30,
+    "export_format": "both"
+  }'
+```
+
+**Response**:
+```json
+{
+  "status": "success",
+  "load": {"n_assays": 2, "n_samples": 92},
+  "normalization": {
+    "rna": "normalize_total(1e6) + log1p",
+    "protein": "log2 + median centering"
+  },
+  "batch_correction": {
+    "rna": "ComBat (batch=Batch, covariates=[Condition]) — PC1 batch variance: 34.2% → 2.1%",
+    "protein": "ComBat (batch=Batch, covariates=[Condition]) — PC1 batch variance: 28.7% → 3.4%"
+  },
+  "id_mapping": {
+    "protein": "UniProt→HGNC: 3,847 → 3,612 mapped (235 unmapped)"
+  },
+  "imputation": {
+    "protein": "MinProb: 23 features filtered (>30% missing), 2.1% imputed"
+  },
+  "export_files": {
+    "h5mu": "./tmp/harmonized_multiomics_xxx.h5mu",
+    "rna_csv": "./tmp/harmonized_rna_xxx.csv",
+    "protein_csv": "./tmp/harmonized_protein_xxx.csv"
+  },
+  "message": "Full pipeline completed. 3 files exported"
+}
+```
+
+### Data Type Specifications
+
+| Data Type | Normalization Method | Description |
+|-----------|---------------------|-------------|
+| `counts` | normalize_total + log1p | RNA-seq raw counts |
+| `lfq` | log2 + median centering | Proteomics LFQ intensity |
+| `beta` | M-value transformation | Methylation β-values |
+| `peak_counts` | log1p(CPM) | ATAC-seq peaks |
+| `mirna_counts` | log2(CPM + 1) | miRNA counts |
+
+### Interpretation Guide
+
+- **PCA before correction**: Samples should separate by Batch on PC1/PC2 if batch effect present — confirms ComBat is necessary
+- **PCA after correction**: Batch structure should disappear; samples should separate by Condition instead
+- **If batch and condition are confounded**: The tool will detect this and skip ComBat for affected assays
+- **Protein missingness > 30%**: Features exceeding this threshold are filtered, not imputed
+
+---
+
 ## Usage (R)
 
 ```r
