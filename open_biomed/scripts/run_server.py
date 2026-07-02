@@ -1397,6 +1397,107 @@ def handle_peptide_identification(request: TaskRequest, pipeline):
     }
 
 
+def handle_multiomics_harmonization(request: TaskRequest, pipeline):
+    """
+    Harmonize multi-omics data for joint integration.
+
+    Supported operations:
+    - load: Load multi-omics CSV files into MuData container
+    - normalize: Apply per-data-type normalization
+    - batch_correct: ComBat batch correction using scanpy.pp.combat
+    - align_ids: Map UniProt/probe IDs to HGNC gene symbols
+    - impute: MinProb missing value imputation
+    - scale_export: Z-score scaling and export
+    - full_pipeline: Complete harmonization workflow
+
+    Inputs:
+        - operation: Operation type (use query field)
+        - data_files: JSON dict of assay name -> file path (use molecule field as JSON)
+        - sample_meta: Path to sample metadata CSV (use protein field)
+        - data_types: JSON dict of assay name -> data type (use dataset field as JSON)
+        - batch_column: Batch column name (use text field, default: Batch)
+        - condition_column: Condition column name (use value field, default: Condition)
+        - missing_threshold: Missing value filter threshold (use similarity field, default: 0.30)
+        - output_dir: Output directory (use mode field, default: ./tmp/)
+        - export_format: Export format (use config field, default: both)
+
+    Outputs:
+        - harmonized data files (.h5mu, .csv)
+        - summary: Per-assay statistics
+        - description: Status message
+
+    Supported data types for normalization:
+    - counts (RNA-seq): normalize_total + log1p
+    - lfq (proteomics): log2 + median centering
+    - beta (methylation): M-value transformation
+    - peak_counts (ATAC): log1p(CPM)
+    - mirna_counts: log2(CPM + 1)
+
+    Required dependencies:
+    - muon: pip install muon
+    - scanpy: pip install scanpy (includes sc.pp.combat)
+    """
+    operation = request.query if request.query else "full_pipeline"
+    batch_column = request.text if request.text else "Batch"
+    condition_column = request.value if request.value else "Condition"
+    missing_threshold = request.similarity if request.similarity else 0.30
+    output_dir = request.mode if request.mode else "./tmp/"
+    export_format = request.config if request.config else "both"
+
+    # Parse data_files from JSON string (molecule field)
+    data_files = None
+    if request.molecule:
+        import json
+        try:
+            data_files = json.loads(request.molecule)
+        except json.JSONDecodeError:
+            # Try comma-separated format: "rna:path,protein:path"
+            data_files = {}
+            for pair in request.molecule.split(","):
+                if ":" in pair:
+                    name, path = pair.split(":")
+                    data_files[name.strip()] = path.strip()
+    elif request.protein:
+        # Single file mode (use protein field as sample_meta for load)
+        sample_meta = request.protein
+
+    # Parse data_types from JSON string (dataset field)
+    data_types = None
+    if request.dataset:
+        import json
+        try:
+            data_types = json.loads(request.dataset)
+        except json.JSONDecodeError:
+            # Try comma-separated format: "rna:counts,protein:lfq"
+            data_types = {}
+            for pair in request.dataset.split(","):
+                if ":" in pair:
+                    name, dtype = pair.split(":")
+                    data_types[name.strip()] = dtype.strip()
+
+    # Use protein field for sample_meta if not set
+    sample_meta = request.protein if request.protein else None
+
+    outputs, messages = pipeline.run(
+        operation=operation,
+        data_files=data_files,
+        sample_meta=sample_meta,
+        data_types=data_types,
+        batch_column=batch_column,
+        condition_column=condition_column,
+        missing_threshold=missing_threshold,
+        output_dir=output_dir,
+        export_format=export_format
+    )
+
+    return {
+        "task": request.task,
+        "operation": operation,
+        **outputs,
+        "description": messages
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1990,6 +2091,13 @@ TASK_CONFIGS = [
         "required_inputs": [],
         "pipeline_key": "peptide_identification",
         "handler_function": handle_peptide_identification,
+        "is_async": False
+    },
+    {
+        "task_name": "multiomics_harmonization",
+        "required_inputs": [],
+        "pipeline_key": "multiomics_harmonization",
+        "handler_function": handle_multiomics_harmonization,
         "is_async": False
     }
 ]

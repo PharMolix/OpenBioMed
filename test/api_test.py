@@ -493,6 +493,15 @@ def get_curl_commands(base_url):
             -d '{{"task": "peptide_identification", "query": "parse_results"}}'
             """
         },
+        # Multi-omics harmonization tests
+        # Note: Requires muon and sample data files
+        {
+            "task": "multiomics_harmonization_note",
+            "command": f"""
+            echo "Multi-omics harmonization requires data files. Example:"
+            echo "curl -X POST '{base_url}/run_pipeline/' -d '{{\"task\": \"multiomics_harmonization\", \"query\": \"full_pipeline\", \"molecule\": \"{{\"rna\":\"rna.csv\",\"protein\":\"prot.csv\"}}\", \"protein\": \"sample_meta.csv\", \"dataset\": \"{{\"rna\":\"counts\",\"protein\":\"lfq\"}}\"}}'"
+            """
+        },
     ]
 
 
