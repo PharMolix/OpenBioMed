@@ -1257,6 +1257,72 @@ def handle_scanpy_analysis(request: TaskRequest, pipeline):
     }
 
 
+def handle_cellxgene_census_query(request: TaskRequest, pipeline):
+    """
+    Query CZ CELLxGENE Census (61M+ cells) for single-cell expression data.
+
+    Supported operations:
+    - get_summary: Get census version and total cell counts
+    - get_datasets: List available datasets with metadata
+    - get_obs: Query cell metadata by filters
+    - get_var: Query gene metadata
+    - get_anndata: Retrieve expression data as AnnData
+
+    Inputs:
+        - operation: Operation type (use query field: get_summary, get_datasets, get_obs, get_var, get_anndata)
+        - organism: Organism name (use text field, default: homo_sapiens)
+        - obs_value_filter: Cell filter string (use value field)
+        - var_value_filter: Gene filter string (use dataset field)
+        - obs_column_names: Cell metadata columns (use molecule field as comma-separated)
+        - var_column_names: Gene metadata columns (use protein field as comma-separated)
+        - census_version: Census version (use config field, default: stable)
+        - max_cells: Max cells for get_anndata (use num_rounds field, default: 100000)
+        - output_dir: Output directory (use mode field, default: ./tmp/)
+
+    Outputs:
+        - Operation-specific results (cell counts, metadata, AnnData file)
+        - description: Summary message
+
+    Important: Always use "is_primary_data == True" filter to avoid duplicate cells.
+    """
+    operation = request.query if request.query else "get_summary"
+    organism = request.text if request.text else "homo_sapiens"
+    obs_value_filter = request.value if request.value else None
+    var_value_filter = request.dataset if request.dataset else None
+    census_version = request.config if request.config else "stable"
+    output_dir = request.mode if request.mode else "./tmp/"
+    max_cells = request.num_rounds if request.num_rounds else 100000
+
+    # Parse comma-separated column names
+    obs_column_names = None
+    if request.molecule:
+        obs_column_names = [col.strip() for col in request.molecule.split(",")]
+
+    var_column_names = None
+    if request.protein:
+        var_column_names = [col.strip() for col in request.protein.split(",")]
+
+    outputs, messages = pipeline.run(
+        operation=operation,
+        organism=organism,
+        obs_value_filter=obs_value_filter,
+        var_value_filter=var_value_filter,
+        obs_column_names=obs_column_names,
+        var_column_names=var_column_names,
+        census_version=census_version,
+        output_dir=output_dir,
+        max_cells=max_cells
+    )
+
+    return {
+        "task": request.task,
+        "operation": operation,
+        "organism": organism,
+        **outputs,
+        "description": messages
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1836,6 +1902,13 @@ TASK_CONFIGS = [
         "required_inputs": ["protein"],
         "pipeline_key": "scanpy_analysis",
         "handler_function": handle_scanpy_analysis,
+        "is_async": False
+    },
+    {
+        "task_name": "cellxgene_census_query",
+        "required_inputs": [],
+        "pipeline_key": "cellxgene_census_query",
+        "handler_function": handle_cellxgene_census_query,
         "is_async": False
     }
 ]

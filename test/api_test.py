@@ -416,6 +416,53 @@ def get_curl_commands(base_url):
             -d '{{"task": "scanpy_analysis", "protein": "./tmp/test_pbmc3k_input.h5ad", "query": "full_pipeline", "similarity": 0.5, "num_rounds": 200, "population_size": 3, "diversity_weight": 5.0, "max_mutations": 2000, "required_score": 10, "limit": 40}}'
             """
         },
+        # CELLxGENE Census query tests
+        # Note: Requires cellxgene-census package installed
+        {
+            "task": "cellxgene_census_summary",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "cellxgene_census_query", "query": "get_summary"}}'
+            """
+        },
+        {
+            "task": "cellxgene_census_datasets",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "cellxgene_census_query", "query": "get_datasets", "text": "homo_sapiens"}}'
+            """
+        },
+        {
+            "task": "cellxgene_census_obs",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "cellxgene_census_query", "query": "get_obs", "text": "homo_sapiens", "value": "tissue_general == 'lung' and is_primary_data == True"}}'
+            """
+        },
+        {
+            "task": "cellxgene_census_var",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "cellxgene_census_query", "query": "get_var", "text": "homo_sapiens", "dataset": "feature_name in ['CD4', 'CD8A', 'CD19']"}}'
+            """
+        },
+        {
+            "task": "cellxgene_census_anndata",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "cellxgene_census_query", "query": "get_anndata", "text": "homo_sapiens", "value": "cell_type == 'B cell' and tissue_general == 'blood' and is_primary_data == True", "dataset": "feature_name in ['CD19', 'CD20', 'MS4A1']", "num_rounds": 1000}}'
+            """
+        },
     ]
 
 

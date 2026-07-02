@@ -22,7 +22,7 @@ Recent commits have been refactoring skills to use the `run_pipeline` and `web_s
 6. **Error**: 改造过程中遇到的任何报错或者卡点，都需要把完整的上下文以及解决方案总结写入badcase.md ，每次遇到卡点先读badcase.md ，查询是否有类似问题并复用解决方案。
 
 ##  重构过程中可以参考已经重构的skills，完成重构的skill需从待重构列表中移到已重构列表
-**已重构 Skills (24个)**:
+**已重构 Skills (25个)**:
 - `target-based-lead-design`, `drug-candidate-discovery`, `pubchem-query`, `admet-prediction`
 - `text-based-molecule-editing`, `disease-drug-intelligence`, `kegg-query`, `chembl-query`
 - `molecule-biochemical-significance-query-biot5`, `biomedical-literature-search`
@@ -31,9 +31,9 @@ Recent commits have been refactoring skills to use the `run_pipeline` and `web_s
 - `retrosynthesis-planning`, `biomed-skill-creator`, `biomed-skill-router`
 - `similar-protein-retrieval`, `binding-affinity-prediction-prodigy`
 - `mutation-design-aav`, `antibody-structure-prediction-tfold`, `antibody-design-iggm`
-- `single-cell-scrna-seq-analysis-scanpy`
+- `single-cell-scrna-seq-analysis-scanpy`, `cellxgene-census-query`
 
-**待重构 Skills (21个)**:
+**待重构 Skills (20个)**:
 1. `cellxgene-census-query`
 2. `functional-protein-design`
 3. `mutation-design-gfp`

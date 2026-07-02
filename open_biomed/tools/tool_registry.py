@@ -22,6 +22,7 @@ from open_biomed.tools.file_reader_tools import ReadMoleculeFile, ReadProteinFil
 from open_biomed.tools.spatial_transcriptomics_tool import SpatialTranscriptomicsLoader
 from open_biomed.tools.proteomics_tool import ProteomicsDataProcessing
 from open_biomed.tools.scanpy_analysis_tool import ScanpyAnalysis
+from open_biomed.tools.cellxgene_census_tool import CellxGeneCensusQuery
 
 # TODO: Add pocket prediction as a tool
 class LazyDictForTool(dict):
@@ -54,7 +55,8 @@ class LazyDictForTool(dict):
             "read_molecule_file", "read_protein_file", "read_csv_file",
             "spatial_transcriptomics_loading",
             "proteomics_data_processing",
-            "scanpy_analysis"
+            "scanpy_analysis",
+            "cellxgene_census_query"
         ]
     
     def __missing__(self, key):
@@ -181,6 +183,8 @@ class LazyDictForTool(dict):
             self[key] = ProteomicsDataProcessing()
         elif key == "scanpy_analysis":
             self[key] = ScanpyAnalysis()
+        elif key == "cellxgene_census_query":
+            self[key] = CellxGeneCensusQuery()
         else:
             raise NotImplementedError(f"{key} is currently not supported!")
         return self[key]
