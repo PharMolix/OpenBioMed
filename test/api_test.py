@@ -463,6 +463,16 @@ def get_curl_commands(base_url):
             -d '{{"task": "cellxgene_census_query", "query": "get_anndata", "text": "homo_sapiens", "value": "cell_type == 'B cell' and tissue_general == 'blood' and is_primary_data == True", "dataset": "feature_name in ['CD19', 'CD20', 'MS4A1']", "num_rounds": 1000}}'
             """
         },
+        # Proteomics data processing tests
+        # Note: Requires pyOpenMS and mzML test file. Download test data from:
+        # https://github.com/OpenMS/OpenMS-Tests/tree/master/data
+        {
+            "task": "proteomics_load_note",
+            "command": f"""
+            echo "Proteomics test requires mzML file. Download test data or provide your own file."
+            echo "Test command: curl -X POST '{base_url}/run_pipeline/' -d '{{\"task\": \"proteomics_data_processing\", \"protein\": \"./tmp/test.mzML\", \"query\": \"load\"}}'"
+            """
+        },
     ]
 
 

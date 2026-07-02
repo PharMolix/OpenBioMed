@@ -22,7 +22,7 @@ Recent commits have been refactoring skills to use the `run_pipeline` and `web_s
 6. **Error**: 改造过程中遇到的任何报错或者卡点，都需要把完整的上下文以及解决方案总结写入badcase.md ，每次遇到卡点先读badcase.md ，查询是否有类似问题并复用解决方案。
 
 ##  重构过程中可以参考已经重构的skills，完成重构的skill需从待重构列表中移到已重构列表
-**已重构 Skills (25个)**:
+**已重构 Skills (26个)**:
 - `target-based-lead-design`, `drug-candidate-discovery`, `pubchem-query`, `admet-prediction`
 - `text-based-molecule-editing`, `disease-drug-intelligence`, `kegg-query`, `chembl-query`
 - `molecule-biochemical-significance-query-biot5`, `biomedical-literature-search`
@@ -32,28 +32,27 @@ Recent commits have been refactoring skills to use the `run_pipeline` and `web_s
 - `similar-protein-retrieval`, `binding-affinity-prediction-prodigy`
 - `mutation-design-aav`, `antibody-structure-prediction-tfold`, `antibody-design-iggm`
 - `single-cell-scrna-seq-analysis-scanpy`, `cellxgene-census-query`
+- `single-cell-proteomics-data-processing`
 
-**待重构 Skills (20个)**:
-1. `cellxgene-census-query`
-2. `functional-protein-design`
-3. `mutation-design-gfp`
-4. `protein-function-prediction`
-5. `protein-ligand-binding-analysis-plip`
-6. `protein-mutation-analysis`
-7. `protein-structure-design-boltzgen`
-8. `protein-subcellular-localization-prediction-biot5`
-9. `single-cell-atac-seq-peak-calling-annotaion`
-10. `single-cell-atac-seq-qc-processing`
-11. `single-cell-foundation-model-scrna-seq-geneformer`
-12. `single-cell-foundation-model-scrna-seq-langcell`
-13. `single-cell-foundation-model-scrna-seq-scgpt`
-14. `single-cell-multi-omics-analysis-scvi`
-15. `single-cell-multi-omics-data-harmonization`
-16. `single-cell-proteomics-data-processing`
-17. `single-cell-proteomics-peptide-identification`
-18. `spatial-transcriptomics-foundation-model-stofm`
-19. `spatial-transcriptomics-spatial-data-io`
-20. `structure-prediction-boltz-2`
+**待重构 Skills (19个)**:
+1. `functional-protein-design`
+2. `mutation-design-gfp`
+3. `protein-function-prediction`
+4. `protein-ligand-binding-analysis-plip`
+5. `protein-mutation-analysis`
+6. `protein-structure-design-boltzgen`
+7. `protein-subcellular-localization-prediction-biot5`
+8. `single-cell-atac-seq-peak-calling-annotaion`
+9. `single-cell-atac-seq-qc-processing`
+10. `single-cell-foundation-model-scrna-seq-geneformer`
+11. `single-cell-foundation-model-scrna-seq-langcell`
+12. `single-cell-foundation-model-scrna-seq-scgpt`
+13. `single-cell-multi-omics-analysis-scvi`
+14. `single-cell-multi-omics-data-harmonization`
+15. `single-cell-proteomics-peptide-identification`
+16. `spatial-transcriptomics-foundation-model-stofm`
+17. `spatial-transcriptomics-spatial-data-io`
+18. `structure-prediction-boltz-2`
 
 ## 没有明确指令禁止擅自git提交代码
 ## 每次提交代码必须把更新部分对比完整打印出来，得到批准方可提交
