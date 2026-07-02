@@ -1323,6 +1323,80 @@ def handle_cellxgene_census_query(request: TaskRequest, pipeline):
     }
 
 
+def handle_peptide_identification(request: TaskRequest, pipeline):
+    """
+    Identify peptides and proteins from MS2 spectra using MSFragger and Philosopher.
+
+    Supported operations:
+    - prepare_database: Prepare protein database with decoys and contaminants
+    - search: Run MSFragger database search
+    - validate: Run Philosopher validation (PeptideProphet, ProteinProphet, filter)
+    - full_pipeline: Complete workflow (prepare + search + validate)
+    - parse_results: Parse TSV output files (psm.tsv, peptide.tsv, protein.tsv)
+
+    Inputs:
+        - operation: Operation type (use query field)
+        - mzml_files: List of mzML file paths (use molecule field as comma-separated or protein for single file)
+        - database_file: Path to protein FASTA database (use value field)
+        - organism: Organism name for database download (use text field, default: human)
+        - output_dir: Output directory (use mode field, default: ./tmp/)
+        - fdr_threshold: FDR threshold (use similarity field, default: 0.01)
+        - search_params: Search parameters JSON (use dataset field as JSON string)
+        - java_memory: Java heap size (use config field, default: -Xmx32g)
+
+    Outputs:
+        - Operation-specific results (database file, pepXML files, TSV tables, summary)
+        - description: Summary message
+
+    Requirements:
+        - Java 11+ (MSFragger 4.x requires Java 11+)
+        - MSFragger.jar in tools/proteomics directory
+        - philosopher.jar in tools/proteomics directory
+    """
+    operation = request.query if request.query else "prepare_database"
+    organism = request.text if request.text else "human"
+    database_file = request.value if request.value else None
+    output_dir = request.mode if request.mode else "./tmp/"
+    fdr_threshold = request.similarity if request.similarity else 0.01
+    java_memory = request.config if request.config else "-Xmx32g"
+
+    # Handle mzml_files input
+    mzml_files = None
+    if request.molecule:
+        # Comma-separated list of mzML files
+        mzml_files = [f.strip() for f in request.molecule.split(",")]
+    elif request.protein:
+        # Single mzML file (protein field used for file paths)
+        mzml_files = [request.protein]
+
+    # Handle search_params (JSON string)
+    search_params = None
+    if request.dataset:
+        import json
+        try:
+            search_params = json.loads(request.dataset)
+        except json.JSONDecodeError:
+            search_params = None
+
+    outputs, messages = pipeline.run(
+        operation=operation,
+        mzml_files=mzml_files,
+        database_file=database_file,
+        output_dir=output_dir,
+        organism=organism,
+        fdr_threshold=fdr_threshold,
+        search_params=search_params,
+        java_memory=java_memory
+    )
+
+    return {
+        "task": request.task,
+        "operation": operation,
+        **outputs,
+        "description": messages
+    }
+
+
 # 25
 def handle_molecule_similarity(request: TaskRequest, pipeline):
     required_inputs = ["molecule_1", "molecule_2"]
@@ -1909,6 +1983,13 @@ TASK_CONFIGS = [
         "required_inputs": [],
         "pipeline_key": "cellxgene_census_query",
         "handler_function": handle_cellxgene_census_query,
+        "is_async": False
+    },
+    {
+        "task_name": "peptide_identification",
+        "required_inputs": [],
+        "pipeline_key": "peptide_identification",
+        "handler_function": handle_peptide_identification,
         "is_async": False
     }
 ]

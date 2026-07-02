@@ -473,6 +473,26 @@ def get_curl_commands(base_url):
             echo "Test command: curl -X POST '{base_url}/run_pipeline/' -d '{{\"task\": \"proteomics_data_processing\", \"protein\": \"./tmp/test.mzML\", \"query\": \"load\"}}'"
             """
         },
+        # Peptide identification tests (MSFragger + Philosopher)
+        # Note: Requires Java 11+, MSFragger.jar, philosopher.jar, and mzML test files
+        {
+            "task": "peptide_identification_prepare_db",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "peptide_identification", "query": "prepare_database", "text": "human"}}'
+            """
+        },
+        {
+            "task": "peptide_identification_parse_results",
+            "command": f"""
+            curl -X 'POST' '{base_url}/run_pipeline/' \
+            -H 'accept: application/json' \
+            -H 'Content-Type: application/json' \
+            -d '{{"task": "peptide_identification", "query": "parse_results"}}'
+            """
+        },
     ]
 
 
