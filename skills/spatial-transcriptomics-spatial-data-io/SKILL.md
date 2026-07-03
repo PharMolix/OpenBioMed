@@ -22,6 +22,7 @@ Load spatial transcriptomics data from Visium, Xenium, MERFISH, Slide-seq, and o
 - User asks to load Visium, Xenium, MERFISH, or other spatial data formats
 - User wants to convert between AnnData and SpatialData formats
 - User has platform-specific output directory (Space Ranger, Xenium, MERSCOPE, etc.)
+- User uploads spatial transcriptomics data files
 
 ## API Endpoint
 
@@ -30,6 +31,59 @@ Load spatial transcriptomics data from Visium, Xenium, MERFISH, Slide-seq, and o
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/run_pipeline/` | POST | Load spatial transcriptomics data |
+| `/api/upload` | POST | Upload user files to server |
+
+## Input File Handling
+
+| Input Type | How to Handle |
+|------------|---------------|
+| **Uploaded file** | Use file_id with `/api/upload` endpoint first |
+| Server directory | Use path directly if data exists on server |
+| Compressed archive | Upload and extract on server |
+
+### Uploading User Files
+
+When the user has uploaded a spatial transcriptomics data file (e.g., h5ad, h5, zip), you will see a file_id (UUID format) in the conversation. Use the `http_request` tool to upload it to the server:
+
+```bash
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@<file_path>"
+```
+
+Or using http_request tool:
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+method: "POST"
+files: '{"file": "<file_id>"}'
+```
+
+The system will automatically:
+- Resolve the file_id to the actual file on disk
+- Read the file bytes and send as multipart/form-data
+- Inject the required API Key header
+
+**Response**: `{"path": "./tmp/uploads/<uuid>.h5ad"}` or `{"path": "./tmp/uploads/<uuid>.zip"}`
+
+Use this `path` value as the `value` parameter in Step 2.
+
+### Handling Compressed Archives
+
+If user uploads a zip/tar archive containing spatial data:
+
+1. Upload the archive to `/api/upload` → get `path`
+2. The server will extract the archive automatically or you can specify the extracted directory
+3. Use the extracted path as `value` parameter
+
+### If Input is Server Directory
+
+If spatial data already exists on server (e.g., Space Ranger output):
+
+```bash
+# Verify directory exists
+ls /path/to/spaceranger/output
+```
+
+Use the directory path directly as `value` parameter.
 
 ## Workflow
 
@@ -105,7 +159,35 @@ The API returns metadata about the loaded data:
 
 ## Example Usage
 
-### Example 1: Load Visium Data
+### Example 0: Upload and Load User's h5ad File
+
+```
+Input: "I've uploaded my spatial data file (h5ad). Please load it."
+
+Step 1: Upload file to server
+User has uploaded file with file_id: "550e8400-e29b-41d4-a716-446655440000"
+
+Upload to server:
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@/path/to/uploaded_file.h5ad"
+
+Response: {"path": "./tmp/uploads/550e8400.h5ad"}
+
+Step 2: Load the uploaded file
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "spatial_transcriptomics_loading",
+    "value": "./tmp/uploads/550e8400.h5ad",
+    "query": "visium",
+    "mode": "anndata"
+  }'
+
+Output: AnnData object loaded from user's uploaded file
+```
+
+### Example 1: Load Visium Data from Server Directory
 
 ```
 Input: "Load my Visium data from Space Ranger output at /data/sample1/"
@@ -218,6 +300,7 @@ Output: SpatialData object saved as Zarr format
 | `slideseq` | Slide-seq / Slide-seqV2 | Near single-cell |
 | `cosmx` | Nanostring CosMx | Single-cell/subcellular |
 | `stereoseq` | BGI Stereo-seq | Single-cell/near single-cell |
+| `h5ad` | Pre-processed AnnData files (user uploaded) | Any resolution |
 
 ## Expected Outputs
 
@@ -233,6 +316,15 @@ The loaded data contains:
 - **Scale factors**: For coordinate-to-image mapping
 
 ## Error Handling
+
+### Upload Failed
+
+**Symptom**: Upload returns error status code (4xx/5xx)
+
+**Solution**: 
+1. Verify file format is supported (h5ad, h5, zip, tar, csv)
+2. Check file size limit (max 50MB)
+3. Retry the upload with correct file_id
 
 ### Data Directory Not Found
 

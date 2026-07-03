@@ -1090,10 +1090,11 @@ def handle_spatial_transcriptomics_loading(request: TaskRequest, pipeline):
     - slideseq: Slide-seq / Slide-seqV2
     - cosmx: Nanostring CosMx Spatial Molecular Imager
     - stereoseq: BGI Stereo-seq
+    - h5ad: Pre-processed AnnData files (user uploaded)
 
     Inputs:
-        - data_dir: Path to platform-specific output directory (required)
-        - platform: Platform type (visium, xenium, merscope, slideseq, cosmx, stereoseq) (required)
+        - data_dir: Path to platform-specific output directory OR h5ad file path (required)
+        - platform: Platform type (visium, xenium, merscope, slideseq, cosmx, stereoseq, h5ad) (default: visium)
         - output_format: Output format (anndata or spatialdata, default: anndata)
         - library_id: Optional library ID for Visium data
 

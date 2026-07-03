@@ -24,6 +24,7 @@ class SpatialTranscriptomicsLoader(Tool):
     - slideseq: Slide-seq / Slide-seqV2
     - cosmx: Nanostring CosMx Spatial Molecular Imager
     - stereoseq: BGI Stereo-seq
+    - h5ad: Pre-processed AnnData files (user uploaded)
 
     Returns AnnData or SpatialData object with expression matrix,
     spatial coordinates, and tissue images.
@@ -53,8 +54,8 @@ class SpatialTranscriptomicsLoader(Tool):
         return """
 Usage: Load spatial transcriptomics data from various platforms
 Inputs: {
-    "data_dir": str (path to platform-specific output directory),
-    "platform": str (visium, xenium, merscope, slideseq, cosmx, stereoseq),
+    "data_dir": str (path to platform-specific output directory OR h5ad file path),
+    "platform": str (visium, xenium, merscope, slideseq, cosmx, stereoseq, h5ad),
     "output_format": str (anndata or spatialdata, default: anndata),
     "library_id": str (optional, for Visium data)
 }
@@ -80,8 +81,8 @@ Outputs: {
         Load spatial transcriptomics data.
 
         Args:
-            data_dir: Path to platform-specific output directory
-            platform: Platform type (visium, xenium, merscope, slideseq, cosmx, stereoseq)
+            data_dir: Path to platform-specific output directory OR h5ad file path
+            platform: Platform type (visium, xenium, merscope, slideseq, cosmx, stereoseq, h5ad)
             output_format: Output format (anndata or spatialdata)
             library_id: Optional library ID for Visium data
 
@@ -90,17 +91,24 @@ Outputs: {
         """
         # Validate inputs
         if not os.path.exists(data_dir):
-            raise FileNotFoundError(f"Data directory not found: {data_dir}")
+            raise FileNotFoundError(f"Data directory/file not found: {data_dir}")
+
+        # Auto-detect platform from file extension if h5ad
+        if data_dir.endswith('.h5ad') and platform != 'h5ad':
+            logger.info(f"Auto-detecting h5ad file, setting platform to 'h5ad'")
+            platform = 'h5ad'
 
         platform = platform.lower()
-        supported_platforms = ["visium", "xenium", "merscope", "slideseq", "cosmx", "stereoseq"]
+        supported_platforms = ["visium", "xenium", "merscope", "slideseq", "cosmx", "stereoseq", "h5ad"]
         if platform not in supported_platforms:
             raise ValueError(f"Unsupported platform: {platform}. Supported: {supported_platforms}")
 
         # Load data based on platform
         logger.info(f"Loading {platform} data from {data_dir}")
 
-        if platform == "visium":
+        if platform == "h5ad":
+            adata = self._load_h5ad(data_dir)
+        elif platform == "visium":
             adata = self._load_visium(data_dir, library_id)
         elif platform == "xenium":
             adata = self._load_xenium(data_dir)
@@ -162,6 +170,24 @@ Outputs: {
         message = f"Loaded {platform} data: {adata.n_obs} spots/cells, {adata.n_vars} genes. Saved to {output_file}"
 
         return result, message
+
+    def _load_h5ad(self, file_path: str) -> Any:
+        """Load pre-processed AnnData h5ad file (user uploaded)."""
+        import anndata as ad
+
+        # Check file exists
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"h5ad file not found: {file_path}")
+
+        # Load AnnData
+        adata = ad.read_h5ad(file_path)
+        logger.info(f"Loaded h5ad file: {adata.n_obs} cells, {adata.n_vars} genes")
+
+        # Check for spatial coordinates
+        if "spatial" not in adata.obsm:
+            logger.warning("No spatial coordinates found in h5ad file (obsm['spatial'] missing)")
+
+        return adata
 
     def _load_visium(self, data_dir: str, library_id: Optional[str] = None) -> Any:
         """Load 10x Visium data from Space Ranger output."""
