@@ -1,3 +1,17 @@
+---
+name: single-cell-proteomics-data-processing
+description: >
+  Raw mass spectrometry data processing using pyOpenMS.
+  Use this skill when:
+  (1) Loading and inspecting raw LC-MS/MS data (mzML, mzXML),
+  (2) Converting profile-mode to centroid-mode spectra,
+  (3) Detecting LC-MS features for label-free quantification,
+  (4) Quality control checks for proteomics data.
+license: MIT
+category: bioinformatics
+tags: [proteomics, mass-spectrometry, pyopenms, lc-ms, feature-detection, quality-control]
+---
+
 # Raw Mass Spectrometry Data Processing (pyOpenMS)
 
 Load, inspect, centroid, and extract features from raw LC-MS/MS data files.
