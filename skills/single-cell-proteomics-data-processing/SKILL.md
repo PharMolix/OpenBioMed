@@ -79,6 +79,51 @@ Call the OpenBioMed API for raw mass spectrometry data processing tasks.
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/run_pipeline/` | POST | Run proteomics data processing operations |
+| `/api/upload` | POST | Upload user files to server |
+
+## Input File Handling
+
+| Input Type | How to Handle |
+|------------|---------------|
+| **Uploaded file** | Use file_id with `/api/upload` endpoint first |
+| Server directory | Use path directly if data exists on server |
+| Compressed archive | Upload and extract on server |
+
+### Uploading User Files
+
+When the user has uploaded a mass spectrometry data file (e.g., mzML, mzXML), you will see a file_id (UUID format) in the conversation. Use the `http_request` tool to upload it to the server:
+
+```bash
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@<file_path>"
+```
+
+Or using http_request tool:
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+method: "POST"
+files: '{"file": "<file_id>"}'
+```
+
+The system will automatically:
+- Resolve the file_id to the actual file on disk
+- Read the file bytes and send as multipart/form-data
+- Inject the required API Key header
+
+**Response**: `{"path": "./tmp/uploads/<uuid>.mzML"}`
+
+Use this `path` value as the `file_path` parameter in subsequent API calls.
+
+### If Input is Server Directory
+
+If mzML/mzXML data already exists on server:
+
+```bash
+# Verify file exists
+ls /path/to/sample.mzML
+```
+
+Use the path directly as `file_path` parameter.
 
 ### Operations
 
@@ -101,6 +146,44 @@ Call the OpenBioMed API for raw mass spectrometry data processing tasks.
 5. **pyOpenMS 3.x API**: Uses `MSExperiment`, `MzMLFile` — differs from 2.x
 
 ### API Examples
+
+#### Example 0: Upload and Process User's mzML File
+
+```
+Input: "I've uploaded my mzML file. Please check QC and convert to centroid mode."
+
+Step 1: Upload file to server
+User has uploaded file with file_id: "550e8400-e29b-41d4-a716-446655440000"
+
+Upload to server:
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@/path/to/uploaded_file.mzML"
+
+Response: {"path": "./tmp/uploads/550e8400.mzML"}
+
+Step 2: Load and inspect QC metrics
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "load",
+    "file_path": "./tmp/uploads/550e8400.mzML"
+  }'
+
+Step 3: Convert to centroid mode if needed
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "proteomics_data_processing",
+    "operation": "centroid",
+    "file_path": "./tmp/uploads/550e8400.mzML",
+    "output_dir": "./tmp/"
+  }'
+
+Output: QC metrics inspected, file centroided if profile mode detected
+```
 
 #### Load and Inspect QC Metrics
 
