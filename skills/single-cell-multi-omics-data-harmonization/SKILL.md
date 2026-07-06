@@ -1,3 +1,17 @@
+---
+name: single-cell-multi-omics-data-harmonization
+description: >
+  Multi-omics data harmonization for joint integration analysis.
+  Use this skill when:
+  (1) Harmonizing RNA-seq, proteomics, methylation datasets,
+  (2) Applying per-assay normalization and cross-assay batch correction,
+  (3) Aligning feature IDs across different omics assays,
+  (4) Handling missing values before downstream integration.
+license: MIT
+category: bioinformatics
+tags: [multi-omics, data-harmonization, batch-correction, normalization, integration]
+---
+
 # Multi-Omics Data Harmonization
 
 Prepare your RNA-seq, proteomics, methylation, and other omics datasets for
