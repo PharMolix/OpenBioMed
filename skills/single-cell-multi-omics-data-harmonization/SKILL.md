@@ -90,6 +90,51 @@ Call the OpenBioMed API for multi-omics harmonization tasks.
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/run_pipeline/` | POST | Run harmonization operations |
+| `/api/upload` | POST | Upload user files to server |
+
+## Input File Handling
+
+| Input Type | How to Handle |
+|------------|---------------|
+| **Uploaded file** | Use file_id with `/api/upload` endpoint first |
+| Server directory | Use path directly if data exists on server |
+| Compressed archive | Upload and extract on server |
+
+### Uploading User Files
+
+When the user has uploaded a multi-omics data file (e.g., CSV, h5mu), you will see a file_id (UUID format) in the conversation. Use the `http_request` tool to upload it to the server:
+
+```bash
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@<file_path>"
+```
+
+Or using http_request tool:
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+method: "POST"
+files: '{"file": "<file_id>"}'
+```
+
+The system will automatically:
+- Resolve the file_id to the actual file on disk
+- Read the file bytes and send as multipart/form-data
+- Inject the required API Key header
+
+**Response**: `{"path": "./tmp/uploads/<uuid>.csv"}`
+
+Use this `path` value as the file path parameter in subsequent API calls.
+
+### If Input is Server Directory
+
+If multi-omics data already exists on server:
+
+```bash
+# Verify files exist
+ls /path/to/rnaseq_counts.csv /path/to/proteomics.csv
+```
+
+Use the paths directly as parameters.
 
 ### Operations
 
@@ -112,6 +157,46 @@ Call the OpenBioMed API for multi-omics harmonization tasks.
 5. **Missing value threshold**: Filter features with >30% missing before imputation to avoid noise amplification
 
 ### API Examples
+
+#### Example 0: Upload and Harmonize User's Multi-Omics Files
+
+```
+Input: "I've uploaded my RNA-seq and proteomics CSV files. Please harmonize them."
+
+Step 1: Upload files to server
+User has uploaded files with file_ids:
+- RNA-seq: "550e8400-e29b-41d4-a716-446655440000"
+- Proteomics: "660e8400-e29b-41d4-a716-446655440001"
+
+Upload to server:
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@/path/to/rnaseq_counts.csv"
+Response: {"path": "./tmp/uploads/550e8400.csv"}
+
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@/path/to/proteomics.csv"
+Response: {"path": "./tmp/uploads/660e8400.csv"}
+
+Step 2: Run full harmonization pipeline
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "multiomics_harmonization",
+    "operation": "full_pipeline",
+    "data_files": {
+      "rna": "./tmp/uploads/550e8400.csv",
+      "protein": "./tmp/uploads/660e8400.csv"
+    },
+    "sample_meta": "./tmp/uploads/sample_metadata.csv",
+    "data_types": {
+      "rna": "counts",
+      "protein": "lfq"
+    }
+  }'
+
+Output: Harmonized multi-omics data ready for downstream integration
+```
 
 #### Load Multi-Omics Data
 
