@@ -1,3 +1,17 @@
+---
+name: single-cell-proteomics-peptide-identification
+description: >
+  Peptide and protein identification from MS2 spectra using MSFragger/Philosopher.
+  Use this skill when:
+  (1) Searching MS2 spectra against protein sequence database,
+  (2) Applying target-decoy FDR filtering at PSM and protein levels,
+  (3) Performing protein inference with parsimony grouping,
+  (4) Preparing protein database with decoys and contaminants.
+license: MIT
+category: bioinformatics
+tags: [proteomics, mass-spectrometry, peptide-identification, msfragger, philosopher, fdr]
+---
+
 # Peptide and Protein Identification
 
 Search MS2 spectra against a protein sequence database to identify peptides
