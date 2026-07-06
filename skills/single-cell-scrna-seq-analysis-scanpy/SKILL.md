@@ -46,6 +46,51 @@ Call the OpenBioMed API for single-cell RNA-seq analysis using Scanpy.
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/run_pipeline/` | POST | Run analysis operations |
+| `/api/upload` | POST | Upload user files to server |
+
+## Input File Handling
+
+| Input Type | How to Handle |
+|------------|---------------|
+| **Uploaded file** | Use file_id with `/api/upload` endpoint first |
+| Server directory | Use path directly if data exists on server |
+| Compressed archive | Upload and extract on server |
+
+### Uploading User Files
+
+When the user has uploaded a single-cell data file (e.g., h5ad, h5, mtx, csv), you will see a file_id (UUID format) in the conversation. Use the `http_request` tool to upload it to the server:
+
+```bash
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@<file_path>"
+```
+
+Or using http_request tool:
+```
+url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+method: "POST"
+files: '{"file": "<file_id>"}'
+```
+
+The system will automatically:
+- Resolve the file_id to the actual file on disk
+- Read the file bytes and send as multipart/form-data
+- Inject the required API Key header
+
+**Response**: `{"path": "./tmp/uploads/<uuid>.h5ad"}`
+
+Use this `path` value as the `file_path` parameter in subsequent API calls.
+
+### If Input is Server Directory
+
+If single-cell data already exists on server:
+
+```bash
+# Verify directory exists
+ls /path/to/data.h5ad
+```
+
+Use the path directly as `file_path` parameter.
 
 ### Operations
 
@@ -68,6 +113,40 @@ Call the OpenBioMed API for single-cell RNA-seq analysis using Scanpy.
 6. **Wilcoxon test for markers**: Statistical testing (Wilcoxon rank-sum) for marker gene identification
 
 ### API Examples
+
+#### Example 0: Upload and Analyze User's h5ad File
+
+```
+Input: "I've uploaded my single-cell data file (h5ad). Please run QC and clustering."
+
+Step 1: Upload file to server
+User has uploaded file with file_id: "550e8400-e29b-41d4-a716-446655440000"
+
+Upload to server:
+curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+  -F "file=@/path/to/uploaded_file.h5ad"
+
+Response: {"path": "./tmp/uploads/550e8400.h5ad"}
+
+Step 2: Run full pipeline on uploaded file
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task": "scanpy_analysis",
+    "operation": "full_pipeline",
+    "file_path": "./tmp/uploads/550e8400.h5ad",
+    "min_genes": 200,
+    "min_cells": 3,
+    "max_mt_percent": 5.0,
+    "n_top_genes": 2000,
+    "n_neighbors": 10,
+    "n_pcs": 40,
+    "resolution": 0.5
+  }'
+
+Output: Full analysis pipeline executed on user's uploaded file
+```
 
 #### Load Data
 
