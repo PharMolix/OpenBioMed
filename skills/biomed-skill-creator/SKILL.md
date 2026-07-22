@@ -25,7 +25,7 @@ When designing workflows that use the run_pipeline API, the base URL follows thi
 
 1. User-provided endpoint in conversation
 2. Environment variable `OPENBIOMED_API_BASE_URL`
-3. Default `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+3. Default `OPENBIOMED_CLOUD_URL = http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`
 
 ## Workflow
 

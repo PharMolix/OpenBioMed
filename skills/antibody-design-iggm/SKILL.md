@@ -18,13 +18,13 @@ tags: [structure-design, sequence-design, antibody, nanobody, iggm]
 
 Design antibodies using IgGM external API for epitope-conditioned de novo design via the `/run_pipeline/` endpoint.
 
-## API Endpoints
+## Endpoint Configuration
 
-**OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → default `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`)
 
 Environment variable override:
 - `IGGM_API_BASE_URL`: Override IgGM API base URL
-- `PIPELINE_API_URL`: Override OpenBioMed pipeline API URL
+- `OPENBIOMED_API_BASE_URL`: Override OpenBioMed pipeline API base URL
 
 ## Execution Flow
 
@@ -92,7 +92,7 @@ curl -L -o antigen.pdb "https://files.rcsb.org/download/7E3W.pdb"
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
   -H "Content-Type: application/json" \
   -d '{
     "task": "iggm_antibody_design",
@@ -137,7 +137,7 @@ curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
   -H "Content-Type: application/json" \
   -d '{
     "task": "iggm_antibody_design",

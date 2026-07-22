@@ -24,7 +24,7 @@ This skill uses the OpenBioMed server API to generate diverse druggable molecule
 
 Defaults declared in this skill:
 
-- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+- `OPENBIOMED_CLOUD_URL = http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`
   Placeholder for the OpenBioMed cloud service base URL.
 
 This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:

@@ -48,7 +48,7 @@ This skill encodes the correct, scalable methodological decisions for population
 
 Call the OpenBioMed API for CELLxGENE Census queries.
 
-**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → default `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|

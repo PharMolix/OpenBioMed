@@ -41,7 +41,7 @@ This skill encodes the current best practices for scRNA-seq:
 
 Call the OpenBioMed API for single-cell RNA-seq analysis using Scanpy.
 
-**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → local `http://127.0.0.1:8095`)
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → default `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -61,13 +61,13 @@ Call the OpenBioMed API for single-cell RNA-seq analysis using Scanpy.
 When the user has uploaded a single-cell data file (e.g., h5ad, h5, mtx, csv), you will see a file_id (UUID format) in the conversation. Use the `http_request` tool to upload it to the server:
 
 ```bash
-curl -X POST "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload" \
+curl -X POST "${OPENBIOMED_API_BASE_URL}/api/upload" \
   -F "file=@<file_path>"
 ```
 
 Or using http_request tool:
 ```
-url: "http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/api/upload"
+url: "${OPENBIOMED_API_BASE_URL}/api/upload"
 method: "POST"
 files: '{"file": "<file_id>"}'
 ```

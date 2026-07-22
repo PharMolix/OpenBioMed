@@ -8,6 +8,7 @@ description: >
   (3) Getting paper titles, abstracts, and metadata,
   (4) Literature review for drug discovery or biomedical research.
 license: MIT
+category: knowledge-retrieval
 ---
 
 # Biomedical Literature Search
@@ -18,7 +19,7 @@ Search PubMed and bioRxiv for biomedical research papers with titles and abstrac
 
 Defaults declared in this skill (edit these inline when the real values are known):
 
-- `OPENBIOMED_CLOUD_URL = http://127.0.0.1:8092`
+- `OPENBIOMED_CLOUD_URL = http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`
   Placeholder for the OpenBioMed cloud service base URL. Replace with the real published URL when available.
 
 This skill does NOT hardcode the endpoint at the call sites. Before calling the API, resolve the base URL in this order:
@@ -27,7 +28,7 @@ This skill does NOT hardcode the endpoint at the call sites. Before calling the 
 2. Otherwise, use the environment variable `OPENBIOMED_API_BASE_URL` if it is set in the runtime environment.
 3. Otherwise, ask the user once which endpoint to use, and offer these options:
    - **OpenBioMed cloud service** (default, hosted): the `OPENBIOMED_CLOUD_URL` value declared above.
-   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `http://localhost:9000` or `https://openbiomed.internal.example.com`.
+   - **Self-hosted OpenBioMed server**: the user provides their own base URL, e.g. `https://openbiomed.internal.example.com`.
 4. Remember the chosen base URL for the rest of the session and reuse it for subsequent calls without re-asking.
 
 Privacy note: if the search query data is proprietary or unpublished, recommend a self-hosted endpoint rather than the public cloud service, and let the user confirm before sending.

@@ -27,7 +27,7 @@ The skill resolves the OpenBioMed API base URL in this order:
 
 1. **Environment variable**: `${OPENBIOMED_API_BASE_URL}` (if set)
 2. **Docker container default**: `http://openbiomed-server:8090` (if running in Docker)
-3. **Local development default**: `http://127.0.0.1:8090`
+3. **Default**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`
 
 In the rest of this document, `${OPENBIOMED_API_BASE_URL}` is a placeholder for the resolved base URL.
 

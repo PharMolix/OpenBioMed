@@ -120,7 +120,8 @@ Extract the `job_id` for subsequent polling.
 
 ##### 3.2 Poll Job Status
 
-Poll until status becomes `COMPLETED` or `FAILED`:
+Poll every 60 seconds until status becomes `COMPLETED` or `FAILED`:
+if status is not `COMPLETED` or `FAILED`,then wait 60 seconds and poll again.
 
 ```bash
 curl -s "${MSA_API_BASE_URL}/msa/search/status/${JOB_ID}"
@@ -299,7 +300,7 @@ Step 1: Download PDB file
 Step 2: Structure available → use FoldSeek
 Step 3: Call OpenBioMed API
 
-  curl -X POST "http://127.0.0.1:8090/run_pipeline/" \
+  curl -X POST "${OPENBIOMED_API_BASE_URL}/run_pipeline/" \
     -H 'accept: application/json' \
     -H 'Content-Type: application/json' \
     -d '{"task": "similar_protein_search", "search_type": "foldseek", "protein": "./protein.pdb"}'

@@ -18,13 +18,13 @@ tags: [structure-prediction, antibody, nanobody, antigen-antibody complex, epito
 
 Predict antibody structure, antigen-antibody complex structure, and epitope residues using external tFold API via the `/run_pipeline/` endpoint.
 
-## API Endpoints
+## Endpoint Configuration
 
-**OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → default `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`)
 
 Environment variable override:
 - `TFOLD_API_BASE_URL`: Override tFold API base URL
-- `PIPELINE_API_URL`: Override OpenBioMed pipeline API URL
+- `OPENBIOMED_API_BASE_URL`: Override OpenBioMed pipeline API base URL
 
 ## Execution Flow
 
@@ -54,7 +54,7 @@ Environment variable override:
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "tfold_antibody_structure",
@@ -87,7 +87,7 @@ curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "tfold_antibody_structure",
@@ -123,7 +123,7 @@ curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run
 ### API Call (Without MSA)
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "tfold_antibody_structure",
@@ -153,7 +153,7 @@ curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run
 # First read MSA file content, then pass as parameter
 MSA_CONTENT=$(cat /path/to/antigen.a3m)
 
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "tfold_antibody_structure",
@@ -179,7 +179,7 @@ curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "tfold_antibody_structure",

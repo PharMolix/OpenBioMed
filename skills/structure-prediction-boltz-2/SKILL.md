@@ -18,13 +18,13 @@ tags: [structure-prediction, protein complex, protein-ligand complex, affinity]
 
 Predict protein complex structures and protein-ligand affinity using Boltz-2 external API via the `/run_pipeline/` endpoint.
 
-## API Endpoints
+## Endpoint Configuration
 
-**OpenBioMed Pipeline API**: `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/`
+**Base URL**: `${OPENBIOMED_API_BASE_URL}` (resolved in order: env var → Docker default → default `http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520`)
 
 Environment variable override:
 - `BOLTZ2_API_BASE_URL`: Override Boltz-2 API base URL
-- `PIPELINE_API_URL`: Override OpenBioMed pipeline API URL
+- `OPENBIOMED_API_BASE_URL`: Override OpenBioMed pipeline API base URL
 
 ## Execution Flow
 
@@ -54,7 +54,7 @@ Environment variable override:
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "boltz2_structure_prediction",
@@ -94,7 +94,7 @@ curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run
 ### API Call
 
 ```bash
-curl -X POST http://lb-2na6qnsx-c6103exlpimzja5q.clb.sh-tencentclb.net:32520/run_pipeline/ \
+curl -X POST ${OPENBIOMED_API_BASE_URL}/run_pipeline/ \
   -H "Content-Type: application/json" \
   -d '{
     "task": "boltz2_structure_prediction",
