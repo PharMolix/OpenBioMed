@@ -139,7 +139,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 (OUTPUT_DIR / "visualizations").mkdir(exist_ok=True)
 
 # Add OpenBioMed to path if needed
-WORK_DIR = "/home/luoyz/projects/OpenBioMed/OpenBioMed_dev"
+WORK_DIR = os.environ.get("OPENBIOMED_HOME", ".")
 sys.path.insert(0, WORK_DIR)
 os.chdir(WORK_DIR)
 os.makedirs("./tmp", exist_ok=True)
@@ -612,7 +612,7 @@ mkdir -p ./outputs/drug_discovery_results/visualizations
 **CRITICAL: After writing the Python script to a file, you MUST execute it:**
 
 ```bash
-cd /home/luoyz/projects/OpenBioMed/OpenBioMed_dev
+cd "${OPENBIOMED_HOME:-.}"
 python outputs/drug_discovery_results/drug_discovery_workflow.py
 ```
 
@@ -675,7 +675,7 @@ OUTPUT_DIR = Path("./outputs/drug_discovery_results")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 (OUTPUT_DIR / "visualizations").mkdir(exist_ok=True)
 
-WORK_DIR = "/home/luoyz/projects/OpenBioMed/OpenBioMed_dev"
+WORK_DIR = os.environ.get("OPENBIOMED_HOME", ".")
 sys.path.insert(0, WORK_DIR)
 os.chdir(WORK_DIR)
 
@@ -807,7 +807,7 @@ print("=" * 60)
 
 **Execute this script:**
 ```bash
-cd /home/luoyz/projects/OpenBioMed/OpenBioMed_dev
+cd "${OPENBIOMED_HOME:-.}"
 python outputs/drug_discovery_results/simple_workflow.py
 ```
 
@@ -850,7 +850,8 @@ Before reporting completion, verify:
 
 ## Dependencies
 
-- OpenBioMed repository at `/home/luoyz/projects/OpenBioMed/OpenBioMed_dev`
+- OpenBioMed repository, installed with `pip install -e .` and run from its root
+  (or set `OPENBIOMED_HOME` to the repository path)
 - RDKit (required, always available)
 - Internet access for web search and database queries
 - MolCraft checkpoint (optional, `./checkpoints/molcraft/last_updated.ckpt`)
