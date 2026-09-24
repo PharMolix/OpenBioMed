@@ -1,5 +1,5 @@
 ---
-name: single-cell-foundation-model-scgpt
+name: single-cell-foundation-model-scrna-seq-scgpt
 description: >
   Use this skill when a task involves the local scGPT project in
   /DATA/disk0/zhaosy/home/scGPT, especially scGPT preprocessing and binning,

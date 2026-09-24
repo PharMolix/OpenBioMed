@@ -1,5 +1,5 @@
 ---
-name: single-cell-foundation-model-stofm
+name: spatial-transcriptomics-foundation-model-stofm
 description: >
   Use this skill when a task involves the local SToFM project in
   /DATA/disk0/zhaosy/home/SToFM, especially preprocessing spatial

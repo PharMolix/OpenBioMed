@@ -1,3 +1,19 @@
+---
+name: single-cell-atac-seq-peak-calling-annotaion
+description: >
+  Call accessible chromatin peaks from ATAC-seq BAM files, annotate peaks to genomic
+  features and genes, and identify differentially accessible regions between conditions.
+  Step 2 of the bulk ATAC-seq pipeline. Use this skill when:
+  (1) Calling peaks with MACS2 using ATAC-seq-specific parameters,
+  (2) Building a consensus peak set across samples and filtering ENCODE blacklist regions,
+  (3) Annotating peaks to promoters, exons, introns, and nearest genes,
+  (4) Running differential accessibility analysis (DAR) with DESeq2 or DiffBind.
+  For upstream trimming, alignment, and QC, use single-cell-atac-seq-qc-processing.
+license: MIT
+category: bioinformatics
+tags: [ATAC-seq, peak-calling, MACS2, differential-accessibility, DESeq2, annotation, chromatin]
+---
+
 # ATAC-seq Peak Calling and Differential Accessibility
 
 Call accessible chromatin peaks from ATAC-seq BAM files, annotate peaks to

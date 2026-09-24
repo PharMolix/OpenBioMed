@@ -1,3 +1,19 @@
+---
+name: single-cell-proteomics-peptide-identification
+description: >
+  Search MS2 spectra against a protein sequence database to identify peptides and
+  proteins, with target-decoy FDR control at PSM and protein level. Step 2 of the
+  proteomics pipeline. Use this skill when:
+  (1) Running a database search with MSFragger or Comet,
+  (2) Applying target-decoy FDR filtering or Percolator rescoring,
+  (3) Performing protein inference and resolving shared peptides,
+  (4) Exporting PSM tables, peptide lists, and protein groups.
+  For raw data loading and centroiding, use single-cell-proteomics-data-processing.
+license: MIT
+category: bioinformatics
+tags: [proteomics, peptide-identification, database-search, MSFragger, Comet, FDR, protein-inference]
+---
+
 # Peptide and Protein Identification
 
 Search MS2 spectra against a protein sequence database to identify peptides

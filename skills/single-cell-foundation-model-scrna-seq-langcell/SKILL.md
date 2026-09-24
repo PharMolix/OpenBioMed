@@ -1,5 +1,5 @@
 ---
-name: single-cell-foundation-model-langcell
+name: single-cell-foundation-model-scrna-seq-langcell
 description: >
   Use this skill when a task involves the LangCell project for single-cell
   language-cell modeling, especially zero-shot cell type annotation, few-shot

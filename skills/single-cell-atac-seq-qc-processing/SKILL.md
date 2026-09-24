@@ -1,3 +1,20 @@
+---
+name: single-cell-atac-seq-qc-processing
+description: >
+  Trim adapters, align reads, remove duplicates and mitochondrial contamination, and
+  evaluate chromatin accessibility data quality before calling peaks. Step 1 of the bulk
+  ATAC-seq pipeline. Use this skill when:
+  (1) Preprocessing raw ATAC-seq FASTQ files into analysis-ready BAM files,
+  (2) Applying the Tn5 cut site shift (+4/-5 bp) required for ATAC-seq,
+  (3) Removing mitochondrial reads that dominate ATAC-seq libraries,
+  (4) Computing ATAC-seq QC metrics such as TSS enrichment, FRiP, NRF, and fragment size
+  distribution. For peak calling and differential accessibility, use
+  single-cell-atac-seq-peak-calling-annotaion.
+license: MIT
+category: bioinformatics
+tags: [ATAC-seq, chromatin-accessibility, quality-control, preprocessing, alignment, Bowtie2, MACS2]
+---
+
 # ATAC-seq QC and Preprocessing
 
 Trim adapters, align reads, remove duplicates and mitochondrial contamination,
