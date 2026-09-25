@@ -1,5 +1,5 @@
 ---
-name: single-cell-foundation-model-geneformer
+name: single-cell-foundation-model-scrna-seq-geneformer
 description: >
   Use this skill when a task involves Geneformer workflows, especially
   TranscriptomeTokenizer input preparation, tokenized `.dataset` generation,

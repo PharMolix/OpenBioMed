@@ -1,3 +1,20 @@
+---
+name: single-cell-multi-omics-data-harmonization
+description: >
+  Prepare RNA-seq, proteomics, methylation, and other omics datasets for joint
+  integration through per-assay normalization, cross-assay batch correction, feature ID
+  alignment, and missing value handling. Step 1 of the multi-omics integration pipeline.
+  Use this skill when:
+  (1) Harmonizing multiple omics layers that are on different scales,
+  (2) Applying the correct normalization per data type (VST, log2 median centering,
+  M-value transformation, CPM),
+  (3) Correcting batch effects across assays with ComBat,
+  (4) Aligning feature identifiers and handling missing values before MOFA, DIABLO, or SNF.
+license: MIT
+category: bioinformatics
+tags: [multi-omics, data-integration, normalization, batch-correction, MOFA, DIABLO, harmonization]
+---
+
 # Multi-Omics Data Harmonization
 
 Prepare your RNA-seq, proteomics, methylation, and other omics datasets for
