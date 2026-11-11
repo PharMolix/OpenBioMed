@@ -62,8 +62,8 @@ class Molecule:
         molecule = cls()
         molecule.rdmol = rdmol
         molecule.smiles = Chem.MolToSmiles(rdmol)
-        conformer = rdmol.GetConformer()
-        if conformer is not None:
+        if rdmol.GetNumConformers() > 0:
+            conformer = rdmol.GetConformer()
             molecule.conformer = np.array(conformer.GetPositions())
         return molecule
 
